@@ -7,7 +7,7 @@ const path = require('path');
 const client = new Client({
   accessToken: process.env.SQUARE_ACCESS_TOKEN,
   environment: Environment.Production,
-});
+})
 
 // ============================================================
 // MAPA SEMÂNTICO — Como clientes falam vs o que buscar
