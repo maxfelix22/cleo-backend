@@ -178,7 +178,7 @@ router.get('/square/products-simple', async (req, res) => {
     let cursor = undefined;
 
     do {
-      const response = await client.catalogApi.listCatalog(cursor, 'ITEM');
+      const response = await client.catalogApi.listCatalog(cursor);
       if (response.result?.objects) {
         allItems = allItems.concat(response.result.objects);
       }
@@ -235,7 +235,7 @@ router.get('/square/products-by-category', async (req, res) => {
     let cursor = undefined;
 
     do {
-      const response = await client.catalogApi.listCatalog(cursor, 'ITEM');
+      const response = await client.catalogApi.listCatalog(cursor);
       if (response.result?.objects) {
         allItems = allItems.concat(response.result.objects);
       }
@@ -275,7 +275,7 @@ router.get('/square/best-sellers', async (req, res) => {
     let cursor = undefined;
 
     do {
-      const response = await client.catalogApi.listCatalog(cursor, 'ITEM');
+      const response = await client.catalogApi.listCatalog(cursor);
       if (response.result?.objects) {
         allItems = allItems.concat(response.result.objects);
       }
