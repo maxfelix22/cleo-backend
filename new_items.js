@@ -186,7 +186,7 @@ router.get('/square/products-simple', async (req, res) => {
     } while (cursor);
 
     // Filtrar apenas ativos e presentes
-    const ativos = allItems.filter(item =>
+    console.log('[SQUARE DEBUG] total:', allItems.length); const ativos = allItems.filter(item =>
       item.type === 'ITEM' &&
       !item.is_deleted &&
       item.item_data?.name
