@@ -114,9 +114,9 @@ function semanticTranslate(query) {
 // FUNÇÃO: Score de relevância de produto
 // ============================================================
 function scoreProduto(item, termosArray) {
-  const nome = (item.item_data?.name || '').toLowerCase();
-  const descricao = (item.item_data?.description || '').toLowerCase();
-  const categorias = (item.item_data?.categories || [])
+  const nome = (item.itemData?.name || '').toLowerCase();
+  const descricao = (item.itemData?.description || '').toLowerCase();
+  const categorias = (item.itemData?.categories || [])
     .map(c => c.name || '').join(' ').toLowerCase();
   const texto = `${nome} ${descricao} ${categorias}`;
 
@@ -154,7 +154,7 @@ function scoreProduto(item, termosArray) {
 // FUNÇÃO: Formatar imagem do produto
 // ============================================================
 function getImageUrl(item) {
-  const imageData = item.item_data?.image_ids;
+  const imageData = item.itemData?.image_ids;
   // Se produto tem imagem real no Square, a URL vem via image_ids
   // mas aqui usamos o campo image já processado pelo Square
   return null; // será sobrescrito abaixo
@@ -188,8 +188,8 @@ router.get('/square/products-simple', async (req, res) => {
     // Filtrar apenas ativos e presentes
     console.log('[SQUARE DEBUG] total:', allItems.length); const ativos = allItems.filter(item =>
       item.type === 'ITEM' &&
-      !item.is_deleted &&
-      item.item_data?.name
+      !item.isDeleted &&
+      item.itemData?.name
     );
 
     // Se não tem query, retorna mais vendidos / lista geral
@@ -243,11 +243,11 @@ router.get('/square/products-by-category', async (req, res) => {
     } while (cursor);
 
     const filtrados = allItems.filter(item => {
-      if (item.type !== 'ITEM' || item.is_deleted || !item.item_data?.name) return false;
-      const cats = (item.item_data?.categories || [])
+      if (item.type !== 'ITEM' || item.isDeleted || !item.itemData?.name) return false;
+      const cats = (item.itemData?.categories || [])
         .map(c => (c.name || '').toLowerCase())
         .join(' ');
-      const nome = (item.item_data?.name || '').toLowerCase();
+      const nome = (item.itemData?.name || '').toLowerCase();
       return cats.includes(categoria) || nome.includes(categoria);
     });
 
@@ -286,8 +286,8 @@ router.get('/square/best-sellers', async (req, res) => {
     for (const keyword of MAIS_VENDIDOS) {
       const found = allItems.find(item =>
         item.type === 'ITEM' &&
-        !item.is_deleted &&
-        (item.item_data?.name || '').toLowerCase().includes(keyword)
+        !item.isDeleted &&
+        (item.itemData?.name || '').toLowerCase().includes(keyword)
       );
       if (found) bestSellers.push(formatItem(found));
     }
@@ -386,13 +386,13 @@ router.get('/session-stats', (req, res) => {
 // FUNÇÃO AUXILIAR: Formatar item do Square
 // ============================================================
 function formatItem(item) {
-  const data = item.item_data || {};
+  const data = item.itemData || {};
   const variations = data.variations || [];
 
   // Pegar preço da primeira variação ativa
   let preco = null;
   for (const v of variations) {
-    const amount = v.item_variation_data?.price_money?.amount;
+    const amount = v.itemVariationData?.priceMoney?.amount;
     if (amount !== undefined && amount !== null) {
       preco = (Number(amount) / 100).toFixed(2);
       break;
@@ -402,9 +402,9 @@ function formatItem(item) {
   // Imagem — Square retorna image_ids, precisamos buscar separado
   // Mas se o item já tem a URL processada (via catalog image), usamos
   let imagemUrl = null;
-  if (data.image_ids && data.image_ids.length > 0) {
+  if (data.imageIds && data.imageIds.length > 0) {
     // URL padrão do Square para imagens do catálogo
-    imagemUrl = `https://items-images-production.s3.us-west-2.amazonaws.com/files/${data.image_ids[0]}/original.jpeg`;
+    imagemUrl = `https://items-images-production.s3.us-west-2.amazonaws.com/files/${data.imageIds[0]}/original.jpeg`;
   }
 
   // Sem imagem real = null (não envia placeholder falso via WhatsApp)
@@ -420,7 +420,7 @@ function formatItem(item) {
     price: preco ? parseFloat(preco) : null,
     image: imagemUrl,
     categories: categorias,
-    available: !item.is_deleted,
+    available: !item.isDeleted,
   };
 }
 
