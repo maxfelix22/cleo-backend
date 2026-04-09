@@ -154,10 +154,11 @@ function scoreProduto(item, termosArray) {
 // FUNÇÃO: Formatar imagem do produto
 // ============================================================
 function getImageUrl(item) {
-  const imageData = item.itemData?.image_ids;
-  // Se produto tem imagem real no Square, a URL vem via image_ids
-  // mas aqui usamos o campo image já processado pelo Square
-  return null; // será sobrescrito abaixo
+  const imageIds = item.itemData?.imageIds || item.itemData?.image_ids || [];
+  if (Array.isArray(imageIds) && imageIds.length > 0) {
+    return `https://items-images-production.s3.us-west-2.amazonaws.com/files/${imageIds[0]}/original.jpeg`;
+  }
+  return null;
 }
 
 // ============================================================
@@ -387,40 +388,52 @@ router.get('/session-stats', (req, res) => {
 // ============================================================
 function formatItem(item) {
   const data = item.itemData || {};
-  const variations = data.variations || [];
+  const variations = Array.isArray(data.variations) ? data.variations : [];
 
-  // Pegar preço da primeira variação ativa
   let preco = null;
-  for (const v of variations) {
-    const amount = v.itemVariationData?.priceMoney?.amount;
-    if (amount !== undefined && amount !== null) {
-      preco = (Number(amount) / 100).toFixed(2);
-      break;
+  let priceMin = null;
+  let priceMax = null;
+
+  const formattedVariations = variations.map(v => {
+    const variationData = v.itemVariationData || {};
+    const amount = variationData?.priceMoney?.amount;
+    const price = (amount !== undefined && amount !== null)
+      ? Number(amount) / 100
+      : null;
+
+    if (price !== null) {
+      if (priceMin === null || price < priceMin) priceMin = price;
+      if (priceMax === null || price > priceMax) priceMax = price;
+      if (preco === null) preco = price;
     }
-  }
 
-  // Imagem — Square retorna image_ids, precisamos buscar separado
-  // Mas se o item já tem a URL processada (via catalog image), usamos
-  let imagemUrl = null;
-  if (data.imageIds && data.imageIds.length > 0) {
-    // URL padrão do Square para imagens do catálogo
-    imagemUrl = `https://items-images-production.s3.us-west-2.amazonaws.com/files/${data.imageIds[0]}/original.jpeg`;
-  }
+    return {
+      id: v.id || '',
+      name: variationData.name || '',
+      price,
+      available: !v.isDeleted,
+    };
+  });
 
-  // Sem imagem real = null (não envia placeholder falso via WhatsApp)
-  // Para que imagens funcionem: adicione fotos aos produtos no Square Dashboard
+  const imagemUrl = getImageUrl(item);
 
-  // Categorias
-  const categorias = (data.categories || []).map(c => c.name).filter(Boolean);
+  const categorias = Array.isArray(data.categories)
+    ? data.categories.map(c => c?.name).filter(Boolean)
+    : [];
 
   return {
     id: item.id,
     name: data.name || '',
     description: (data.description || '').replace(/<[^>]*>/g, '').substring(0, 500),
-    price: preco ? parseFloat(preco) : null,
+    price: preco,
+    price_min: priceMin,
+    price_max: priceMax,
     image: imagemUrl,
+    has_image: !!imagemUrl,
     categories: categorias,
     available: !item.isDeleted,
+    variation_count: formattedVariations.length,
+    variations: formattedVariations,
   };
 }
 
