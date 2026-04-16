@@ -352,7 +352,7 @@ router.get('/square/customers/search', async (req, res) => {
     let allCustomers = [];
     let cursor = undefined;
     do {
-      const response = await client.customersApi.listCustomers(cursor, 100, 'CREATED_AT', 'ASC');
+      const response = await client.customersApi.listCustomers(cursor, 100);
       if (response.result?.customers) allCustomers = allCustomers.concat(response.result.customers);
       cursor = response.result?.cursor;
     } while (cursor && allCustomers.length < 5000);
