@@ -345,14 +345,19 @@ router.get('/square/customers/search', async (req, res) => {
     const query = String(req.query.query || '').trim().toLowerCase();
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
 
-    const response = await client.customersApi.listCustomers(undefined, limit, undefined, 'CREATED_AT_DESC');
-    const customers = response.result?.customers || [];
-
     const normalizePhone = (value) => String(value || '').replace(/\D+/g, '');
     const phoneNeedle = normalizePhone(phone || query);
     const textNeedle = (query || name || email).trim();
 
-    const scored = customers.map((customer) => {
+    let allCustomers = [];
+    let cursor = undefined;
+    do {
+      const response = await client.customersApi.listCustomers(cursor, 100, 'CREATED_AT', false, false);
+      if (response.result?.customers) allCustomers = allCustomers.concat(response.result.customers);
+      cursor = response.result?.cursor;
+    } while (cursor && allCustomers.length < 5000);
+
+    const scored = allCustomers.map((customer) => {
       const given = String(customer.givenName || '').trim();
       const family = String(customer.familyName || '').trim();
       const fullName = `${given} ${family}`.trim();
@@ -373,13 +378,11 @@ router.get('/square/customers/search', async (req, res) => {
       if (textNeedle) {
         if (fullName.toLowerCase().includes(textNeedle)) score += 20;
         if (customerEmail.includes(textNeedle)) score += 20;
-        if (customerPhoneNorm.includes(normalizePhone(textNeedle))) score += 10;
+        const textNeedlePhone = normalizePhone(textNeedle);
+        if (textNeedlePhone && customerPhoneNorm.includes(textNeedlePhone)) score += 10;
       }
 
-      return {
-        customer,
-        score,
-      };
+      return { customer, score };
     }).filter(({ score }) => score > 0 || (!phone && !email && !name && !query));
 
     scored.sort((a, b) => b.score - a.score);
@@ -396,11 +399,7 @@ router.get('/square/customers/search', async (req, res) => {
       score,
     }));
 
-    res.json({
-      ok: true,
-      total_returned: formatted.length,
-      customers: formatted,
-    });
+    res.json({ ok: true, total_returned: formatted.length, customers: formatted });
   } catch (err) {
     console.error('Erro customers/search:', err);
     res.status(500).json({ error: err.message });
@@ -416,7 +415,15 @@ router.get('/square/orders/search', async (req, res) => {
     const customerId = String(req.query.customer_id || '').trim();
     const state = String(req.query.state || '').trim().toUpperCase();
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
-    const locationId = String(req.query.location_id || process.env.SQUARE_LOCATION_ID || '').trim();
+    let locationId = String(req.query.location_id || process.env.SQUARE_LOCATION_ID || '').trim();
+
+    if (!locationId) {
+      const locations = await client.locationsApi.listLocations();
+      console.log('[SQUARE DEBUG] locations response:', JSON.stringify(locations.result || {}));
+      const locationList = locations.result?.locations || [];
+      const firstLocation = locationList.find((loc) => String(loc.status || '').toUpperCase() === 'ACTIVE') || locationList[0];
+      locationId = String(firstLocation?.id || '').trim();
+    }
 
     if (!locationId) {
       return res.status(400).json({ ok: false, error: 'missing_location_id' });
@@ -457,6 +464,7 @@ router.get('/square/orders/search', async (req, res) => {
       return {
         order_id: order.id || '',
         customer_id: order.customerId || '',
+        location_id: locationId,
         state: order.state || '',
         created_at: order.createdAt || null,
         updated_at: order.updatedAt || null,
