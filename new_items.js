@@ -334,6 +334,195 @@ router.get('/square/miss-log', (req, res) => {
 });
 
 // ============================================================
+// ENDPOINT: /square/customers/search
+// Busca clientes do Square por telefone, email, nome ou query livre
+// ============================================================
+router.get('/square/customers/search', async (req, res) => {
+  try {
+    const phone = String(req.query.phone || '').trim();
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const name = String(req.query.name || '').trim().toLowerCase();
+    const query = String(req.query.query || '').trim().toLowerCase();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+
+    const response = await client.customersApi.listCustomers(undefined, limit, undefined, 'CREATED_AT_DESC');
+    const customers = response.result?.customers || [];
+
+    const normalizePhone = (value) => String(value || '').replace(/\D+/g, '');
+    const phoneNeedle = normalizePhone(phone || query);
+    const textNeedle = (query || name || email).trim();
+
+    const scored = customers.map((customer) => {
+      const given = String(customer.givenName || '').trim();
+      const family = String(customer.familyName || '').trim();
+      const fullName = `${given} ${family}`.trim();
+      const customerEmail = String(customer.emailAddress || '').trim().toLowerCase();
+      const customerPhone = String(customer.phoneNumber || '').trim();
+      const customerPhoneNorm = normalizePhone(customerPhone);
+      let score = 0;
+
+      if (email && customerEmail === email) score += 100;
+      else if (email && customerEmail.includes(email)) score += 40;
+
+      if (phoneNeedle && customerPhoneNorm === phoneNeedle) score += 100;
+      else if (phoneNeedle && customerPhoneNorm.includes(phoneNeedle)) score += 40;
+
+      if (name && fullName.toLowerCase() === name) score += 80;
+      else if (name && fullName.toLowerCase().includes(name)) score += 35;
+
+      if (textNeedle) {
+        if (fullName.toLowerCase().includes(textNeedle)) score += 20;
+        if (customerEmail.includes(textNeedle)) score += 20;
+        if (customerPhoneNorm.includes(normalizePhone(textNeedle))) score += 10;
+      }
+
+      return {
+        customer,
+        score,
+      };
+    }).filter(({ score }) => score > 0 || (!phone && !email && !name && !query));
+
+    scored.sort((a, b) => b.score - a.score);
+
+    const formatted = scored.slice(0, limit).map(({ customer, score }) => ({
+      customer_id: customer.id || '',
+      given_name: customer.givenName || '',
+      family_name: customer.familyName || '',
+      full_name: `${customer.givenName || ''} ${customer.familyName || ''}`.trim(),
+      phone_number: customer.phoneNumber || '',
+      email_address: customer.emailAddress || '',
+      created_at: customer.createdAt || null,
+      updated_at: customer.updatedAt || null,
+      score,
+    }));
+
+    res.json({
+      ok: true,
+      total_returned: formatted.length,
+      customers: formatted,
+    });
+  } catch (err) {
+    console.error('Erro customers/search:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ENDPOINT: /square/orders/search
+// Busca pedidos do Square por customer_id e filtros simples
+// ============================================================
+router.get('/square/orders/search', async (req, res) => {
+  try {
+    const customerId = String(req.query.customer_id || '').trim();
+    const state = String(req.query.state || '').trim().toUpperCase();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const locationId = String(req.query.location_id || process.env.SQUARE_LOCATION_ID || '').trim();
+
+    if (!locationId) {
+      return res.status(400).json({ ok: false, error: 'missing_location_id' });
+    }
+
+    const body = {
+      locationIds: [locationId],
+      limit,
+      sort: {
+        sortField: 'CREATED_AT',
+        sortOrder: 'DESC',
+      },
+    };
+
+    if (state) body.query = { filter: { stateFilter: { states: [state] } } };
+
+    const response = await client.ordersApi.searchOrders(body);
+    let orders = response.result?.orders || [];
+
+    if (customerId) {
+      orders = orders.filter((order) => String(order.customerId || '').trim() === customerId);
+    }
+
+    const formatted = orders.slice(0, limit).map((order) => {
+      const total = order.totalMoney?.amount != null ? Number(order.totalMoney.amount) / 100 : null;
+      const fulfillments = Array.isArray(order.fulfillments) ? order.fulfillments.map(f => ({
+        uid: f.uid || '',
+        type: f.type || '',
+        state: f.state || '',
+      })) : [];
+      const lineItems = Array.isArray(order.lineItems) ? order.lineItems.map(item => ({
+        uid: item.uid || '',
+        name: item.name || '',
+        quantity: item.quantity || '',
+        variation_name: item.variationName || '',
+        base_price: item.basePriceMoney?.amount != null ? Number(item.basePriceMoney.amount) / 100 : null,
+      })) : [];
+      return {
+        order_id: order.id || '',
+        customer_id: order.customerId || '',
+        state: order.state || '',
+        created_at: order.createdAt || null,
+        updated_at: order.updatedAt || null,
+        total_money: total,
+        currency: order.totalMoney?.currency || null,
+        fulfillments,
+        line_items: lineItems,
+      };
+    });
+
+    res.json({ ok: true, total_returned: formatted.length, orders: formatted });
+  } catch (err) {
+    console.error('Erro orders/search:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ENDPOINT: /square/payments/search
+// Busca pagamentos do Square por customer_id, order_id e status
+// ============================================================
+router.get('/square/payments/search', async (req, res) => {
+  try {
+    const customerId = String(req.query.customer_id || '').trim();
+    const orderId = String(req.query.order_id || '').trim();
+    const status = String(req.query.status || '').trim().toUpperCase();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const locationId = String(req.query.location_id || process.env.SQUARE_LOCATION_ID || '').trim();
+
+    const body = { limit };
+    if (locationId) body.locationId = locationId;
+    if (orderId || customerId || status) body.query = {};
+    if (customerId) body.query.customerFilter = { customerIds: [customerId] };
+    if (orderId) body.query.orderFilter = { orderIds: [orderId] };
+    if (status) body.query.statusFilter = { statuses: [status] };
+    body.sort = { sortField: 'CREATED_AT', sortOrder: 'DESC' };
+
+    const response = await client.paymentsApi.listPayments(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, limit);
+    let payments = response.result?.payments || [];
+
+    if (customerId) payments = payments.filter((p) => String(p.customerId || '').trim() === customerId);
+    if (orderId) payments = payments.filter((p) => String(p.orderId || '').trim() === orderId);
+    if (status) payments = payments.filter((p) => String(p.status || '').trim().toUpperCase() === status);
+    if (locationId) payments = payments.filter((p) => String(p.locationId || '').trim() === locationId);
+
+    const formatted = payments.slice(0, limit).map((payment) => ({
+      payment_id: payment.id || '',
+      order_id: payment.orderId || '',
+      customer_id: payment.customerId || '',
+      status: payment.status || '',
+      source_type: payment.sourceType || '',
+      created_at: payment.createdAt || null,
+      updated_at: payment.updatedAt || null,
+      amount_money: payment.amountMoney?.amount != null ? Number(payment.amountMoney.amount) / 100 : null,
+      currency: payment.amountMoney?.currency || null,
+      receipt_number: payment.receiptNumber || null,
+    }));
+
+    res.json({ ok: true, total_returned: formatted.length, payments: formatted });
+  } catch (err) {
+    console.error('Erro payments/search:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // SESSION CACHE — Memória rápida por telefone
 // Resolve race condition do Google Sheets (sub-1ms vs 500ms)
 // Dados: nome, last_product, last_price, stage, gender
