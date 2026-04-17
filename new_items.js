@@ -9,6 +9,20 @@ const client = new Client({
   environment: Environment.Production,
 })
 
+const BACKEND_PUBLIC_BASE_URL = (process.env.BACKEND_PUBLIC_BASE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || '').trim();
+
+function buildPublicBaseUrl(req) {
+  if (BACKEND_PUBLIC_BASE_URL) {
+    if (/^https?:\/\//i.test(BACKEND_PUBLIC_BASE_URL)) return BACKEND_PUBLIC_BASE_URL.replace(/\/$/, '');
+    return `https://${BACKEND_PUBLIC_BASE_URL.replace(/^\/+/, '').replace(/\/$/, '')}`;
+  }
+
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = (req.headers['x-forwarded-host'] || req.get('host') || '').split(',')[0].trim();
+  if (!host) return '';
+  return `${proto}://${host}`;
+}
+
 // ============================================================
 // MAPA SEMÂNTICO — Como clientes falam vs o que buscar
 // Baseado em 7754 conversas reais da Bruna Campos
@@ -153,12 +167,32 @@ function scoreProduto(item, termosArray) {
 // ============================================================
 // FUNÇÃO: Formatar imagem do produto
 // ============================================================
-function getImageUrl(item) {
+async function getImageUrl(item) {
   const imageIds = item.itemData?.imageIds || item.itemData?.image_ids || [];
-  if (Array.isArray(imageIds) && imageIds.length > 0) {
-    return `https://items-images-production.s3.us-west-2.amazonaws.com/files/${imageIds[0]}/original.jpeg`;
+  if (!Array.isArray(imageIds) || imageIds.length === 0) return null;
+
+  const imageId = imageIds[0];
+
+  try {
+    const response = await client.catalogApi.retrieveCatalogObject(imageId, true);
+    const imageObject = response.result?.object || response.result?.catalogObject || null;
+    const imageUrl = imageObject?.imageData?.url || imageObject?.imageData?.url?.trim?.() || null;
+    if (imageUrl) return imageUrl;
+  } catch (err) {
+    console.error('Erro retrieveCatalogObject(image):', err?.message || err);
   }
-  return null;
+
+  return `https://items-images-production.s3.us-west-2.amazonaws.com/files/${imageId}/original.jpeg`;
+}
+
+function getImageProxyUrl(req, item) {
+  const imageIds = item.itemData?.imageIds || item.itemData?.image_ids || [];
+  if (!Array.isArray(imageIds) || imageIds.length === 0) return null;
+
+  const baseUrl = buildPublicBaseUrl(req);
+  if (!baseUrl) return null;
+
+  return `${baseUrl}/square/catalog-image/${encodeURIComponent(imageIds[0])}`;
 }
 
 // ============================================================
@@ -195,7 +229,7 @@ router.get('/square/products-simple', async (req, res) => {
 
     // Se não tem query, retorna mais vendidos / lista geral
     if (!queryRaw) {
-      const formatados = ativos.slice(0, limit).map(item => formatItem(item));
+      const formatados = await Promise.all(ativos.slice(0, limit).map(item => formatItem(item, req)));
       return res.json(formatados);
     }
 
@@ -215,7 +249,7 @@ router.get('/square/products-simple', async (req, res) => {
         .sort((a, b) => b.score - a.score);
     }
 
-    const formatados = resultado.slice(0, limit).map(({ item }) => formatItem(item));
+    const formatados = await Promise.all(resultado.slice(0, limit).map(({ item }) => formatItem(item, req)));
     res.json(formatados);
 
   } catch (err) {
@@ -252,7 +286,7 @@ router.get('/square/products-by-category', async (req, res) => {
       return cats.includes(categoria) || nome.includes(categoria);
     });
 
-    res.json(filtrados.slice(0, limit).map(formatItem));
+    res.json(await Promise.all(filtrados.slice(0, limit).map(item => formatItem(item, req))));
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -290,7 +324,7 @@ router.get('/square/best-sellers', async (req, res) => {
         !item.isDeleted &&
         (item.itemData?.name || '').toLowerCase().includes(keyword)
       );
-      if (found) bestSellers.push(formatItem(found));
+      if (found) bestSellers.push(await formatItem(found, req));
     }
 
     res.json(bestSellers);
@@ -581,9 +615,51 @@ router.get('/session-stats', (req, res) => {
 });
 
 // ============================================================
+// ENDPOINT: /square/catalog-image/:imageId
+// Proxy público para Twilio/WhatsApp conseguir baixar mídia
+// ============================================================
+router.get('/square/catalog-image/:imageId', async (req, res) => {
+  try {
+    const imageId = String(req.params.imageId || '').trim();
+    if (!imageId) {
+      return res.status(400).json({ error: 'imageId obrigatório' });
+    }
+
+    const sourceUrl = `https://items-images-production.s3.us-west-2.amazonaws.com/files/${encodeURIComponent(imageId)}/original.jpeg`;
+    const response = await fetch(sourceUrl, {
+      headers: {
+        'User-Agent': 'cleo-backend-image-proxy/1.0',
+        'Accept': 'image/*,*/*;q=0.8',
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: 'falha ao buscar imagem de origem',
+        source_status: response.status,
+        image_id: imageId,
+      });
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(buffer);
+
+  } catch (err) {
+    console.error('Erro catalog-image proxy:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // FUNÇÃO AUXILIAR: Formatar item do Square
 // ============================================================
-function formatItem(item) {
+async function formatItem(item, req) {
   const data = item.itemData || {};
   const variations = Array.isArray(data.variations) ? data.variations : [];
 
@@ -612,7 +688,8 @@ function formatItem(item) {
     };
   });
 
-  const imagemUrl = getImageUrl(item);
+  const imagemUrl = await getImageUrl(item);
+  const imagemProxyUrl = req ? getImageProxyUrl(req, item) : null;
 
   const categorias = Array.isArray(data.categories)
     ? data.categories.map(c => c?.name).filter(Boolean)
@@ -625,7 +702,9 @@ function formatItem(item) {
     price: preco,
     price_min: priceMin,
     price_max: priceMax,
-    image: imagemUrl,
+    image: imagemProxyUrl || imagemUrl,
+    source_image: imagemUrl,
+    image_proxy: imagemProxyUrl,
     has_image: !!imagemUrl,
     categories: categorias,
     available: !item.isDeleted,
