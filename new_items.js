@@ -189,10 +189,11 @@ function getImageProxyUrl(req, item) {
   const imageIds = item.itemData?.imageIds || item.itemData?.image_ids || [];
   if (!Array.isArray(imageIds) || imageIds.length === 0) return null;
 
+  const imageId = imageIds[0];
   const baseUrl = buildPublicBaseUrl(req);
   if (!baseUrl) return null;
 
-  return `${baseUrl}/square/catalog-image/${encodeURIComponent(imageIds[0])}`;
+  return `${baseUrl}/square/catalog-image/${encodeURIComponent(imageId)}`;
 }
 
 // ============================================================
@@ -625,8 +626,15 @@ router.get('/square/catalog-image/:imageId', async (req, res) => {
       return res.status(400).json({ error: 'imageId obrigatório' });
     }
 
-    const sourceUrl = `https://items-images-production.s3.us-west-2.amazonaws.com/files/${encodeURIComponent(imageId)}/original.jpeg`;
-    const response = await fetch(sourceUrl, {
+    const imageObjectResponse = await client.catalogApi.retrieveCatalogObject(imageId, true);
+    const imageObject = imageObjectResponse.result?.object || imageObjectResponse.result?.catalogObject || null;
+    const directUrl = String(imageObject?.imageData?.url || '').trim();
+
+    if (!directUrl) {
+      return res.status(404).json({ error: 'url da imagem não encontrada no Square', image_id: imageId });
+    }
+
+    const response = await fetch(directUrl, {
       headers: {
         'User-Agent': 'cleo-backend-image-proxy/1.0',
         'Accept': 'image/*,*/*;q=0.8',
@@ -638,6 +646,7 @@ router.get('/square/catalog-image/:imageId', async (req, res) => {
         error: 'falha ao buscar imagem de origem',
         source_status: response.status,
         image_id: imageId,
+        source_url: directUrl,
       });
     }
 
