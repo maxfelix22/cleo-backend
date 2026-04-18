@@ -1,0 +1,92 @@
+const { hasSupabaseConfig, supabaseRequest } = require('./supabase-client');
+const { normalizePhone } = require('../lib/whatsapp-normalize');
+const { getConversationKey, getContext, saveContext } = require('./context-store');
+
+async function getOrCreateCustomerByPhone(phone, profileName = '') {
+  const normalizedPhone = normalizePhone(phone);
+
+  if (!normalizedPhone) {
+    throw new Error('phone obrigatório para getOrCreateCustomerByPhone');
+  }
+
+  if (!hasSupabaseConfig()) {
+    return {
+      mode: 'memory-fallback',
+      customer: {
+        id: `memory-customer:${normalizedPhone}`,
+        phone: normalizedPhone,
+        name: profileName || '',
+      },
+    };
+  }
+
+  const found = await supabaseRequest(`/rest/v1/customers?phone=eq.${encodeURIComponent(normalizedPhone)}&select=*&limit=1`);
+  if (Array.isArray(found) && found[0]) {
+    return { mode: 'supabase', customer: found[0] };
+  }
+
+  const created = await supabaseRequest('/rest/v1/customers', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: [{
+      phone: normalizedPhone,
+      name: profileName || null,
+      last_interaction: new Date().toISOString(),
+    }],
+  });
+
+  return { mode: 'supabase', customer: Array.isArray(created) ? created[0] : created };
+}
+
+async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', phone = '', profileName = '' }) {
+  if (!customerId) {
+    throw new Error('customerId obrigatório para getOrCreateOpenConversation');
+  }
+
+  if (!hasSupabaseConfig()) {
+    const contextKey = getConversationKey({ channel, from: phone });
+    const existing = getContext(contextKey) || {};
+    const saved = saveContext(contextKey, {
+      ...existing,
+      profileName,
+      customerId,
+      conversationId: existing.conversationId || `memory-conversation:${channel}:${phone}`,
+      currentStage: existing.currentStage || 'new_lead',
+    });
+    return {
+      mode: 'memory-fallback',
+      conversation: {
+        id: saved.conversationId,
+        customer_id: customerId,
+        channel,
+        status: 'open',
+        current_stage: saved.currentStage,
+      },
+    };
+  }
+
+  const found = await supabaseRequest(`/rest/v1/conversations?customer_id=eq.${encodeURIComponent(customerId)}&status=eq.open&order=last_message_at.desc&limit=1&select=*`);
+  if (Array.isArray(found) && found[0]) {
+    return { mode: 'supabase', conversation: found[0] };
+  }
+
+  const created = await supabaseRequest('/rest/v1/conversations', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: [{
+      customer_id: customerId,
+      channel,
+      status: 'open',
+      current_stage: 'new_lead',
+      assigned_to: 'cleo',
+      last_message_at: new Date().toISOString(),
+    }],
+  });
+
+  return { mode: 'supabase', conversation: Array.isArray(created) ? created[0] : created };
+}
+
+module.exports = {
+  getOrCreateCustomerByPhone,
+  getOrCreateOpenConversation,
+};

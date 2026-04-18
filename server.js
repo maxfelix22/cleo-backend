@@ -13,7 +13,9 @@ app.get('/health', (req, res) => {
 });
 
 const cleoRoutes = require('./new_items');
+const whatsappRoutes = require('./routes/whatsapp');
 app.use('/', cleoRoutes);
+app.use('/', whatsappRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err.message);
