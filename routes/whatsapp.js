@@ -7,7 +7,7 @@ const { buildInitialReply } = require('../services/whatsapp-context');
 const { searchProducts } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
-const { getOrCreateCustomerByPhone, getOrCreateOpenConversation } = require('../services/customer-conversation-store');
+const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
 const { applyCheckoutState, buildCheckoutReply } = require('../services/checkout-state');
 const { buildHandoffPayload, buildOperationalMessage } = require('../services/handoff-service');
@@ -73,6 +73,22 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastProvider: inbound.provider,
     });
 
+    let conversationSnapshot = conversationResult?.conversation || null;
+    try {
+      const conversationUpdate = await updateConversationState({
+        conversationId: savedContext.conversationId,
+        summary: savedContext.summary,
+        currentStage: savedContext.currentStage,
+        lastProduct: savedContext.lastProduct,
+        lastProductPayload: savedContext.lastProductPayload,
+      });
+      if (conversationUpdate?.conversation) {
+        conversationSnapshot = conversationUpdate.conversation;
+      }
+    } catch (err) {
+      console.error('[whatsapp/inbound] conversation state update error:', err.message);
+    }
+
     const outbound = await sendWhatsAppMessage({
       to: inbound.from,
       body: replyText,
@@ -133,7 +149,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         conversationId: savedContext.conversationId || '',
       },
       customer: customerResult?.customer || null,
-      conversation: conversationResult?.conversation || null,
+      conversation: conversationSnapshot,
       inboundEvent: inboundEvent?.event || null,
       outboundEvent: outboundEvent?.event || null,
       handoffPayload,

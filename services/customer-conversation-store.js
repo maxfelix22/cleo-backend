@@ -38,6 +38,33 @@ async function getOrCreateCustomerByPhone(phone, profileName = '') {
   return { mode: 'supabase', customer: Array.isArray(created) ? created[0] : created };
 }
 
+async function updateConversationState({ conversationId, summary = '', currentStage = '', lastProduct = '', lastProductPayload = null }) {
+  if (!conversationId) {
+    return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', conversation: null };
+  }
+
+  if (!hasSupabaseConfig()) {
+    return { mode: 'memory-fallback', conversation: null };
+  }
+
+  const patch = {
+    last_message_at: new Date().toISOString(),
+  };
+
+  if (summary) patch.summary = summary;
+  if (currentStage) patch.current_stage = currentStage;
+  if (lastProduct) patch.last_product = lastProduct;
+  if (lastProductPayload) patch.last_product_payload = lastProductPayload;
+
+  const updated = await supabaseRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(conversationId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: patch,
+  });
+
+  return { mode: 'supabase', conversation: Array.isArray(updated) ? updated[0] : updated };
+}
+
 async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', phone = '', profileName = '' }) {
   if (!customerId) {
     throw new Error('customerId obrigatório para getOrCreateOpenConversation');
@@ -89,4 +116,5 @@ async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', p
 module.exports = {
   getOrCreateCustomerByPhone,
   getOrCreateOpenConversation,
+  updateConversationState,
 };
