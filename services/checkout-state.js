@@ -122,6 +122,7 @@ function applyCheckoutState(context = {}, inbound = {}) {
       next.checkout = {
         ...(context.checkout || {}),
         stage: 'checkout_review',
+        address: context.checkout?.address || '',
         phone: phone || context.checkout?.phone || '',
         email: email || context.checkout?.email || '',
         nextRequiredField: 'review_order',
@@ -138,6 +139,7 @@ function applyCheckoutState(context = {}, inbound = {}) {
       next.currentStage = 'handoff_ready';
       next.checkout = {
         ...(context.checkout || {}),
+        address: context.checkout?.address || '',
         stage: 'handoff_ready',
         nextRequiredField: 'handoff_ready',
         reviewConfirmed: true,
