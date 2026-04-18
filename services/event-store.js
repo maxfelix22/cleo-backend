@@ -3,19 +3,22 @@ const { hasSupabaseConfig, supabaseRequest } = require('./supabase-client');
 
 async function appendEvent(eventPayload = {}) {
   const payload = {
-    kind: eventPayload.kind || 'message_event',
-    conversation_id: eventPayload.conversation_id || null,
     customer_id: eventPayload.customer_id || null,
-    channel: eventPayload.channel || 'whatsapp',
-    direction: eventPayload.direction || 'inbound',
-    message_text: eventPayload.message_text || '',
-    payload: eventPayload.payload || {},
+    conversation_id: eventPayload.conversation_id || null,
+    event_type: eventPayload.kind || 'message_event',
+    payload: {
+      channel: eventPayload.channel || 'whatsapp',
+      direction: eventPayload.direction || 'inbound',
+      message_text: eventPayload.message_text || '',
+      ...(eventPayload.payload || {}),
+    },
     created_at: new Date().toISOString(),
   };
 
   if (!hasSupabaseConfig()) {
     const memoryEvent = {
       id: `memory-event-${inMemoryEvents.length + 1}`,
+      kind: payload.event_type,
       ...payload,
     };
     inMemoryEvents.push(memoryEvent);
