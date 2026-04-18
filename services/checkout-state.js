@@ -18,23 +18,48 @@ function extractPhoneOrEmail(text = '') {
   };
 }
 
+function extractDeliveryMode(text = '') {
+  const lower = String(text || '').toLowerCase().trim();
+  if (/\b(usps|envio|entrega pelos correios|shipping)\b/.test(lower)) return 'usps';
+  if (/\b(retirada|retirar|pickup)\b/.test(lower)) return 'pickup';
+  if (/\b(entrega local|local delivery|motoboy|entrega)\b/.test(lower)) return 'local_delivery';
+  return '';
+}
+
 function applyCheckoutState(context = {}, inbound = {}) {
   const text = String(inbound.text || '').trim();
   const lower = text.toLowerCase();
   const next = { ...context };
 
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
-    next.currentStage = 'checkout_collect_name';
+    next.currentStage = 'checkout_choose_delivery';
     next.checkout = {
       ...(context.checkout || {}),
-      stage: 'checkout_collect_name',
+      stage: 'checkout_choose_delivery',
       interestedProduct: context.lastProducts?.[0]?.name || '',
-      nextRequiredField: 'full_name',
+      nextRequiredField: 'delivery_mode',
     };
     return next;
   }
 
   const stageNow = context.currentStage || context.checkout?.stage || '';
+
+  if (stageNow === 'checkout_choose_delivery') {
+    const deliveryMode = extractDeliveryMode(text);
+    if (deliveryMode) {
+      next.currentStage = 'checkout_collect_name';
+      next.checkout = {
+        ...(context.checkout || {}),
+        stage: 'checkout_collect_name',
+        deliveryMode,
+        nextRequiredField: 'full_name',
+      };
+      next.summary = context.lastProducts?.[0]?.name
+        ? `checkout iniciado para ${context.lastProducts[0].name}`
+        : 'checkout iniciado';
+      return next;
+    }
+  }
 
   if (stageNow === 'checkout_collect_name') {
     const fullName = extractFullName(text);
@@ -93,6 +118,10 @@ function applyCheckoutState(context = {}, inbound = {}) {
 function buildCheckoutReply(context = {}) {
   const stageNow = context.currentStage || context.checkout?.stage || '';
 
+  if (stageNow === 'checkout_choose_delivery') {
+    return 'Perfeito amore 💜 Antes de seguir, me diz como você prefere receber: *envio (USPS)*, *retirada* ou *entrega local*?';
+  }
+
   if (stageNow === 'checkout_collect_name') {
     const productName = context.lastProducts?.[0]?.name || 'a peça';
     return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Me manda seu *nome completo* que eu já começo seu pedido.`;
@@ -105,6 +134,9 @@ function buildCheckoutReply(context = {}) {
   if (stageNow === 'checkout_review' && context.checkout?.fullName) {
     const lines = [];
     if (context.lastProducts?.[0]?.name) lines.push(`• Produto: ${context.lastProducts[0].name}`);
+    if (context.checkout.deliveryMode === 'usps') lines.push('• Entrega: USPS');
+    if (context.checkout.deliveryMode === 'pickup') lines.push('• Entrega: Retirada');
+    if (context.checkout.deliveryMode === 'local_delivery') lines.push('• Entrega: Entrega local');
     if (context.checkout.fullName) lines.push(`• Nome: ${context.checkout.fullName}`);
     if (context.checkout.phone) lines.push(`• Telefone: ${context.checkout.phone}`);
     if (context.checkout.email) lines.push(`• Email: ${context.checkout.email}`);
@@ -123,4 +155,5 @@ module.exports = {
   buildCheckoutReply,
   extractFullName,
   extractPhoneOrEmail,
+  extractDeliveryMode,
 };

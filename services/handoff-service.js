@@ -23,6 +23,7 @@ function buildHandoffPayload(context = {}) {
       source: product.source || 'unknown',
     } : null,
     checkout: {
+      delivery_mode: checkout.deliveryMode || '',
       full_name: checkout.fullName || '',
       phone: checkout.phone || '',
       email: checkout.email || '',
@@ -37,6 +38,9 @@ function buildOperationalMessage(context = {}) {
     '🛍️ *Novo pedido pronto para handoff*',
     '',
     payload.product?.name ? `• Produto: ${payload.product.name}` : '• Produto: não identificado',
+    payload.checkout.delivery_mode === 'usps' ? '• Entrega: USPS' : null,
+    payload.checkout.delivery_mode === 'pickup' ? '• Entrega: Retirada' : null,
+    payload.checkout.delivery_mode === 'local_delivery' ? '• Entrega: Entrega local' : null,
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
     payload.checkout.email ? `• Email: ${payload.checkout.email}` : null,
