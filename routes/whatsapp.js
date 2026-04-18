@@ -106,6 +106,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastReplyText: replyText,
       lastChannel: inbound.channel,
       lastProvider: inbound.provider,
+      address: checkoutContext.checkout?.address || existingContext.address || '',
       followUpSignals,
     });
 

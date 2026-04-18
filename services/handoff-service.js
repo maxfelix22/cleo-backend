@@ -1,6 +1,7 @@
 function buildHandoffPayload(context = {}) {
   const product = context.lastProducts?.[0] || null;
   const checkout = context.checkout || {};
+  const address = checkout.address || context.address || '';
 
   return {
     handoff_ready: true,
@@ -24,6 +25,7 @@ function buildHandoffPayload(context = {}) {
     } : null,
     checkout: {
       delivery_mode: checkout.deliveryMode || '',
+      address,
       full_name: checkout.fullName || '',
       phone: checkout.phone || '',
       email: checkout.email || '',
@@ -41,6 +43,7 @@ function buildOperationalMessage(context = {}) {
     payload.checkout.delivery_mode === 'usps' ? '• Entrega: USPS' : null,
     payload.checkout.delivery_mode === 'pickup' ? '• Entrega: Retirada' : null,
     payload.checkout.delivery_mode === 'local_delivery' ? '• Entrega: Entrega local' : null,
+    payload.checkout.address ? `• Endereço: ${payload.checkout.address}` : null,
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
     payload.checkout.email ? `• Email: ${payload.checkout.email}` : null,
