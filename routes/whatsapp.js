@@ -79,6 +79,24 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const checkoutContext = applyCheckoutState(contextForState, inbound);
 
+    const productDebug = {
+      inboundText: inbound.text,
+      existingContextLastProductsCount: Array.isArray(existingContext.lastProducts) ? existingContext.lastProducts.length : 0,
+      productsCount: Array.isArray(products) ? products.length : 0,
+      effectiveProductsCount: Array.isArray(effectiveProducts) ? effectiveProducts.length : 0,
+      contextForStateLastProductsCount: Array.isArray(contextForState.lastProducts) ? contextForState.lastProducts.length : 0,
+      checkoutContextLastProductsCount: Array.isArray(checkoutContext.lastProducts) ? checkoutContext.lastProducts.length : 0,
+      existingContextLastProductName: existingContext.lastProducts?.[0]?.name || '',
+      productCandidateName: products[0]?.name || '',
+      effectiveProductName: effectiveProducts[0]?.name || '',
+      contextForStateProductName: contextForState.lastProducts?.[0]?.name || '',
+      checkoutContextProductName: checkoutContext.lastProducts?.[0]?.name || '',
+      checkoutContextLastProduct: checkoutContext.lastProduct || '',
+      checkoutContextLastProductPayloadName: checkoutContext.lastProductPayload?.name || '',
+      currentStageForState,
+      currentStageAfterState: checkoutContext.currentStage || '',
+    };
+
     const followUpSignals = {
       currentStageBefore: currentStageForState,
       currentStageAfter: checkoutContext.currentStage || currentStageForState,
@@ -119,6 +137,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastProvider: inbound.provider,
       address: checkoutContext.checkout?.address || existingContext.address || '',
       followUpSignals,
+      productDebug,
     });
 
     let conversationSnapshot = conversationResult?.conversation || null;
@@ -214,6 +233,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       products: effectiveProducts,
       contextKey,
       context: savedContext,
+      productDebug,
       state: {
         summary: savedContext.summary || '',
         currentStage: savedContext.currentStage || '',
