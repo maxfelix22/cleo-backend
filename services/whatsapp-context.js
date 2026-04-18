@@ -7,6 +7,17 @@ function extractRequestedSize(text = '') {
   return '';
 }
 
+function listAvailableSizes(lastProduct = null) {
+  const details = Array.isArray(lastProduct?.variationDetails)
+    ? lastProduct.variationDetails
+    : Array.isArray(lastProduct?.raw?.variationDetails)
+      ? lastProduct.raw.variationDetails
+      : [];
+
+  const sizes = [...new Set(details.map((variation) => variation?.size).filter(Boolean))];
+  return sizes;
+}
+
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
@@ -16,6 +27,7 @@ function buildInitialReply(inbound, options = {}) {
   const lastProduct = lastProducts[0] || null;
   const requestedSize = extractRequestedSize(text);
   const matchingVariation = options.matchingVariation || null;
+  const availableSizes = listAvailableSizes(lastProduct);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -54,6 +66,9 @@ function buildInitialReply(inbound, options = {}) {
         return `Tem sim amore 💜 A *${lastProduct.name}* aparece com variação no tamanho *${requestedSize}*${priceLine}. Se quiser, já sigo com você nesse pedido.`;
       }
       if (requestedSize) {
+        if (availableSizes.length > 0) {
+          return `Não apareceu uma variação clara em *${requestedSize}* para a *${lastProduct.name}* aqui no catálogo 💜 As opções que consegui ler com mais segurança foram: *${availableSizes.join(', ')}*. Se quiser, eu sigo te ajudando por esse caminho.`;
+        }
         return `Não vi uma variação clara em *${requestedSize}* para a *${lastProduct.name}* aqui no catálogo, então prefiro te confirmar certinho antes de te prometer errado 💜`;
       }
       return `Consigo ver sim amore 💜 Vou checar a disponibilidade da *${lastProduct.name}* no tamanho certinho para você.`;
@@ -81,4 +96,5 @@ function buildInitialReply(inbound, options = {}) {
 module.exports = {
   buildInitialReply,
   extractRequestedSize,
+  listAvailableSizes,
 };

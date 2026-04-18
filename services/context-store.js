@@ -55,11 +55,13 @@ function buildLastProductPayload(next) {
     image: mainProduct.image || '',
     source: mainProduct.source || 'unknown',
     variation: mainProduct.variation || '',
+    variation_details: mainProduct.variationDetails || mainProduct.raw?.variationDetails || [],
     color: mainProduct.color || '',
     size: mainProduct.size || '',
     current_stage: next.currentStage || '',
     summary: next.summary || '',
     checkout: next.checkout || null,
+    follow_up_signals: next.followUpSignals || null,
     updated_at: next.updatedAt || new Date().toISOString(),
   };
 }
