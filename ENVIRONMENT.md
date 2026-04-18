@@ -57,14 +57,21 @@ Essas variáveis ativam o envio real do handoff operacional.
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_OPS_CHAT_ID`
-- `TELEGRAM_OPS_THREAD_ID` (opcional, se quiser enviar direto em tópico)
+- `TELEGRAM_OPS_THREAD_ID` (legado / fallback)
+- `TELEGRAM_THREAD_ATENDIMENTO_VENDAS`
+- `TELEGRAM_THREAD_PRODUTOS_ESTOQUE`
+- `TELEGRAM_THREAD_MEMORIA_CLIENTES`
+- `TELEGRAM_THREAD_SISTEMA_AUTOMACAO`
+- `TELEGRAM_THREAD_HANDOFF_PEDIDOS`
 
 ### Efeito
 Sem elas:
 - `telegram-ops.js` fica em `mode: stub`
 
 Com elas:
-- handoff operacional já pode ser enviado ao Telegram real
+- o backend pode rotear mensagens operacionais para os tópicos certos do grupo
+- `handoff_pedidos` pode ir explicitamente para `TELEGRAM_THREAD_HANDOFF_PEDIDOS`
+- a arquitetura fica pronta para expandir depois para `atendimento_vendas`, `produtos_estoque`, `memoria_clientes` e `sistema_automacao`
 
 ---
 

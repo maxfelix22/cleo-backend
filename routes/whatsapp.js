@@ -164,7 +164,9 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       handoffPayload = buildHandoffPayload(savedContext);
       operationalMessage = buildOperationalMessage(savedContext);
       try {
-        operationalDispatch = await sendOperationalTelegramMessage(operationalMessage);
+        operationalDispatch = await sendOperationalTelegramMessage(operationalMessage, {
+          topicKey: 'handoff_pedidos',
+        });
       } catch (err) {
         console.error('[whatsapp/inbound] telegram ops dispatch error:', err.message);
       }

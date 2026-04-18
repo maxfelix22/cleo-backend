@@ -1,17 +1,36 @@
 const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TELEGRAM_OPS_CHAT_ID = String(process.env.TELEGRAM_OPS_CHAT_ID || '').trim();
 const TELEGRAM_OPS_THREAD_ID = String(process.env.TELEGRAM_OPS_THREAD_ID || '').trim();
+const TELEGRAM_THREAD_ATENDIMENTO_VENDAS = String(process.env.TELEGRAM_THREAD_ATENDIMENTO_VENDAS || '').trim();
+const TELEGRAM_THREAD_PRODUTOS_ESTOQUE = String(process.env.TELEGRAM_THREAD_PRODUTOS_ESTOQUE || '').trim();
+const TELEGRAM_THREAD_MEMORIA_CLIENTES = String(process.env.TELEGRAM_THREAD_MEMORIA_CLIENTES || '').trim();
+const TELEGRAM_THREAD_SISTEMA_AUTOMACAO = String(process.env.TELEGRAM_THREAD_SISTEMA_AUTOMACAO || '').trim();
+const TELEGRAM_THREAD_HANDOFF_PEDIDOS = String(process.env.TELEGRAM_THREAD_HANDOFF_PEDIDOS || '').trim();
+
+const THREADS_BY_KEY = {
+  atendimento_vendas: TELEGRAM_THREAD_ATENDIMENTO_VENDAS,
+  produtos_estoque: TELEGRAM_THREAD_PRODUTOS_ESTOQUE,
+  memoria_clientes: TELEGRAM_THREAD_MEMORIA_CLIENTES,
+  sistema_automacao: TELEGRAM_THREAD_SISTEMA_AUTOMACAO,
+  handoff_pedidos: TELEGRAM_THREAD_HANDOFF_PEDIDOS || TELEGRAM_OPS_THREAD_ID,
+};
 
 function hasTelegramOpsConfig() {
   return !!(TELEGRAM_BOT_TOKEN && TELEGRAM_OPS_CHAT_ID);
 }
 
-async function sendOperationalTelegramMessage(text) {
+function resolveThreadId(topicKey) {
+  const threadId = THREADS_BY_KEY[topicKey] || TELEGRAM_OPS_THREAD_ID;
+  return threadId ? Number(threadId) : null;
+}
+
+async function sendOperationalTelegramMessage(text, options = {}) {
   if (!hasTelegramOpsConfig()) {
     return {
       ok: true,
       mode: 'stub',
       text,
+      topicKey: options.topicKey || 'handoff_pedidos',
       sentAt: new Date().toISOString(),
     };
   }
@@ -22,8 +41,9 @@ async function sendOperationalTelegramMessage(text) {
     parse_mode: 'Markdown',
   };
 
-  if (TELEGRAM_OPS_THREAD_ID) {
-    payload.message_thread_id = Number(TELEGRAM_OPS_THREAD_ID);
+  const resolvedThreadId = resolveThreadId(options.topicKey || 'handoff_pedidos');
+  if (resolvedThreadId) {
+    payload.message_thread_id = resolvedThreadId;
   }
 
   const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -46,6 +66,7 @@ async function sendOperationalTelegramMessage(text) {
   return {
     ok: true,
     mode: 'telegram',
+    topicKey: options.topicKey || 'handoff_pedidos',
     result: parsed.result,
     sentAt: new Date().toISOString(),
   };
@@ -53,5 +74,6 @@ async function sendOperationalTelegramMessage(text) {
 
 module.exports = {
   hasTelegramOpsConfig,
+  resolveThreadId,
   sendOperationalTelegramMessage,
 };
