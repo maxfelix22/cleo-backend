@@ -39,37 +39,51 @@ async function listCatalogItems() {
   return allItems.filter(item => item.type === 'ITEM' && !item.isDeleted && item.itemData?.name);
 }
 
-function formatVariation(itemVariation = {}) {
+function formatVariation(itemVariation = {}, itemName = '') {
   const data = itemVariation.itemVariationData || {};
   const priceMoney = data.priceMoney;
   const amount = typeof priceMoney?.amount === 'bigint' ? Number(priceMoney.amount) : Number(priceMoney?.amount || 0);
   const price = amount ? `$${(amount / 100).toFixed(2)}` : null;
   const name = data.name || '';
-  const normalized = name.toLowerCase();
+  const normalized = `${itemName} ${name}`.toLowerCase();
   const sizeMatch = normalized.match(/\b(pp|p|m|g|gg|xg|xgg)\b/);
+  const colorHints = ['preta','preto','branca','branco','vermelha','vermelho','rosa','azul','verde','bege','nude','dourada','dourado','prata','roxa','roxo'];
+  const color = colorHints.find((hint) => normalized.includes(hint)) || '';
 
   return {
     id: itemVariation.id || '',
     name,
     price,
     size: sizeMatch ? sizeMatch[1].toUpperCase() : '',
+    color,
     available: itemVariation.isDeleted !== true,
   };
 }
 
+function extractAvailableColors(item = {}) {
+  const itemName = String(item.itemData?.name || '').toLowerCase();
+  const description = String(item.itemData?.description || '').toLowerCase();
+  const haystack = `${itemName} ${description}`;
+  const colorHints = ['preta','preto','branca','branco','vermelha','vermelho','rosa','azul','verde','bege','nude','dourada','dourado','prata','roxa','roxo'];
+  return [...new Set(colorHints.filter((hint) => haystack.includes(hint)))];
+}
+
 function formatSimpleProduct(item) {
   const variationObjects = item.itemData?.variations || [];
-  const variations = variationObjects.map(formatVariation).filter(v => v.name);
+  const itemName = item.itemData?.name || '';
+  const variations = variationObjects.map((variation) => formatVariation(variation, itemName)).filter(v => v.name);
   const firstPricedVariation = variations.find(v => v.price) || null;
   const price = firstPricedVariation?.price || null;
+  const availableColors = extractAvailableColors(item);
 
   return {
     id: item.id,
-    name: item.itemData?.name || '',
+    name: itemName,
     description: item.itemData?.description || '',
     price,
     variations: variations.map(v => v.name),
     variationDetails: variations,
+    availableColors,
   };
 }
 

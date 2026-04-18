@@ -24,6 +24,11 @@ function normalizeLastProducts(lastProducts = []) {
         : Array.isArray(product.raw?.variationDetails)
           ? product.raw.variationDetails
           : [],
+      availableColors: Array.isArray(product.availableColors)
+        ? product.availableColors
+        : Array.isArray(product.raw?.availableColors)
+          ? product.raw.availableColors
+          : [],
       color: product.color || '',
       size: product.size || '',
       raw: product,
@@ -61,6 +66,7 @@ function buildLastProductPayload(next) {
     source: mainProduct.source || 'unknown',
     variation: mainProduct.variation || '',
     variation_details: mainProduct.variationDetails || mainProduct.raw?.variationDetails || [],
+    available_colors: mainProduct.availableColors || mainProduct.raw?.availableColors || [],
     color: mainProduct.color || '',
     size: mainProduct.size || '',
     current_stage: next.currentStage || '',

@@ -18,6 +18,18 @@ function listAvailableSizes(lastProduct = null) {
   return sizes;
 }
 
+function listAvailableColors(lastProduct = null) {
+  const fromProduct = Array.isArray(lastProduct?.availableColors)
+    ? lastProduct.availableColors
+    : Array.isArray(lastProduct?.raw?.availableColors)
+      ? lastProduct.raw.availableColors
+      : [];
+  const fromVariations = Array.isArray(lastProduct?.variationDetails)
+    ? lastProduct.variationDetails.map((variation) => variation?.color).filter(Boolean)
+    : [];
+  return [...new Set([...fromProduct, ...fromVariations])];
+}
+
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
@@ -28,6 +40,7 @@ function buildInitialReply(inbound, options = {}) {
   const requestedSize = extractRequestedSize(text);
   const matchingVariation = options.matchingVariation || null;
   const availableSizes = listAvailableSizes(lastProduct);
+  const availableColors = listAvailableColors(lastProduct);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -78,6 +91,9 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/tem em outra cor|outra cor|outras cores/.test(lower)) {
     if (lastProduct?.name) {
+      if (availableColors.length > 0) {
+        return `Tem sim mulher 💜 Pelo que consegui ler no catálogo da *${lastProduct.name}*, aparecem estas cores: *${availableColors.join(', ')}*. Se quiser, eu já sigo com você na que fizer mais sentido.`;
+      }
       return `Vejo sim mulher 💜 Vou consultar as outras cores da *${lastProduct.name}* pra você e já te digo certinho.`;
     }
     return 'Vejo sim mulher 💜 Me confirma qual peça você quer que eu consulte nas outras cores.';
@@ -97,4 +113,5 @@ module.exports = {
   buildInitialReply,
   extractRequestedSize,
   listAvailableSizes,
+  listAvailableColors,
 };
