@@ -47,7 +47,29 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       products = buildFallbackProductsFromText(inbound.text);
     }
 
-    const effectiveProducts = products.length > 0 ? products : (Array.isArray(existingContext.lastProducts) ? existingContext.lastProducts : []);
+    const preservedLastProducts = Array.isArray(existingContext.lastProducts)
+      ? existingContext.lastProducts
+      : [];
+
+    const mergedProducts = products.length > 0
+      ? products.map((product) => {
+          const previous = preservedLastProducts.find((item) => item?.id && item.id === product.id) || {};
+          const previousVariationDetails = Array.isArray(previous.variationDetails)
+            ? previous.variationDetails
+            : Array.isArray(previous.raw?.variationDetails)
+              ? previous.raw.variationDetails
+              : [];
+          return {
+            ...previous,
+            ...product,
+            variationDetails: Array.isArray(product.variationDetails) && product.variationDetails.length > 0
+              ? product.variationDetails
+              : previousVariationDetails,
+          };
+        })
+      : preservedLastProducts;
+
+    const effectiveProducts = mergedProducts;
     const contextForState = {
       ...existingContext,
       currentStage: existingContext.checkout?.stage || existingContext.currentStage || '',

@@ -19,6 +19,11 @@ function normalizeLastProducts(lastProducts = []) {
       image: product.image || product.image_proxy || '',
       source: product.source || 'unknown',
       variation: product.variation || product.variation_name || '',
+      variationDetails: Array.isArray(product.variationDetails)
+        ? product.variationDetails
+        : Array.isArray(product.raw?.variationDetails)
+          ? product.raw.variationDetails
+          : [],
       color: product.color || '',
       size: product.size || '',
       raw: product,
