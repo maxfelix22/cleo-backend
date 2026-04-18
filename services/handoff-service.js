@@ -1,3 +1,11 @@
+function humanizeSnakeCase(value = '') {
+  return String(value || '')
+    .split('_')
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
 function buildHandoffPayload(context = {}) {
   const product = context.lastProducts?.[0] || null;
   const checkout = context.checkout || {};
@@ -9,11 +17,18 @@ function buildHandoffPayload(context = {}) {
     ? ''
     : String(context.lastInboundText || '').trim();
 
+  const queueStatus = 'handoff_sent';
+  const queueStage = 'new_order';
+  const nextAction = 'review_and_contact_customer';
+
   return {
     handoff_ready: true,
-    queue_status: 'handoff_sent',
-    queue_stage: 'new_order',
-    next_action: 'review_and_contact_customer',
+    queue_status: queueStatus,
+    queue_status_label: humanizeSnakeCase(queueStatus),
+    queue_stage: queueStage,
+    queue_stage_label: humanizeSnakeCase(queueStage),
+    next_action: nextAction,
+    next_action_label: humanizeSnakeCase(nextAction),
     customer_message: meaningfulCustomerMessage,
     debug_customer_message_raw: String(context.lastInboundText || '').trim(),
     debug_customer_message_filtered: meaningfulCustomerMessage,
@@ -68,8 +83,9 @@ function buildOperationalMessage(context = {}) {
     payload.customer_message ? `• Última msg cliente: ${payload.customer_message}` : null,
     payload.conversation.id ? `• Conversation ID: ${payload.conversation.id}` : null,
     '',
-    `• Queue status: ${payload.queue_status}`,
-    `• Next action: ${payload.next_action}`,
+    payload.queue_status_label ? `• Status: ${payload.queue_status_label}` : null,
+    payload.queue_stage_label ? `• Etapa: ${payload.queue_stage_label}` : null,
+    payload.next_action_label ? `• Próxima ação: ${payload.next_action_label}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
