@@ -3,10 +3,11 @@ function buildHandoffPayload(context = {}) {
   const checkout = context.checkout || {};
   const address = checkout.address || context.address || '';
 
-  const customerMessage = String(context.lastInboundText || '').trim();
-  const meaningfulCustomerMessage = /^(ok|okay|okey|sim|certo|fechado|isso)$/i.test(customerMessage)
+  const customerMessage = String(context.lastInboundText || '').trim().toLowerCase();
+  const lowSignalMessages = new Set(['ok', 'okay', 'okey', 'sim', 'certo', 'fechado', 'isso']);
+  const meaningfulCustomerMessage = lowSignalMessages.has(customerMessage)
     ? ''
-    : customerMessage;
+    : String(context.lastInboundText || '').trim();
 
   return {
     handoff_ready: true,
@@ -14,6 +15,8 @@ function buildHandoffPayload(context = {}) {
     queue_stage: 'new_order',
     next_action: 'review_and_contact_customer',
     customer_message: meaningfulCustomerMessage,
+    debug_customer_message_raw: String(context.lastInboundText || '').trim(),
+    debug_customer_message_filtered: meaningfulCustomerMessage,
     customer: {
       id: context.customerId || '',
       name: checkout.fullName || context.profileName || '',
