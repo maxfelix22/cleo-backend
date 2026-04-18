@@ -187,10 +187,10 @@ function buildCheckoutReply(context = {}) {
 
   if (stageNow === 'checkout_collect_address') {
     if (context.checkout?.deliveryMode === 'usps') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para envio por USPS que eu já deixo seu pedido bem adiantado por aqui.';
+      return 'Perfeito amore 💜 Me manda seu *endereço completo* para envio por USPS, incluindo seu *ZIP code*, que eu já deixo seu pedido bem adiantado por aqui.';
     }
     if (context.checkout?.deliveryMode === 'local_delivery') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para entrega local que eu já deixo tudo certinho por aqui.';
+      return 'Perfeito amore 💜 Me manda seu *endereço completo* para entrega local, incluindo seu *ZIP code*, que eu já deixo tudo certinho por aqui.';
     }
   }
 

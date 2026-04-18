@@ -7,7 +7,7 @@ function humanizeSnakeCase(value = '') {
 }
 
 function buildHandoffPayload(context = {}) {
-  const product = context.lastProducts?.[0] || null;
+  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
   const address = checkout.address || context.address || '';
 
