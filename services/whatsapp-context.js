@@ -58,7 +58,7 @@ function buildInitialReply(inbound, options = {}) {
     if (products.length > 0) {
       const top = products[0];
       const priceLine = top.price ? ` por ${top.price}` : '';
-      return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Se quiser, eu também posso te mostrar mais opções parecidas.`;
+      return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Esse modelo é bem queridinho por aqui ✨ Se quiser, eu também posso te mostrar mais opções parecidas.`;
     }
     return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, já posso te mostrar as que mais saem também.';
   }
@@ -76,7 +76,7 @@ function buildInitialReply(inbound, options = {}) {
     if (lastProduct?.name) {
       if (requestedSize && matchingVariation) {
         const priceLine = matchingVariation.price ? ` e o valor dela fica em ${matchingVariation.price}` : '';
-        return `Tem sim amore 💜 A *${lastProduct.name}* aparece com variação no tamanho *${requestedSize}*${priceLine}. Se quiser, já sigo com você nesse pedido.`;
+        return `Tem sim amore 💜 A *${lastProduct.name}* aparece com variação no tamanho *${requestedSize}*${priceLine}. Esse modelo sai super bem por aqui ✨ Se quiser, já sigo com você nesse pedido.`;
       }
       if (requestedSize) {
         if (availableSizes.length > 0) {
@@ -92,7 +92,7 @@ function buildInitialReply(inbound, options = {}) {
   if (/tem em outra cor|outra cor|outras cores/.test(lower)) {
     if (lastProduct?.name) {
       if (availableColors.length > 0) {
-        return `Tem sim mulher 💜 Pelo que consegui ler no catálogo da *${lastProduct.name}*, aparecem estas cores: *${availableColors.join(', ')}*. Se quiser, eu já sigo com você na que fizer mais sentido.`;
+        return `Tem sim mulher 💜 Pelo que consegui ler no catálogo da *${lastProduct.name}*, aparecem estas cores: *${availableColors.join(', ')}*. É uma peça que chama bastante atenção por aqui ✨ Se quiser, eu já sigo com você na que fizer mais sentido.`;
       }
       return `Vejo sim mulher 💜 Vou consultar as outras cores da *${lastProduct.name}* pra você e já te digo certinho.`;
     }
@@ -101,7 +101,7 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
     if (lastProduct?.name) {
-      return `Aaaamei amore 💜 Perfeito, vamos seguir com a *${lastProduct.name}*. Me manda só seu nome completo que eu já começo seu pedido.`;
+      return `Aaaamei amore 💜 Perfeito, vamos seguir com a *${lastProduct.name}*. Essa peça está saindo super bem por aqui ✨ Me manda só seu nome completo que eu já começo seu pedido.`;
     }
     return 'Aaaamei amore 💜 Me manda só o nome da peça, ou a foto de novo, que eu já sigo com seu pedido.';
   }

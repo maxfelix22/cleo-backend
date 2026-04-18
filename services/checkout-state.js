@@ -172,7 +172,7 @@ function buildCheckoutReply(context = {}) {
 
   if (stageNow === 'checkout_collect_name') {
     const productName = context.lastProducts?.[0]?.name || 'a peça';
-    return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Me manda seu *nome completo* que eu já separo seu pedido por aqui.`;
+    return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Essa peça está saindo super bem por aqui ✨ Me manda seu *nome completo* que eu já separo seu pedido por aqui.`;
   }
 
   if (stageNow === 'checkout_collect_contact' && context.checkout?.fullName) {
@@ -189,7 +189,7 @@ function buildCheckoutReply(context = {}) {
     if (context.checkout.fullName) lines.push(`• Nome: ${context.checkout.fullName}`);
     if (context.checkout.phone) lines.push(`• Telefone: ${context.checkout.phone}`);
     if (context.checkout.email) lines.push(`• Email: ${context.checkout.email}`);
-    return `Perfeito 💜 Aqui vai a revisão do seu pedido até agora:\n\n${lines.join('\n')}\n\nSe estiver tudo certinho, me responde *ok* que eu sigo e já encaminho seu atendimento.`;
+    return `Perfeito 💜 Aqui vai a revisão do seu pedido até agora:\n\n${lines.join('\n')}\n\nSe estiver tudo certinho, me responde *ok* que eu sigo e já encaminho seu atendimento. Se quiser ajustar alguma coisinha antes, me fala por aqui.`;
   }
 
   if (stageNow === 'handoff_ready') {
