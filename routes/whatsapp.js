@@ -74,6 +74,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     });
 
     let conversationSnapshot = conversationResult?.conversation || null;
+    let conversationUpdateDebug = null;
     try {
       const conversationUpdate = await updateConversationState({
         conversationId: savedContext.conversationId,
@@ -82,11 +83,27 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         lastProduct: savedContext.lastProduct,
         lastProductPayload: savedContext.lastProductPayload,
       });
+      conversationUpdateDebug = {
+        ok: true,
+        patch: conversationUpdate?.patch || null,
+        conversationId: savedContext.conversationId,
+        updatedConversationId: conversationUpdate?.conversation?.id || null,
+        updatedStage: conversationUpdate?.conversation?.current_stage || null,
+        updatedSummary: conversationUpdate?.conversation?.summary || null,
+        updatedLastProduct: conversationUpdate?.conversation?.last_product || null,
+      };
       if (conversationUpdate?.conversation) {
         conversationSnapshot = conversationUpdate.conversation;
       }
     } catch (err) {
-      console.error('[whatsapp/inbound] conversation state update error:', err.message);
+      conversationUpdateDebug = {
+        ok: false,
+        conversationId: savedContext.conversationId,
+        message: err.message,
+        status: err.status || null,
+        payload: err.payload || null,
+      };
+      console.error('[whatsapp/inbound] conversation state update error:', err.message, err.payload || '');
     }
 
     const outbound = await sendWhatsAppMessage({
@@ -150,6 +167,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       },
       customer: customerResult?.customer || null,
       conversation: conversationSnapshot,
+      conversationUpdateDebug,
       inboundEvent: inboundEvent?.event || null,
       outboundEvent: outboundEvent?.event || null,
       handoffPayload,

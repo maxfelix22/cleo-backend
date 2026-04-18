@@ -58,11 +58,12 @@ async function updateConversationState({ conversationId, summary = '', currentSt
 
   const updated = await supabaseRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(conversationId)}`, {
     method: 'PATCH',
-    headers: { Prefer: 'return=representation' },
+    headers: { Prefer: 'return=representation', Accept: 'application/json' },
     body: patch,
   });
 
-  return { mode: 'supabase', conversation: Array.isArray(updated) ? updated[0] : updated };
+  const conversation = Array.isArray(updated) ? updated[0] : updated;
+  return { mode: 'supabase', conversation, patch };
 }
 
 async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', phone = '', profileName = '' }) {
