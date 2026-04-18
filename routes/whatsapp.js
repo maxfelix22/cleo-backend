@@ -70,15 +70,18 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       : preservedLastProducts;
 
     const effectiveProducts = mergedProducts;
+    const currentStageForState = existingContext.checkout?.stage || existingContext.currentStage || '';
     const contextForState = {
       ...existingContext,
-      currentStage: existingContext.checkout?.stage || existingContext.currentStage || '',
+      currentStage: currentStageForState,
       lastProducts: effectiveProducts,
     };
 
     const checkoutContext = applyCheckoutState(contextForState, inbound);
 
     const followUpSignals = {
+      currentStageBefore: currentStageForState,
+      currentStageAfter: checkoutContext.currentStage || currentStageForState,
       requestedSize: extractRequestedSize(inbound.text),
       asksSize: /tem\s+no\s+tamanho|tamanho\s+[pmg]|tem\s+p\b|tem\s+m\b|tem\s+g\b/i.test(inbound.text || ''),
       asksColor: /tem\s+em\s+outra\s+cor|outra\s+cor|outras\s+cores/i.test(inbound.text || ''),
