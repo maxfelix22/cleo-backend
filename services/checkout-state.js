@@ -158,25 +158,25 @@ function buildCheckoutReply(context = {}) {
   const stageNow = context.currentStage || context.checkout?.stage || '';
 
   if (stageNow === 'checkout_choose_delivery') {
-    return 'Perfeito amore 💜 Antes de seguir, me diz como você prefere receber: *envio (USPS)*, *retirada* ou *entrega local*?';
+    return 'Perfeito amore 💜 Agora me diz como você prefere receber essa peça: *envio (USPS)*, *retirada* ou *entrega local*?';
   }
 
   if (stageNow === 'checkout_collect_address') {
     if (context.checkout?.deliveryMode === 'usps') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para envio por USPS que eu sigo com seu pedido.';
+      return 'Perfeito amore 💜 Me manda seu *endereço completo* para envio por USPS que eu já deixo seu pedido bem adiantado por aqui.';
     }
     if (context.checkout?.deliveryMode === 'local_delivery') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para entrega local que eu sigo com seu pedido.';
+      return 'Perfeito amore 💜 Me manda seu *endereço completo* para entrega local que eu já deixo tudo certinho por aqui.';
     }
   }
 
   if (stageNow === 'checkout_collect_name') {
     const productName = context.lastProducts?.[0]?.name || 'a peça';
-    return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Me manda seu *nome completo* que eu já começo seu pedido.`;
+    return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Me manda seu *nome completo* que eu já separo seu pedido por aqui.`;
   }
 
   if (stageNow === 'checkout_collect_contact' && context.checkout?.fullName) {
-    return `Perfeito, ${context.checkout.fullName} 💜 Agora me manda seu *telefone* ou *email* para eu continuar seu pedido.`;
+    return `Perfeito, ${context.checkout.fullName} 💜 Agora me manda seu *telefone* ou *email* para eu continuar e deixar tudo certinho no seu pedido.`;
   }
 
   if (stageNow === 'checkout_review' && context.checkout?.fullName) {
@@ -189,11 +189,11 @@ function buildCheckoutReply(context = {}) {
     if (context.checkout.fullName) lines.push(`• Nome: ${context.checkout.fullName}`);
     if (context.checkout.phone) lines.push(`• Telefone: ${context.checkout.phone}`);
     if (context.checkout.email) lines.push(`• Email: ${context.checkout.email}`);
-    return `Perfeito 💜 Aqui vai a revisão do seu pedido até agora:\n\n${lines.join('\n')}\n\nSe estiver tudo certo, me responde *ok* que eu sigo para o próximo passo.`;
+    return `Perfeito 💜 Aqui vai a revisão do seu pedido até agora:\n\n${lines.join('\n')}\n\nSe estiver tudo certinho, me responde *ok* que eu sigo e já encaminho seu atendimento.`;
   }
 
   if (stageNow === 'handoff_ready') {
-    return 'Perfeito amore 💜 Seu pedido já ficou pronto para o próximo passo do atendimento. Vou encaminhar isso certinho agora.';
+    return 'Perfeito amore 💜 Seu pedido já ficou prontinho por aqui. Vou encaminhar isso certinho agora para seguir seu atendimento.';
   }
 
   return '';
