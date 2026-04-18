@@ -6,6 +6,33 @@ function humanizeSnakeCase(value = '') {
     .trim();
 }
 
+function buildOperationalPriority(payload = {}) {
+  const deliveryMode = payload.checkout?.delivery_mode || '';
+  const hasAddress = !!payload.checkout?.address;
+
+  if (deliveryMode === 'local_delivery') {
+    return {
+      priority_code: 'high',
+      priority_label: 'alta',
+      operator_note: 'confirmar logística local e retorno rápido para a cliente',
+    };
+  }
+
+  if (deliveryMode === 'usps' && hasAddress) {
+    return {
+      priority_code: 'medium',
+      priority_label: 'média',
+      operator_note: 'validar envio e seguir com confirmação do pedido',
+    };
+  }
+
+  return {
+    priority_code: 'normal',
+    priority_label: 'normal',
+    operator_note: 'revisar pedido e seguir atendimento humano quando necessário',
+  };
+}
+
 function buildHandoffPayload(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
@@ -20,6 +47,13 @@ function buildHandoffPayload(context = {}) {
   const queueStatus = 'handoff_sent';
   const queueStage = 'new_order';
   const nextAction = 'review_and_contact_customer';
+
+  const operationalPriority = buildOperationalPriority({
+    checkout: {
+      delivery_mode: checkout.deliveryMode || '',
+      address,
+    },
+  });
 
   return {
     handoff_ready: true,
@@ -57,6 +91,7 @@ function buildHandoffPayload(context = {}) {
       email: checkout.email || '',
       review_confirmed: !!checkout.reviewConfirmed,
     },
+    operational_priority: operationalPriority,
   };
 }
 
@@ -82,6 +117,8 @@ function buildOperationalMessage(context = {}) {
       : null,
     payload.customer_message ? `• Última msg cliente: ${payload.customer_message}` : null,
     payload.conversation.id ? `• Conversation ID: ${payload.conversation.id}` : null,
+    payload.operational_priority?.priority_label ? `• Prioridade: ${payload.operational_priority.priority_label}` : null,
+    payload.operational_priority?.operator_note ? `• Nota operacional: ${payload.operational_priority.operator_note}` : null,
     '',
     payload.queue_status_label ? `• Status: ${payload.queue_status_label}` : null,
     payload.queue_stage_label ? `• Etapa: ${payload.queue_stage_label}` : null,
