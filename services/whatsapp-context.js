@@ -15,6 +15,7 @@ function buildInitialReply(inbound, options = {}) {
   const lastProducts = Array.isArray(context.lastProducts) ? context.lastProducts : [];
   const lastProduct = lastProducts[0] || null;
   const requestedSize = extractRequestedSize(text);
+  const matchingVariation = options.matchingVariation || null;
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -48,8 +49,14 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/tem no tamanho|tamanho\s+[pmg]|tem p\b|tem m\b|tem g\b/.test(lower)) {
     if (lastProduct?.name) {
-      const sizeLine = requestedSize ? ` no tamanho *${requestedSize}*` : ' no tamanho certinho';
-      return `Consigo ver sim amore 💜 Vou checar a disponibilidade da *${lastProduct.name}*${sizeLine} para você.`;
+      if (requestedSize && matchingVariation) {
+        const priceLine = matchingVariation.price ? ` e o valor dela fica em ${matchingVariation.price}` : '';
+        return `Tem sim amore 💜 A *${lastProduct.name}* aparece com variação no tamanho *${requestedSize}*${priceLine}. Se quiser, já sigo com você nesse pedido.`;
+      }
+      if (requestedSize) {
+        return `Não vi uma variação clara em *${requestedSize}* para a *${lastProduct.name}* aqui no catálogo, então prefiro te confirmar certinho antes de te prometer errado 💜`;
+      }
+      return `Consigo ver sim amore 💜 Vou checar a disponibilidade da *${lastProduct.name}* no tamanho certinho para você.`;
     }
     return 'Consigo ver sim amore 💜 Me confirma qual peça você quer que eu cheque no tamanho certinho.';
   }

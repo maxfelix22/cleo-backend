@@ -39,18 +39,37 @@ async function listCatalogItems() {
   return allItems.filter(item => item.type === 'ITEM' && !item.isDeleted && item.itemData?.name);
 }
 
-function formatSimpleProduct(item) {
-  const variations = (item.itemData?.variations || []).map(v => v.itemVariationData?.name).filter(Boolean);
-  const priceMoney = item.itemData?.variations?.[0]?.itemVariationData?.priceMoney;
+function formatVariation(itemVariation = {}) {
+  const data = itemVariation.itemVariationData || {};
+  const priceMoney = data.priceMoney;
   const amount = typeof priceMoney?.amount === 'bigint' ? Number(priceMoney.amount) : Number(priceMoney?.amount || 0);
   const price = amount ? `$${(amount / 100).toFixed(2)}` : null;
+  const name = data.name || '';
+  const normalized = name.toLowerCase();
+  const sizeMatch = normalized.match(/\b(pp|p|m|g|gg|xg|xgg)\b/);
+
+  return {
+    id: itemVariation.id || '',
+    name,
+    price,
+    size: sizeMatch ? sizeMatch[1].toUpperCase() : '',
+    available: itemVariation.isDeleted !== true,
+  };
+}
+
+function formatSimpleProduct(item) {
+  const variationObjects = item.itemData?.variations || [];
+  const variations = variationObjects.map(formatVariation).filter(v => v.name);
+  const firstPricedVariation = variations.find(v => v.price) || null;
+  const price = firstPricedVariation?.price || null;
 
   return {
     id: item.id,
     name: item.itemData?.name || '',
     description: item.itemData?.description || '',
     price,
-    variations,
+    variations: variations.map(v => v.name),
+    variationDetails: variations,
   };
 }
 
@@ -66,6 +85,14 @@ async function searchProducts(query, limit = 3) {
   return ranked;
 }
 
+function findMatchingVariation(product = {}, requestedSize = '') {
+  const size = String(requestedSize || '').trim().toUpperCase();
+  const details = Array.isArray(product.variationDetails) ? product.variationDetails : [];
+  if (!size) return null;
+  return details.find((variation) => variation.size === size) || null;
+}
+
 module.exports = {
   searchProducts,
+  findMatchingVariation,
 };

@@ -4,7 +4,7 @@ const router = express.Router();
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 const { sendWhatsAppMessage, hasRealTwilioConfig } = require('../services/whatsapp-outbound');
 const { buildInitialReply, extractRequestedSize } = require('../services/whatsapp-context');
-const { searchProducts } = require('../services/catalog-service');
+const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
@@ -64,9 +64,11 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       wantsThis: /quero esse|quero essa|vou querer|gostei desse|gostei dessa/i.test(inbound.text || ''),
     };
 
+    const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
+
     let replyText = buildCheckoutReply(checkoutContext);
     if (!replyText) {
-      replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext });
+      replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
 
     const savedContext = saveContext(contextKey, {
