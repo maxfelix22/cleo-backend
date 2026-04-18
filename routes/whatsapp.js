@@ -96,13 +96,24 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
 
+    const anchoredProduct = checkoutContext.lastProducts?.[0]
+      || effectiveProducts[0]
+      || existingContext.lastProducts?.[0]
+      || checkoutContext.lastProductPayload
+      || existingContext.lastProductPayload
+      || null;
+
+    const anchoredProducts = anchoredProduct ? [anchoredProduct] : (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || []));
+
     const savedContext = saveContext(contextKey, {
       ...checkoutContext,
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
-      lastProducts: effectiveProducts,
+      lastProducts: anchoredProducts,
+      lastProduct: anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || '',
+      lastProductPayload: anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null,
       lastReplyText: replyText,
       lastChannel: inbound.channel,
       lastProvider: inbound.provider,
