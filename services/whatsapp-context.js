@@ -1,3 +1,12 @@
+function extractRequestedSize(text = '') {
+  const lower = String(text || '').toLowerCase();
+  const direct = lower.match(/\b(pp|p|m|g|gg|xg|xgg)\b/);
+  if (direct) return direct[1].toUpperCase();
+  const long = lower.match(/tamanho\s+(pp|p|m|g|gg|xg|xgg)/);
+  if (long) return long[1].toUpperCase();
+  return '';
+}
+
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
@@ -5,6 +14,7 @@ function buildInitialReply(inbound, options = {}) {
   const context = options.context || {};
   const lastProducts = Array.isArray(context.lastProducts) ? context.lastProducts : [];
   const lastProduct = lastProducts[0] || null;
+  const requestedSize = extractRequestedSize(text);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -38,14 +48,15 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/tem no tamanho|tamanho\s+[pmg]|tem p\b|tem m\b|tem g\b/.test(lower)) {
     if (lastProduct?.name) {
-      return `Consigo ver sim amore 💜 Vou checar o tamanho certinho da *${lastProduct.name}* para você.`;
+      const sizeLine = requestedSize ? ` no tamanho *${requestedSize}*` : ' no tamanho certinho';
+      return `Consigo ver sim amore 💜 Vou checar a disponibilidade da *${lastProduct.name}*${sizeLine} para você.`;
     }
     return 'Consigo ver sim amore 💜 Me confirma qual peça você quer que eu cheque no tamanho certinho.';
   }
 
   if (/tem em outra cor|outra cor|outras cores/.test(lower)) {
     if (lastProduct?.name) {
-      return `Vejo sim mulher 💜 Vou consultar as outras cores da *${lastProduct.name}* pra você.`;
+      return `Vejo sim mulher 💜 Vou consultar as outras cores da *${lastProduct.name}* pra você e já te digo certinho.`;
     }
     return 'Vejo sim mulher 💜 Me confirma qual peça você quer que eu consulte nas outras cores.';
   }
@@ -62,4 +73,5 @@ function buildInitialReply(inbound, options = {}) {
 
 module.exports = {
   buildInitialReply,
+  extractRequestedSize,
 };

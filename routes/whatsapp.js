@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 const { sendWhatsAppMessage, hasRealTwilioConfig } = require('../services/whatsapp-outbound');
-const { buildInitialReply } = require('../services/whatsapp-context');
+const { buildInitialReply, extractRequestedSize } = require('../services/whatsapp-context');
 const { searchProducts } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
@@ -56,6 +56,14 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const checkoutContext = applyCheckoutState(contextForState, inbound);
 
+    const followUpSignals = {
+      requestedSize: extractRequestedSize(inbound.text),
+      asksSize: /tem\s+no\s+tamanho|tamanho\s+[pmg]|tem\s+p\b|tem\s+m\b|tem\s+g\b/i.test(inbound.text || ''),
+      asksColor: /tem\s+em\s+outra\s+cor|outra\s+cor|outras\s+cores/i.test(inbound.text || ''),
+      asksPrice: /quanto custa|preço|preco|valor/i.test(inbound.text || ''),
+      wantsThis: /quero esse|quero essa|vou querer|gostei desse|gostei dessa/i.test(inbound.text || ''),
+    };
+
     let replyText = buildCheckoutReply(checkoutContext);
     if (!replyText) {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext });
@@ -71,6 +79,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastReplyText: replyText,
       lastChannel: inbound.channel,
       lastProvider: inbound.provider,
+      followUpSignals,
     });
 
     let conversationSnapshot = conversationResult?.conversation || null;
