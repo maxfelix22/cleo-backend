@@ -8,6 +8,7 @@ function buildHandoffPayload(context = {}) {
     queue_status: 'handoff_sent',
     queue_stage: 'new_order',
     next_action: 'review_and_contact_customer',
+    customer_message: context.lastInboundText || '',
     customer: {
       id: context.customerId || '',
       name: checkout.fullName || context.profileName || '',
@@ -22,6 +23,8 @@ function buildHandoffPayload(context = {}) {
       name: product.name || '',
       price: product.price || null,
       source: product.source || 'unknown',
+      available_colors: product.availableColors || product.raw?.availableColors || [],
+      available_sizes: product.variationDetails || product.raw?.variationDetails || [],
     } : null,
     checkout: {
       delivery_mode: checkout.deliveryMode || '',
@@ -40,6 +43,7 @@ function buildOperationalMessage(context = {}) {
     '🛍️ *Novo pedido pronto para handoff*',
     '',
     payload.product?.name ? `• Produto: ${payload.product.name}` : '• Produto: não identificado',
+    payload.product?.price ? `• Preço: ${payload.product.price}` : null,
     payload.checkout.delivery_mode === 'usps' ? '• Entrega: USPS' : null,
     payload.checkout.delivery_mode === 'pickup' ? '• Entrega: Retirada' : null,
     payload.checkout.delivery_mode === 'local_delivery' ? '• Entrega: Entrega local' : null,
@@ -47,6 +51,13 @@ function buildOperationalMessage(context = {}) {
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
     payload.checkout.email ? `• Email: ${payload.checkout.email}` : null,
+    Array.isArray(payload.product?.available_colors) && payload.product.available_colors.length > 0
+      ? `• Cores vistas: ${payload.product.available_colors.join(', ')}`
+      : null,
+    Array.isArray(payload.product?.available_sizes) && payload.product.available_sizes.length > 0
+      ? `• Tamanhos vistos: ${payload.product.available_sizes.map((item) => item.size || item.name).filter(Boolean).join(', ')}`
+      : null,
+    payload.customer_message ? `• Última msg cliente: ${payload.customer_message}` : null,
     payload.conversation.id ? `• Conversation ID: ${payload.conversation.id}` : null,
     '',
     `• Queue status: ${payload.queue_status}`,
