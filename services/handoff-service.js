@@ -3,12 +3,17 @@ function buildHandoffPayload(context = {}) {
   const checkout = context.checkout || {};
   const address = checkout.address || context.address || '';
 
+  const customerMessage = String(context.lastInboundText || '').trim();
+  const meaningfulCustomerMessage = /^(ok|okay|okey|sim|certo|fechado|isso)$/i.test(customerMessage)
+    ? ''
+    : customerMessage;
+
   return {
     handoff_ready: true,
     queue_status: 'handoff_sent',
     queue_stage: 'new_order',
     next_action: 'review_and_contact_customer',
-    customer_message: context.lastInboundText || '',
+    customer_message: meaningfulCustomerMessage,
     customer: {
       id: context.customerId || '',
       name: checkout.fullName || context.profileName || '',
