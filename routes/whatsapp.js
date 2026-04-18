@@ -151,9 +151,15 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     let inboundEvent = null;
     let outboundEvent = null;
     let handoffPayload = null;
+    let handoffDebug = null;
     let operationalMessage = '';
     let operationalDispatch = null;
     if ((savedContext.currentStage || '') === 'handoff_ready') {
+      handoffDebug = {
+        currentStage: savedContext.currentStage,
+        checkout: savedContext.checkout || null,
+        summary: savedContext.summary || '',
+      };
       handoffPayload = buildHandoffPayload(savedContext);
       operationalMessage = buildOperationalMessage(savedContext);
       try {
@@ -207,6 +213,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       inboundEvent: inboundEvent?.event || null,
       outboundEvent: outboundEvent?.event || null,
       handoffPayload,
+      handoffDebug,
       operationalMessage,
       operationalDispatch,
       persistenceMode: customerResult?.mode || conversationResult?.mode || 'memory-fallback',
