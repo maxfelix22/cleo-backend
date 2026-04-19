@@ -160,8 +160,10 @@ function buildSalesEscortMessage(context = {}) {
   if (checkout.deliveryMode === 'usps') actionHints.push('acompanhar envio e confirmação de frete');
   if (!checkout.deliveryMode && product?.name) actionHints.push('seguir condução comercial para fechamento');
 
+  const priorityMarker = priority === 'alta' ? '🔥' : priority === 'média' ? '🟡' : '⚪️';
+
   const lines = [
-    '💬 *Atendimento & Vendas*',
+    `💬 *Atendimento & Vendas* ${priorityMarker}`,
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
     priority ? `• Prioridade: ${priority}` : null,
@@ -248,8 +250,10 @@ function buildCatalogEscortMessage(context = {}) {
 
   const healthLabel = alerts.length > 0 ? 'catálogo/comercial com pontos de atenção' : 'catálogo com leitura suficiente neste ciclo';
 
+  const hasCatalogAttention = alerts.length > 0;
+
   const lines = [
-    '📦 *Produtos & Estoque*',
+    hasCatalogAttention ? '📦 *Produtos & Estoque* ⚠️' : '📦 *Produtos & Estoque*',
     '',
     `• Saúde: ${healthLabel}`,
     product?.name ? `• Produto: ${product.name}` : null,
@@ -278,8 +282,10 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
 
   const healthLabel = alerts.length > 0 ? 'ciclo degradado' : 'ciclo saudável';
 
+  const hasTechnicalAttention = alerts.length > 0;
+
   const lines = [
-    '⚙️ *Sistema & Automação*',
+    hasTechnicalAttention ? '⚙️ *Sistema & Automação* 🚨' : '⚙️ *Sistema & Automação*',
     '',
     `• Saúde: ${healthLabel}`,
     meta.transportMode ? `• Transporte: ${meta.transportMode}` : null,
