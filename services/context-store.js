@@ -84,6 +84,18 @@ function detectStage(existing = {}, patch = {}) {
   return patch.currentStage || existing.currentStage || 'new_lead';
 }
 
+function isSummaryConsistent(summary = '', currentStage = '') {
+  const text = String(summary || '').toLowerCase();
+  if (!text) return false;
+  if (currentStage === 'handoff_ready') return /handoff|pronto/.test(text);
+  if (currentStage === 'checkout_review') return /revis[aã]o/.test(text);
+  if (['checkout_collect_contact', 'checkout_collect_name', 'checkout_collect_address', 'checkout_choose_delivery'].includes(currentStage)) {
+    return /checkout iniciado|checkout/.test(text);
+  }
+  if (currentStage === 'catalog_browse') return /produto em foco/.test(text);
+  return true;
+}
+
 function saveContext(key, patch = {}) {
   const existing = memoryStore.get(key) || {};
   const next = {
@@ -94,7 +106,10 @@ function saveContext(key, patch = {}) {
     createdAt: existing.createdAt || new Date().toISOString(),
   };
   next.currentStage = detectStage(existing, next);
-  next.summary = patch.summary || buildSummary(next);
+  const patchedSummary = patch.summary || existing.summary || '';
+  next.summary = isSummaryConsistent(patchedSummary, next.currentStage)
+    ? patchedSummary
+    : buildSummary(next);
   next.lastProduct = next.lastProducts?.[0]?.name || existing.lastProduct || '';
   next.lastProductPayload = buildLastProductPayload(next);
   memoryStore.set(key, next);
