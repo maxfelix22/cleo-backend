@@ -1,3 +1,22 @@
+function buildShippingCopy(context = {}) {
+  const product = context.lastProducts?.[0] || null;
+  const priceNumber = Number(product?.priceNumber || 0);
+
+  const localDeliveryFee = 5;
+  const uspsFee = priceNumber >= 99 ? 0 : 10;
+  const uspsFeeLabel = uspsFee === 0 ? 'frete grátis' : `$${uspsFee}`;
+
+  return {
+    localDeliveryFee,
+    uspsFee,
+    uspsFeeLabel,
+    localDeliveryLabel: `$${localDeliveryFee}`,
+    localDeliveryEta: '2 a 4 dias úteis dentro de Massachusetts',
+    uspsEtaInState: '2 a 4 dias úteis dentro de Massachusetts',
+    uspsEtaOutOfState: '3 a 5 dias úteis fora de Massachusetts',
+  };
+}
+
 function extractFullName(text = '') {
   const value = String(text || '').trim();
   if (!value) return '';
@@ -182,15 +201,29 @@ function buildCheckoutReply(context = {}) {
   const stageNow = context.currentStage || context.checkout?.stage || '';
 
   if (stageNow === 'checkout_choose_delivery') {
-    return 'Perfeito amore 💜 Agora me diz como você prefere receber essa peça: *envio (USPS)*, *retirada* ou *entrega local*?';
+    const shipping = buildShippingCopy(context);
+    return `Claro amor 💜 Me diz como você prefere receber essa peça: *envio (USPS)*, *retirada* ou *entrega local*.
+
+• Entrega local em Marlborough: ${shipping.localDeliveryLabel}
+• USPS abaixo de $99: $10
+• USPS acima de $99: frete grátis`;
   }
 
   if (stageNow === 'checkout_collect_address') {
     if (context.checkout?.deliveryMode === 'usps') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para envio por USPS, incluindo seu *ZIP code*, que eu já deixo seu pedido bem adiantado por aqui.';
+      const shipping = buildShippingCopy(context);
+      return `Me manda seu *endereço completo* com *ZIP code* para eu seguir com o envio 💜
+
+• Frete USPS deste pedido: ${shipping.uspsFeeLabel}
+• Prazo estimado em Massachusetts: ${shipping.uspsEtaInState}
+• Prazo estimado fora de Massachusetts: ${shipping.uspsEtaOutOfState}`;
     }
     if (context.checkout?.deliveryMode === 'local_delivery') {
-      return 'Perfeito amore 💜 Me manda seu *endereço completo* para entrega local, incluindo seu *ZIP code*, que eu já deixo tudo certinho por aqui.';
+      const shipping = buildShippingCopy(context);
+      return `Me manda seu *endereço completo* com *ZIP code* para entrega local 💜
+
+• Entrega local em Marlborough: ${shipping.localDeliveryLabel}
+• Prazo estimado: ${shipping.localDeliveryEta}`;
     }
   }
 
@@ -226,6 +259,7 @@ function buildCheckoutReply(context = {}) {
 module.exports = {
   applyCheckoutState,
   buildCheckoutReply,
+  buildShippingCopy,
   extractFullName,
   extractPhoneOrEmail,
   extractDeliveryMode,

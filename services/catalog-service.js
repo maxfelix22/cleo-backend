@@ -68,6 +68,11 @@ function extractAvailableColors(item = {}) {
   return [...new Set(colorHints.filter((hint) => haystack.includes(hint)))];
 }
 
+function parsePriceNumber(price = '') {
+  const value = Number(String(price || '').replace(/[^\d.]/g, ''));
+  return Number.isFinite(value) ? value : 0;
+}
+
 function formatSimpleProduct(item) {
   const variationObjects = item.itemData?.variations || [];
   const itemName = item.itemData?.name || '';
@@ -81,6 +86,7 @@ function formatSimpleProduct(item) {
     name: itemName,
     description: item.itemData?.description || '',
     price,
+    priceNumber: parsePriceNumber(price),
     variations: variations.map(v => v.name),
     variationDetails: variations,
     availableColors,
@@ -109,4 +115,5 @@ function findMatchingVariation(product = {}, requestedSize = '') {
 module.exports = {
   searchProducts,
   findMatchingVariation,
+  parsePriceNumber,
 };
