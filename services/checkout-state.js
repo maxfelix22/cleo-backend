@@ -1,3 +1,30 @@
+function extractAddressBlock(text = '') {
+  const value = String(text || '').trim();
+  if (!value) return null;
+
+  const emailMatch = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const phoneMatch = value.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/);
+  const lines = value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+
+  if (lines.length < 2) return null;
+
+  const fullName = lines.find((line) => line.split(/\s+/).filter(Boolean).length >= 2 && !/@/.test(line) && !/\d{3}[\s.-]?\d{3}[\s.-]?\d{4}/.test(line)) || '';
+  const email = emailMatch ? emailMatch[0] : '';
+  const phone = phoneMatch ? `+${phoneMatch[0].replace(/\D+/g, '')}` : '';
+
+  const addressLines = lines.filter((line) => line !== fullName && line !== email && line !== phoneMatch?.[0]);
+  const address = addressLines.join(', ').trim();
+
+  if (!fullName || !address || (!email && !phone)) return null;
+
+  return {
+    fullName,
+    email,
+    phone,
+    address,
+  };
+}
+
 function buildShippingCopy(context = {}) {
   const product = context.lastProducts?.[0] || null;
   const priceNumber = Number(product?.priceNumber || 0);
@@ -62,6 +89,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
   const lower = text.toLowerCase();
   const next = { ...context };
 
+  const addressBlock = extractAddressBlock(text);
+
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
     const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
     next.currentStage = 'checkout_choose_delivery';
@@ -109,6 +138,27 @@ function applyCheckoutState(context = {}, inbound = {}) {
   }
 
   if (stageNow === 'checkout_collect_address') {
+    if (addressBlock) {
+      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      next.currentStage = 'checkout_review';
+      next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
+      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
+      next.checkout = {
+        ...(context.checkout || {}),
+        stage: 'checkout_review',
+        address: addressBlock.address,
+        fullName: addressBlock.fullName,
+        phone: addressBlock.phone || context.checkout?.phone || '',
+        email: addressBlock.email || context.checkout?.email || '',
+        nextRequiredField: 'review_order',
+      };
+      next.summary = context.lastProducts?.[0]?.name
+        ? `checkout em revisão para ${context.lastProducts[0].name}`
+        : 'checkout em revisão';
+      return next;
+    }
+
     const address = extractAddress(text);
     if (address) {
       const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
@@ -214,13 +264,25 @@ function buildCheckoutReply(context = {}) {
       const shipping = buildShippingCopy(context);
       return `Me manda seu *endereço completo* com *ZIP code* para eu seguir com o envio 💜
 
+Se quiser agilizar, pode mandar tudo de uma vez:
+• nome completo
+• telefone
+• email
+• endereço completo com ZIP code
+
 • Frete USPS deste pedido: ${shipping.uspsFeeLabel}
 • Prazo estimado em Massachusetts: ${shipping.uspsEtaInState}
 • Prazo estimado fora de Massachusetts: ${shipping.uspsEtaOutOfState}`;
     }
     if (context.checkout?.deliveryMode === 'local_delivery') {
       const shipping = buildShippingCopy(context);
-      return `Me manda seu *endereço completo* com *ZIP code* para entrega local 💜
+      return `Me manda seu *endereço completo* para entrega local 💜
+
+Se quiser agilizar, pode mandar tudo de uma vez:
+• nome completo
+• telefone
+• email
+• endereço completo
 
 • Entrega local em Marlborough: ${shipping.localDeliveryLabel}
 • Prazo estimado: ${shipping.localDeliveryEta}`;
@@ -260,6 +322,7 @@ module.exports = {
   applyCheckoutState,
   buildCheckoutReply,
   buildShippingCopy,
+  extractAddressBlock,
   extractFullName,
   extractPhoneOrEmail,
   extractDeliveryMode,
