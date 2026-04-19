@@ -7,14 +7,17 @@ function extractRequestedSize(text = '') {
   return '';
 }
 
-function listAvailableSizes(lastProduct = null) {
-  const details = Array.isArray(lastProduct?.variationDetails)
+function getVariationDetails(lastProduct = null) {
+  return Array.isArray(lastProduct?.variationDetails)
     ? lastProduct.variationDetails
     : Array.isArray(lastProduct?.raw?.variationDetails)
       ? lastProduct.raw.variationDetails
       : [];
+}
 
-  const sizes = [...new Set(details.map((variation) => variation?.size).filter(Boolean))];
+function listAvailableSizes(lastProduct = null) {
+  const details = getVariationDetails(lastProduct);
+  const sizes = [...new Set(details.filter((variation) => variation?.inventory_in_stock !== false).map((variation) => variation?.size).filter(Boolean))];
   return sizes;
 }
 
@@ -24,10 +27,17 @@ function listAvailableColors(lastProduct = null) {
     : Array.isArray(lastProduct?.raw?.availableColors)
       ? lastProduct.raw.availableColors
       : [];
-  const fromVariations = Array.isArray(lastProduct?.variationDetails)
-    ? lastProduct.variationDetails.map((variation) => variation?.color).filter(Boolean)
-    : [];
+  const fromVariations = getVariationDetails(lastProduct)
+    .filter((variation) => variation?.inventory_in_stock !== false)
+    .map((variation) => variation?.color)
+    .filter(Boolean);
   return [...new Set([...fromProduct, ...fromVariations])];
+}
+
+function hasAnyInventory(lastProduct = null) {
+  if (typeof lastProduct?.inventory_in_stock === 'boolean') return lastProduct.inventory_in_stock;
+  const details = getVariationDetails(lastProduct);
+  return details.some((variation) => variation?.inventory_in_stock === true);
 }
 
 function buildInitialReply(inbound, options = {}) {
@@ -41,6 +51,7 @@ function buildInitialReply(inbound, options = {}) {
   const matchingVariation = options.matchingVariation || null;
   const availableSizes = listAvailableSizes(lastProduct);
   const availableColors = listAvailableColors(lastProduct);
+  const hasInventory = hasAnyInventory(lastProduct);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -65,6 +76,11 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/quanto custa|preço|preco|valor/.test(lower)) {
     if (lastProduct?.name) {
+      if (!hasInventory) {
+        return lastProduct.price
+          ? `Claro amore 💜 A *${lastProduct.name}* está por ${lastProduct.price}, mas aqui ela aparece sem estoque disponível no momento. Se você quiser, eu posso confirmar certinho pra você se já está entrando em reposição.`
+          : `Claro amore 💜 Vou confirmar certinho o valor e a disponibilidade da *${lastProduct.name}* pra te passar tudo redondinho.`;
+      }
       return lastProduct.price
         ? `Claro amore 💜 A *${lastProduct.name}* está por ${lastProduct.price}. Se quiser, eu já sigo com você nesse pedido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`
         : `Claro amore 💜 Vou confirmar certinho o valor da *${lastProduct.name}* pra te passar tudo redondinho.`;
@@ -75,6 +91,9 @@ function buildInitialReply(inbound, options = {}) {
   if (/tem no tamanho|tamanho\s+[pmg]|tem p\b|tem m\b|tem g\b/.test(lower)) {
     if (lastProduct?.name) {
       if (requestedSize && matchingVariation) {
+        if (matchingVariation.inventory_in_stock === false) {
+          return `A *${lastProduct.name}* aparece no tamanho *${requestedSize}*, mas essa variação está sem estoque no momento 💜 Se quiser, eu posso te mostrar outro tamanho disponível ou confirmar reposição.`;
+        }
         const priceLine = matchingVariation.price ? ` e o valor dela fica em ${matchingVariation.price}` : '';
         return `Tem sim amore 💜 A *${lastProduct.name}* aparece com variação no tamanho *${requestedSize}*${priceLine}. Esse modelo sai super bem por aqui ✨ Se quiser, já sigo com você nesse pedido.`;
       }
@@ -101,6 +120,9 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
     if (lastProduct?.name) {
+      if (!hasInventory) {
+        return `Aaaamei amore 💜 A *${lastProduct.name}* aparece aqui, mas no momento estou vendo ela sem estoque disponível. Se quiser, eu confirmo reposição certinho ou já te mostro outra opção parecida.`;
+      }
       return `Aaaamei amore 💜 Perfeito, vamos seguir com a *${lastProduct.name}*. Essa peça está saindo super bem por aqui ✨ Me manda só seu nome completo que eu já começo seu pedido.`;
     }
     return 'Aaaamei amore 💜 Me manda só o nome da peça, ou a foto de novo, que eu já sigo com seu pedido.';
