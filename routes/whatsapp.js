@@ -50,7 +50,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     }
 
     let products = [];
-    if (/tem\s+lingerie|tem\s+conjunto|tem\s+calcinha|tem\s+suti[aã]|tem\s+body|tem\s+camisola/i.test(inbound.text || '')) {
+    const shouldLookupCatalog = /tem\s+|você tem|vc tem|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa|xana loka|blow girl|sempre virgem|berinjelo|volum[aã]o|libido|oral|lubrificante|vibrador|fantasia|camisola|lingerie|conjunto|calcinha|suti[aã]|body/i.test(inbound.text || '');
+    if (shouldLookupCatalog) {
       try {
         products = await searchProducts(inbound.text, 3);
       } catch (err) {
