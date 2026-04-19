@@ -10,6 +10,7 @@ const client = new Client({
 })
 
 const BACKEND_PUBLIC_BASE_URL = (process.env.BACKEND_PUBLIC_BASE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || '').trim();
+const SQUARE_LOCATION_ID = (process.env.SQUARE_LOCATION_ID || '').trim();
 
 function buildPublicBaseUrl(req) {
   if (BACKEND_PUBLIC_BASE_URL) {
@@ -230,8 +231,10 @@ router.get('/square/products-simple', async (req, res) => {
 
     // Se não tem query, retorna mais vendidos / lista geral
     if (!queryRaw) {
-      const formatados = await Promise.all(ativos.slice(0, limit).map(item => formatItem(item, req)));
-      return res.json(formatados);
+      const variationIds = ativos.slice(0, limit).flatMap(item => Array.isArray(item.itemData?.variations) ? item.itemData.variations.map(variation => variation.id).filter(Boolean) : []);
+      const inventoryResult = await listInventoryCounts(variationIds);
+      const formatados = await Promise.all(ativos.slice(0, limit).map(item => formatItem(item, req, inventoryResult.countsByObjectId || {})));
+      return res.json({ inventory_mode: inventoryResult.mode, inventory_error: inventoryResult.error || null, items: formatados });
     }
 
     // Score + rank
@@ -250,8 +253,11 @@ router.get('/square/products-simple', async (req, res) => {
         .sort((a, b) => b.score - a.score);
     }
 
-    const formatados = await Promise.all(resultado.slice(0, limit).map(({ item }) => formatItem(item, req)));
-    res.json(formatados);
+    const selecionados = resultado.slice(0, limit).map(({ item }) => item);
+    const variationIds = selecionados.flatMap(item => Array.isArray(item.itemData?.variations) ? item.itemData.variations.map(variation => variation.id).filter(Boolean) : []);
+    const inventoryResult = await listInventoryCounts(variationIds);
+    const formatados = await Promise.all(selecionados.map(item => formatItem(item, req, inventoryResult.countsByObjectId || {})));
+    res.json({ inventory_mode: inventoryResult.mode, inventory_error: inventoryResult.error || null, items: formatados });
 
   } catch (err) {
     console.error('Erro products-simple:', err);
@@ -287,7 +293,14 @@ router.get('/square/products-by-category', async (req, res) => {
       return cats.includes(categoria) || nome.includes(categoria);
     });
 
-    res.json(await Promise.all(filtrados.slice(0, limit).map(item => formatItem(item, req))));
+    const selecionados = filtrados.slice(0, limit);
+    const variationIds = selecionados.flatMap(item => Array.isArray(item.itemData?.variations) ? item.itemData.variations.map(variation => variation.id).filter(Boolean) : []);
+    const inventoryResult = await listInventoryCounts(variationIds);
+    res.json({
+      inventory_mode: inventoryResult.mode,
+      inventory_error: inventoryResult.error || null,
+      items: await Promise.all(selecionados.map(item => formatItem(item, req, inventoryResult.countsByObjectId || {}))),
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -325,10 +338,16 @@ router.get('/square/best-sellers', async (req, res) => {
         !item.isDeleted &&
         (item.itemData?.name || '').toLowerCase().includes(keyword)
       );
-      if (found) bestSellers.push(await formatItem(found, req));
+      if (found) bestSellers.push(found);
     }
 
-    res.json(bestSellers);
+    const variationIds = bestSellers.flatMap(item => Array.isArray(item.itemData?.variations) ? item.itemData.variations.map(variation => variation.id).filter(Boolean) : []);
+    const inventoryResult = await listInventoryCounts(variationIds);
+    res.json({
+      inventory_mode: inventoryResult.mode,
+      inventory_error: inventoryResult.error || null,
+      items: await Promise.all(bestSellers.map(item => formatItem(item, req, inventoryResult.countsByObjectId || {}))),
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -668,7 +687,62 @@ router.get('/square/catalog-image/:imageId', async (req, res) => {
 // ============================================================
 // FUNÇÃO AUXILIAR: Formatar item do Square
 // ============================================================
-async function formatItem(item, req) {
+async function listInventoryCounts(catalogObjectIds = []) {
+  const ids = Array.isArray(catalogObjectIds)
+    ? [...new Set(catalogObjectIds.map((id) => String(id || '').trim()).filter(Boolean))]
+    : [];
+
+  if (ids.length === 0) return { countsByObjectId: {}, mode: 'no-ids' };
+
+  try {
+    const response = await client.inventoryApi.batchRetrieveInventoryCounts({
+      catalogObjectIds: ids,
+      locationIds: SQUARE_LOCATION_ID ? [SQUARE_LOCATION_ID] : undefined,
+    });
+
+    const counts = response.result?.counts || [];
+    const countsByObjectId = {};
+
+    for (const count of counts) {
+      const objectId = String(count.catalogObjectId || '').trim();
+      if (!objectId) continue;
+      if (!countsByObjectId[objectId]) countsByObjectId[objectId] = [];
+      countsByObjectId[objectId].push({
+        locationId: count.locationId || '',
+        state: count.state || '',
+        quantity: count.quantity || '0',
+        calculatedAt: count.calculatedAt || '',
+      });
+    }
+
+    return { countsByObjectId, mode: 'inventory-api' };
+  } catch (err) {
+    return { countsByObjectId: {}, mode: 'inventory-api-error', error: err.message };
+  }
+}
+
+function summarizeInventory(counts = []) {
+  const summary = {
+    inStock: false,
+    totalQuantity: 0,
+    byState: {},
+  };
+
+  for (const entry of counts) {
+    const state = String(entry.state || 'UNKNOWN').toUpperCase();
+    const quantity = Number(entry.quantity || 0);
+    if (!Number.isFinite(quantity)) continue;
+    summary.byState[state] = (summary.byState[state] || 0) + quantity;
+    if (state === 'IN_STOCK' && quantity > 0) {
+      summary.inStock = true;
+      summary.totalQuantity += quantity;
+    }
+  }
+
+  return summary;
+}
+
+async function formatItem(item, req, inventoryCountsByObjectId = {}) {
   const data = item.itemData || {};
   const variations = Array.isArray(data.variations) ? data.variations : [];
 
@@ -676,12 +750,13 @@ async function formatItem(item, req) {
   let priceMin = null;
   let priceMax = null;
 
-  const formattedVariations = variations.map(v => {
+  const formattedVariations = variations.map((v) => {
     const variationData = v.itemVariationData || {};
     const amount = variationData?.priceMoney?.amount;
     const price = (amount !== undefined && amount !== null)
       ? Number(amount) / 100
       : null;
+    const inventory = summarizeInventory(inventoryCountsByObjectId[v.id] || []);
 
     if (price !== null) {
       if (priceMin === null || price < priceMin) priceMin = price;
@@ -694,6 +769,9 @@ async function formatItem(item, req) {
       name: variationData.name || '',
       price,
       available: !v.isDeleted,
+      inventory_in_stock: inventory.inStock,
+      inventory_total_quantity: inventory.totalQuantity,
+      inventory_by_state: inventory.byState,
     };
   });
 
@@ -703,6 +781,12 @@ async function formatItem(item, req) {
   const categorias = Array.isArray(data.categories)
     ? data.categories.map(c => c?.name).filter(Boolean)
     : [];
+
+  const itemInventory = summarizeInventory(
+    formattedVariations.flatMap((variation) =>
+      Object.entries(variation.inventory_by_state || {}).map(([state, quantity]) => ({ state, quantity }))
+    )
+  );
 
   return {
     id: item.id,
@@ -717,6 +801,9 @@ async function formatItem(item, req) {
     has_image: !!imagemUrl,
     categories: categorias,
     available: !item.isDeleted,
+    inventory_in_stock: itemInventory.inStock,
+    inventory_total_quantity: itemInventory.totalQuantity,
+    inventory_by_state: itemInventory.byState,
     variation_count: formattedVariations.length,
     variations: formattedVariations,
   };
