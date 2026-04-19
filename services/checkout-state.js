@@ -252,11 +252,16 @@ function buildCheckoutReply(context = {}) {
 
   if (stageNow === 'checkout_choose_delivery') {
     const shipping = buildShippingCopy(context);
-    return `Claro amor 💜 Me diz como você prefere receber essa peça: *envio (USPS)*, *retirada* ou *entrega local*.
+    return `Me diz como você prefere receber essa peça 💜
+
+• envio (USPS)
+• retirada
+• entrega local
 
 • Entrega local em Marlborough: ${shipping.localDeliveryLabel}
 • USPS abaixo de $99: $10
-• USPS acima de $99: frete grátis`;
+• USPS acima de $99: frete grátis
+• Atendemos apenas endereços dentro dos Estados Unidos`;
   }
 
   if (stageNow === 'checkout_collect_address') {
@@ -272,7 +277,8 @@ Se quiser agilizar, pode mandar tudo de uma vez:
 
 • Frete USPS deste pedido: ${shipping.uspsFeeLabel}
 • Prazo estimado em Massachusetts: ${shipping.uspsEtaInState}
-• Prazo estimado fora de Massachusetts: ${shipping.uspsEtaOutOfState}`;
+• Prazo estimado fora de Massachusetts: ${shipping.uspsEtaOutOfState}
+• Atendemos apenas endereços dentro dos Estados Unidos`;
     }
     if (context.checkout?.deliveryMode === 'local_delivery') {
       const shipping = buildShippingCopy(context);
