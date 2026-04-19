@@ -50,9 +50,19 @@ function inferProductFamily(product = null) {
   return 'geral';
 }
 
+function inferDominantAttribute(product = null) {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  if (/morango|uva|menta|chocolate|cereja|baunilha|melancia|frutas vermelhas|sabor/.test(text)) return 'sabor';
+  if (/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata/.test(text)) return 'cor';
+  if (/esquenta|esfria|retard|libido|vibra|adstringente|ere[cç][aã]o|excitante/.test(text)) return 'efeito';
+  if (/flor|doce|fragr[aâ]ncia|perfume|cheiro/.test(text)) return 'fragrancia';
+  return 'geral';
+}
+
 function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null) {
   const normalizedCurrent = String(currentName || '').trim().toLowerCase();
   const currentFamily = inferProductFamily(currentProduct);
+  const currentAttribute = inferDominantAttribute(currentProduct);
   const currentPrice = Number(currentProduct?.priceNumber || 0);
   const candidates = (Array.isArray(products) ? products : []).filter((product) => {
     if (!product?.name) return false;
@@ -60,8 +70,12 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
     return product.inventory_in_stock !== false;
   });
 
+  const sameAttribute = candidates.filter((product) => inferDominantAttribute(product) === currentAttribute);
   const sameFamily = candidates.filter((product) => inferProductFamily(product) === currentFamily);
-  const pool = sameFamily.length > 0 ? sameFamily : candidates;
+  const sameFamilyAndAttribute = sameAttribute.filter((product) => inferProductFamily(product) === currentFamily);
+  const pool = sameFamilyAndAttribute.length > 0
+    ? sameFamilyAndAttribute
+    : (sameFamily.length > 0 ? sameFamily : (sameAttribute.length > 0 ? sameAttribute : candidates));
 
   pool.sort((a, b) => {
     const aPrice = Number(a?.priceNumber || 0);
