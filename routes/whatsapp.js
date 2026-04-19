@@ -260,18 +260,30 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         }
       }
 
-      systemEscortMessage = buildSystemEscortMessage(savedContext, {
+      const systemEscortMeta = {
         transportMode: hasRealTwilioConfig() ? 'twilio' : 'stub',
         persistenceMode: customerResult?.mode || conversationResult?.mode || 'memory-fallback',
         eventMode: inboundEvent?.mode || outboundEvent?.mode || 'memory-fallback',
         opsDispatchMode: operationalDispatch?.mode || (hasTelegramOpsConfig() ? 'telegram' : 'stub'),
-      });
-      try {
-        systemEscortDispatch = await sendOperationalTelegramMessage(systemEscortMessage, {
-          topicKey: 'sistema_automacao',
-        });
-      } catch (err) {
-        console.error('[whatsapp/inbound] system escort dispatch error:', err.message);
+      };
+      systemEscortMessage = buildSystemEscortMessage(savedContext, systemEscortMeta);
+      const shouldSendSystemEscort = Boolean(
+        systemEscortMeta.transportMode !== 'twilio'
+        || systemEscortMeta.persistenceMode !== 'supabase'
+        || systemEscortMeta.eventMode !== 'supabase'
+        || systemEscortMeta.opsDispatchMode !== 'telegram'
+        || !savedContext.customerId
+        || !savedContext.conversationId
+        || !savedContext.summary
+      );
+      if (shouldSendSystemEscort) {
+        try {
+          systemEscortDispatch = await sendOperationalTelegramMessage(systemEscortMessage, {
+            topicKey: 'sistema_automacao',
+          });
+        } catch (err) {
+          console.error('[whatsapp/inbound] system escort dispatch error:', err.message);
+        }
       }
       handoffDebug = {
         currentStage: savedContext.currentStage,
