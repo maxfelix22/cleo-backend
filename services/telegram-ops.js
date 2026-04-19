@@ -127,9 +127,32 @@ function buildSalesEscortMessage(context = {}) {
   return lines.join('\n');
 }
 
+function buildMemoryEscortMessage(context = {}) {
+  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const checkout = context.checkout || {};
+  const lines = [
+    '🧠 *Memória & Clientes*',
+    '',
+    context.profileName ? `• Cliente: ${context.profileName}` : null,
+    context.customerId ? `• Customer ID: ${context.customerId}` : null,
+    context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
+    product?.name ? `• Produto em foco: ${product.name}` : null,
+    checkout.deliveryMode === 'local_delivery' ? '• Entrega preferida nesta conversa: entrega local' : null,
+    checkout.deliveryMode === 'usps' ? '• Entrega preferida nesta conversa: USPS' : null,
+    checkout.deliveryMode === 'pickup' ? '• Entrega preferida nesta conversa: retirada' : null,
+    checkout.fullName ? `• Nome salvo: ${checkout.fullName}` : null,
+    checkout.email ? `• Email salvo: ${checkout.email}` : null,
+    checkout.phone ? `• Telefone salvo: ${checkout.phone}` : null,
+    context.summary ? `• Resumo atual: ${context.summary}` : null,
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
   sendOperationalTelegramMessage,
   buildSalesEscortMessage,
+  buildMemoryEscortMessage,
 };
