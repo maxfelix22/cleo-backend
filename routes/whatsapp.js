@@ -126,7 +126,20 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []),
     };
 
-    const checkoutContext = applyCheckoutState(contextForState, inbound);
+    let checkoutContext = applyCheckoutState(contextForState, inbound);
+
+    const handoffAckPattern = /^(oi+|ol[áa]|boa (tarde|noite|dia)|você tem|vc tem|tem\s+|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa)/i;
+    if (
+      (checkoutContext.currentStage || '') === 'handoff_ready'
+      && handoffAckPattern.test(String(inbound.text || '').trim())
+    ) {
+      checkoutContext = {
+        ...checkoutContext,
+        currentStage: 'catalog_browse',
+        checkout: {},
+        summary: '',
+      };
+    }
 
     const productDebug = {
       inboundText: inbound.text,
