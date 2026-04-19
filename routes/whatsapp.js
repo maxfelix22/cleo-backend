@@ -195,12 +195,26 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     let systemEscortDispatch = null;
     if ((savedContext.currentStage || '') === 'handoff_ready') {
       salesEscortMessage = buildSalesEscortMessage(savedContext);
-      try {
-        salesEscortDispatch = await sendOperationalTelegramMessage(salesEscortMessage, {
-          topicKey: 'atendimento_vendas',
-        });
-      } catch (err) {
-        console.error('[whatsapp/inbound] sales escort dispatch error:', err.message);
+      const shouldSendSalesEscort = Boolean(
+        savedContext.lastProductPayload?.name
+        || savedContext.lastProduct
+        || savedContext.followUpSignals?.wantsThis
+        || savedContext.followUpSignals?.asksPrice
+        || savedContext.followUpSignals?.asksColor
+        || savedContext.followUpSignals?.requestedSize
+        || savedContext.checkout?.deliveryMode
+        || savedContext.checkout?.fullName
+        || savedContext.checkout?.email
+        || savedContext.checkout?.phone
+      );
+      if (shouldSendSalesEscort) {
+        try {
+          salesEscortDispatch = await sendOperationalTelegramMessage(salesEscortMessage, {
+            topicKey: 'atendimento_vendas',
+          });
+        } catch (err) {
+          console.error('[whatsapp/inbound] sales escort dispatch error:', err.message);
+        }
       }
 
       memoryEscortMessage = buildMemoryEscortMessage(savedContext);
