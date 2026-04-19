@@ -58,15 +58,15 @@ function buildInitialReply(inbound, options = {}) {
     if (products.length > 0) {
       const top = products[0];
       const priceLine = top.price ? ` por ${top.price}` : '';
-      return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Esse modelo é bem queridinho por aqui ✨ Se quiser, eu também posso te mostrar mais opções parecidas.`;
+      return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Esse modelo é bem queridinho por aqui ✨ Se quiser, eu também posso te mostrar mais opções parecidas. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
     }
-    return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, já posso te mostrar as que mais saem também.';
+    return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, já posso te mostrar as que mais saem também. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
   }
 
   if (/quanto custa|preço|preco|valor/.test(lower)) {
     if (lastProduct?.name) {
       return lastProduct.price
-        ? `Claro amore 💜 A *${lastProduct.name}* está por ${lastProduct.price}. Se quiser, eu já sigo com você nesse pedido.`
+        ? `Claro amore 💜 A *${lastProduct.name}* está por ${lastProduct.price}. Se quiser, eu já sigo com você nesse pedido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`
         : `Claro amore 💜 Vou confirmar certinho o valor da *${lastProduct.name}* pra te passar tudo redondinho.`;
     }
     return 'Claro amore 💜 Me confirma qual peça você quer que eu veja o valor certinho pra não te passar nada errado.';
