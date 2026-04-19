@@ -106,6 +106,13 @@ function buildSalesEscortMessage(context = {}) {
     priority = 'média';
   }
 
+  const heatSignals = [];
+  if (followUpSignals.wantsThis) heatSignals.push('intenção explícita de compra');
+  if (context.currentStage === 'checkout_review') heatSignals.push('cliente já chegou na revisão do pedido');
+  if (context.currentStage === 'handoff_ready') heatSignals.push('cliente pronta para handoff');
+  if (checkout.deliveryMode) heatSignals.push(`logística já definida: ${checkout.deliveryMode}`);
+  if (checkout.fullName || checkout.email || checkout.phone) heatSignals.push('dados de checkout já começaram a ser entregues');
+
   const actionHints = [];
   if (followUpSignals.wantsThis) actionHints.push('aproveitar intenção de compra e acelerar fechamento');
   if (context.currentStage === 'checkout_review') actionHints.push('evitar atrito e confirmar fechamento do pedido');
@@ -124,6 +131,7 @@ function buildSalesEscortMessage(context = {}) {
     product?.name ? `• Produto em foco: ${product.name}` : null,
     product?.price ? `• Preço: ${product.price}` : null,
     signals.length > 0 ? `• Sinais: ${signals.join(' · ')}` : null,
+    heatSignals.length > 0 ? `• Calor comercial: ${heatSignals.join(' · ')}` : null,
     checkout.deliveryMode === 'local_delivery' ? '• Entrega escolhida: entrega local' : null,
     checkout.deliveryMode === 'usps' ? '• Entrega escolhida: USPS' : null,
     checkout.deliveryMode === 'pickup' ? '• Entrega escolhida: retirada' : null,
