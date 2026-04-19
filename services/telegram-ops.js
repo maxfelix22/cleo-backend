@@ -139,7 +139,11 @@ function buildSalesEscortMessage(context = {}) {
   if (checkout.fullName || checkout.email || checkout.phone) priorityScore += 1;
 
   let priority = 'normal';
-  if (priorityScore >= 5) {
+  if (
+    context.currentStage === 'handoff_ready'
+    || (followUpSignals.wantsThis && (checkout.deliveryMode || checkout.fullName || checkout.email || checkout.phone))
+    || (context.currentStage === 'checkout_review' && (checkout.fullName || checkout.email || checkout.phone))
+  ) {
     priority = 'alta';
   } else if (priorityScore >= 2) {
     priority = 'média';
@@ -241,7 +245,7 @@ function buildCatalogEscortMessage(context = {}) {
   if (context.followUpSignals?.asksColor && availableColors.length === 0) {
     alerts.push('cliente perguntou cor, mas o catálogo não mostrou cor com clareza');
   }
-  if (!product?.price) {
+  if (!product?.price && (context.followUpSignals?.asksPrice || context.followUpSignals?.wantsThis)) {
     alerts.push('produto sem preço claro no payload atual');
   }
   if (checkout.deliveryMode === 'usps') {
