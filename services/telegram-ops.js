@@ -116,10 +116,20 @@ function buildSalesEscortMessage(context = {}) {
 
   const stageLabel = stageLabelMap[context.currentStage] || context.currentStage || '';
 
+  let priorityScore = 0;
+  if (followUpSignals.wantsThis) priorityScore += 3;
+  if (context.currentStage === 'checkout_review') priorityScore += 3;
+  if (context.currentStage === 'handoff_ready') priorityScore += 4;
+  if (followUpSignals.asksPrice) priorityScore += 1;
+  if (followUpSignals.requestedSize) priorityScore += 1;
+  if (followUpSignals.asksColor) priorityScore += 1;
+  if (checkout.deliveryMode) priorityScore += 1;
+  if (checkout.fullName || checkout.email || checkout.phone) priorityScore += 1;
+
   let priority = 'normal';
-  if (followUpSignals.wantsThis || context.currentStage === 'handoff_ready' || context.currentStage === 'checkout_review') {
+  if (priorityScore >= 5) {
     priority = 'alta';
-  } else if (followUpSignals.asksPrice || followUpSignals.requestedSize || followUpSignals.asksColor) {
+  } else if (priorityScore >= 2) {
     priority = 'média';
   }
 
@@ -143,6 +153,7 @@ function buildSalesEscortMessage(context = {}) {
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
     priority ? `• Prioridade comercial: ${priority}` : null,
+    `• Score comercial: ${priorityScore}`,
     stageLabel ? `• Etapa comercial: ${stageLabel}` : null,
     meaningfulLastMessage ? `• Última msg útil: ${meaningfulLastMessage}` : null,
     product?.name ? `• Produto em foco: ${product.name}` : null,
