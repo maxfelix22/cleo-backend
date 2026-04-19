@@ -124,17 +124,18 @@ function buildInitialReply(inbound, options = {}) {
     return 'Perfeito amore 💜 Me diz o que você quer ou me manda a foto/nome da peça que eu já sigo com você.';
   }
 
-  if (/tem\s+lingerie|tem\s+conjunto|tem\s+calcinha|tem\s+suti[aã]|tem\s+body|tem\s+camisola/.test(lower)) {
+  const looksLikeProductDiscovery = /tem\s+|você tem|vc tem|trabalha com|tem aí|tem desse|tem dessa/.test(lower);
+  if (looksLikeProductDiscovery) {
     if (products.length > 0) {
       const firstInStock = products.find((product) => product?.inventory_in_stock !== false) || products[0];
       const top = firstInStock;
       const priceLine = top.price ? ` por ${top.price}` : '';
       if (top.inventory_in_stock === false) {
-        return `Tem sim amore 💜 Achei opções por aqui, mas essa primeira leitura está me mostrando itens sem estoque no momento. Se você quiser, eu sigo te mostrando alternativas que façam mais sentido pra você e confirmo a reposição certinho.`;
+        return `Tem sim amore 💜 Eu encontrei esse tipo de produto por aqui, mas essa primeira leitura está me mostrando o item principal sem estoque no momento. Se você quiser, eu posso te mostrar alternativas disponíveis ou confirmar reposição certinho.`;
       }
-      return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Esse modelo é bem queridinho por aqui ✨ Se quiser, eu também posso te mostrar mais opções parecidas. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
+      return `Tem sim amore 💜 Já achei uma opção por aqui: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais opções parecidas e te dizer qual faz mais sentido para o que você quer ✨ Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
     }
-    return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, já posso te mostrar as que mais saem também. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
+    return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, eu também posso te mostrar alternativas parecidas e te orientar pelo que faz mais sentido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
   }
 
   if (/quanto custa|preço|preco|valor/.test(lower)) {
