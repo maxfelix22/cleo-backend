@@ -72,8 +72,29 @@ async function sendOperationalTelegramMessage(text, options = {}) {
   };
 }
 
+function buildSalesEscortMessage(context = {}) {
+  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const followUpSignals = context.followUpSignals || {};
+  const lines = [
+    '💬 *Atendimento & Vendas*',
+    '',
+    context.profileName ? `• Cliente: ${context.profileName}` : null,
+    context.lastInboundText ? `• Última msg: ${context.lastInboundText}` : null,
+    product?.name ? `• Produto em foco: ${product.name}` : null,
+    product?.price ? `• Preço: ${product.price}` : null,
+    followUpSignals.requestedSize ? `• Tamanho pedido: ${followUpSignals.requestedSize}` : null,
+    followUpSignals.asksColor ? '• Sinal: perguntou cor' : null,
+    followUpSignals.asksPrice ? '• Sinal: perguntou preço' : null,
+    followUpSignals.wantsThis ? '• Sinal: intenção de compra' : null,
+    context.summary ? `• Resumo: ${context.summary}` : null,
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
   sendOperationalTelegramMessage,
+  buildSalesEscortMessage,
 };
