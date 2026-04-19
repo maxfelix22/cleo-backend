@@ -56,23 +56,24 @@ function buildSummary(next) {
 
 function buildLastProductPayload(next) {
   const mainProduct = next.lastProducts?.[0] || null;
-  if (!mainProduct) return next.lastProductPayload || null;
+  const existingPayload = next.lastProductPayload || null;
+  if (!mainProduct) return existingPayload;
 
   return {
-    product_id: mainProduct.id || '',
-    product_name: mainProduct.name || '',
-    price: mainProduct.price || '',
-    image: mainProduct.image || '',
-    source: mainProduct.source || 'unknown',
-    variation: mainProduct.variation || '',
-    variation_details: mainProduct.variationDetails || mainProduct.raw?.variationDetails || [],
-    available_colors: mainProduct.availableColors || mainProduct.raw?.availableColors || [],
-    color: mainProduct.color || '',
-    size: mainProduct.size || '',
-    current_stage: next.currentStage || '',
-    summary: next.summary || '',
-    checkout: next.checkout || null,
-    follow_up_signals: next.followUpSignals || null,
+    product_id: mainProduct.id || existingPayload?.product_id || '',
+    product_name: mainProduct.name || existingPayload?.product_name || '',
+    price: mainProduct.price || existingPayload?.price || '',
+    image: mainProduct.image || existingPayload?.image || '',
+    source: mainProduct.source || existingPayload?.source || 'unknown',
+    variation: mainProduct.variation || existingPayload?.variation || '',
+    variation_details: mainProduct.variationDetails || mainProduct.raw?.variationDetails || existingPayload?.variation_details || [],
+    available_colors: mainProduct.availableColors || mainProduct.raw?.availableColors || existingPayload?.available_colors || [],
+    color: mainProduct.color || existingPayload?.color || '',
+    size: mainProduct.size || existingPayload?.size || '',
+    current_stage: next.currentStage || existingPayload?.current_stage || '',
+    summary: next.summary || existingPayload?.summary || '',
+    checkout: next.checkout || existingPayload?.checkout || null,
+    follow_up_signals: next.followUpSignals || existingPayload?.follow_up_signals || null,
     updated_at: next.updatedAt || new Date().toISOString(),
   };
 }
