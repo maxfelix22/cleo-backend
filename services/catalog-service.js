@@ -7,8 +7,37 @@ const client = new Client({
 
 const SQUARE_LOCATION_ID = (process.env.SQUARE_LOCATION_ID || '').trim();
 
+const SEMANTIC_MAP = [
+  { regex: /excita|tesao|tesão|apimenta|vontade de transar|molha|fica molhada|libido|desejo|afrodisiaco|afrodisíaco|mais prazer|xana loka|goze|goze\+|sedenta|siri ryka/i, terms: ['xana loka', 'goze excitante', 'excitante feminino', 'sedenta'] },
+  { regex: /ereção|erecao|ficar duro|levantar|volumao|volumão|berinjelo|pinto loko|retardante|durar mais|demora gozar|resistencia|resistência|excitante masculino/i, terms: ['volumão', 'berinjelo', 'pinto loko', 'excitante masculino'] },
+  { regex: /oral|boquete|fela[cç][aã]o|chupar|lamber|sexo oral|garganta profunda|xupa xana|blow girl|sabor|afrodisiaco oral/i, terms: ['xupa xana', 'blow girl', 'oral', 'garganta profunda', 'gel beijável'] },
+  { regex: /vibrador|vibra|bullet|sugador|wearable|rabbit|ponto g|ponto-g|dildo|masturbador feminin|prazer sozinha/i, terms: ['vibrador', 'bullet', 'sugador', 'rabbit'] },
+  { regex: /lubrificante|lubrifican|lube|resseca|seca|dor na penetracao|dor penetração|deslizante|lubri/i, terms: ['lubrificante', 'lube', 'deslizante', 'mylub'] },
+  { regex: /anal|retard|relaxar anus|ânus|dor no anal|dessensibiliza|desensibiliza|primer anal/i, terms: ['dessensibilizante', 'anal', 'primer'] },
+  { regex: /lingerie|conjunto|calcinha sutia|soutien|renda|tule|transparente|calcinha sutiã/i, terms: ['lingerie', 'conjunto'] },
+  { regex: /camisola|baby.?doll|neglig[eé]|robe|quimono/i, terms: ['camisola', 'baby doll', 'robe'] },
+  { regex: /fantasia|fantasi|médica|medica|policial|coelha|fazendeira|militar|bombeira|estudante|roleplay/i, terms: ['fantasia'] },
+  { regex: /perfume|cheirosa|cheiro intimo|perfume intimo|perfume de calcinha|fragrancia|fragrance/i, terms: ['perfume calcinha', 'perfume íntimo'] },
+  { regex: /sabonete|higiene intima|ph intimo|odor intimo|cuidado intimo|limpeza intima|babbaloko/i, terms: ['sabonete íntimo', 'higiene', 'babbaloko'] },
+  { regex: /adstringente|virgindade|apertar|ficar mais aperta|sempre virgem|virginal|contrai/i, terms: ['adstringente', 'sempre virgem', 'hamamelis'] },
+  { regex: /clitoris|clitóris|estimulador|estimula clitoris/i, terms: ['estimulador', 'clitóris', 'bullet'] },
+  { regex: /kit|combo|pacote|caixa secreta/i, terms: ['kit', 'combo', 'stimulus', 'caixa secreta'] },
+];
+
+function semanticTranslate(query = '') {
+  const q = String(query || '').toLowerCase();
+  const extras = [];
+
+  for (const rule of SEMANTIC_MAP) {
+    if (rule.regex.test(q)) extras.push(...rule.terms);
+  }
+
+  if (extras.length === 0) return q;
+  return [...new Set([q, ...extras])].join(' ');
+}
+
 function scoreProduct(item, query) {
-  const q = String(query || '').toLowerCase().trim();
+  const q = semanticTranslate(query);
   if (!q) return 0;
 
   const nome = String(item.itemData?.name || '').toLowerCase();
@@ -18,10 +47,12 @@ function scoreProduct(item, query) {
 
   let score = 0;
   for (const word of q.split(/\s+/).filter(Boolean)) {
-    if (nome.includes(word)) score += 10;
-    if (descricao.includes(word)) score += 3;
-    if (categorias.includes(word)) score += 5;
-    if (text.includes(word)) score += 1;
+    if (nome === word) score += 30;
+    else if (nome.startsWith(word)) score += 20;
+    else if (nome.includes(word)) score += 12;
+    if (descricao.includes(word)) score += 5;
+    if (categorias.includes(word)) score += 8;
+    if (text.includes(word)) score += 2;
   }
   return score;
 }
