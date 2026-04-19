@@ -59,6 +59,18 @@ function inferDominantAttribute(product = null) {
   return 'geral';
 }
 
+function inferDesiredEffect(text = '') {
+  const lower = String(text || '').toLowerCase();
+  if (/libido|mais vontade|mais desejo|dar mais desejo|dar mais vontade|afrodis[ií]aco|mais tes[aã]o|mais prazer|excit/.test(lower)) return 'libido';
+  if (/apertad|mais apertadinha|sempre virgem|adstringente|virgindade|contrair/.test(lower)) return 'apertar';
+  if (/durar mais|demorar gozar|retard|resist[eê]ncia|ficar duro|ere[cç][aã]o|berinjelo|volum[aã]o/.test(lower)) return 'masculino';
+  if (/oral|boquete|chupar|garganta profunda|beij[aá]vel|saborizado|sabor/.test(lower)) return 'oral';
+  if (/lubrific|molhar|mais molhada|ressecada|seca|desliz/.test(lower)) return 'lubrificacao';
+  if (/vibrador|bullet|sugador|clit[oó]ris|prazer sozinha|ponto g/.test(lower)) return 'toy';
+  if (/fantasia|lingerie|sensual|camisola|baby doll|visual/.test(lower)) return 'visual';
+  return '';
+}
+
 function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null, requestedSize = '') {
   const normalizedCurrent = String(currentName || '').trim().toLowerCase();
   const currentFamily = inferProductFamily(currentProduct);
@@ -102,6 +114,7 @@ function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
   const products = Array.isArray(options.products) ? options.products : [];
+  const desiredEffect = inferDesiredEffect(text);
   const context = options.context || {};
   const lastProducts = Array.isArray(context.lastProducts) ? context.lastProducts : [];
   const lastProduct = lastProducts[0] || null;
@@ -133,7 +146,22 @@ function buildInitialReply(inbound, options = {}) {
       if (top.inventory_in_stock === false) {
         return `Tem sim amore 💜 Eu encontrei esse tipo de produto por aqui, mas essa primeira leitura está me mostrando o item principal sem estoque no momento. Se você quiser, eu posso te mostrar alternativas disponíveis ou confirmar reposição certinho.`;
       }
-      return `Tem sim amore 💜 Já achei uma opção por aqui: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais opções parecidas e te dizer qual faz mais sentido para o que você quer ✨ Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
+      const effectLine = desiredEffect === 'libido'
+        ? 'Ele entra bem nessa linha de aumentar desejo e excitação ✨'
+        : desiredEffect === 'apertar'
+          ? 'Ele entra bem nessa linha de sensação mais apertadinha ✨'
+          : desiredEffect === 'masculino'
+            ? 'Ele entra bem nessa linha de desempenho e apoio masculino ✨'
+            : desiredEffect === 'oral'
+              ? 'Ele entra bem nessa linha para oral e estímulo sensorial ✨'
+              : desiredEffect === 'lubrificacao'
+                ? 'Ele entra bem nessa linha de mais conforto e lubrificação ✨'
+                : desiredEffect === 'toy'
+                  ? 'Ele entra bem nessa linha de prazer e estimulação ✨'
+                  : desiredEffect === 'visual'
+                    ? 'Ele entra bem nessa linha mais sensual/visual ✨'
+                    : 'Esse tipo de produto sai super bem por aqui ✨';
+      return `Tem sim amore 💜 Já achei uma opção por aqui: *${top.name}*${priceLine}. ${effectLine} Se você quiser, eu também posso te mostrar mais opções parecidas e te dizer qual faz mais sentido para o que você quer. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
     }
     return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, eu também posso te mostrar alternativas parecidas e te orientar pelo que faz mais sentido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
   }
