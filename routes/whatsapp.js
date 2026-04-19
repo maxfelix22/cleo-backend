@@ -27,6 +27,10 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       conversationResult = await getOrCreateOpenConversation({
         customerId: customerResult?.customer?.id,
         existingConversationId: existingContext.conversationId || '',
+        existingSummary: existingContext.summary || '',
+        existingStage: existingContext.currentStage || existingContext.checkout?.stage || '',
+        existingLastProduct: existingContext.lastProduct || '',
+        existingLastProductPayload: existingContext.lastProductPayload || null,
         channel: inbound.channel,
         phone: inbound.from,
         profileName: inbound.profileName,

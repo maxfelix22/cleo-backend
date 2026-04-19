@@ -66,7 +66,7 @@ async function updateConversationState({ conversationId, summary = '', currentSt
   return { mode: 'supabase', conversation, patch };
 }
 
-async function getOrCreateOpenConversation({ customerId, existingConversationId = '', channel = 'whatsapp', phone = '', profileName = '' }) {
+async function getOrCreateOpenConversation({ customerId, existingConversationId = '', existingSummary = '', existingStage = '', existingLastProduct = '', existingLastProductPayload = null, channel = 'whatsapp', phone = '', profileName = '' }) {
   if (!customerId) {
     throw new Error('customerId obrigatório para getOrCreateOpenConversation');
   }
@@ -112,7 +112,10 @@ async function getOrCreateOpenConversation({ customerId, existingConversationId 
       customer_id: customerId,
       channel,
       status: 'open',
-      current_stage: 'new_lead',
+      current_stage: existingStage || 'new_lead',
+      summary: existingSummary || null,
+      last_product: existingLastProduct || null,
+      last_product_payload: existingLastProductPayload || null,
       assigned_to: 'cleo',
       last_message_at: new Date().toISOString(),
     }],
