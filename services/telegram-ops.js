@@ -172,12 +172,13 @@ function buildSalesEscortMessage(context = {}) {
   if (checkout.fullName || checkout.email || checkout.phone) heatSignals.push('dados de checkout já começaram a ser entregues');
 
   const actionHints = [];
+  if (maturity === 'descoberta' && product?.name) actionHints.push('seguir condução comercial sem travar cedo demais');
   if (followUpSignals.wantsThis) actionHints.push('aproveitar intenção de compra e acelerar fechamento');
-  if (context.currentStage === 'checkout_review') actionHints.push('evitar atrito e confirmar fechamento do pedido');
-  if (context.currentStage === 'handoff_ready') actionHints.push('priorizar contato operacional sem esfriar a cliente');
+  if (maturity === 'fechamento') actionHints.push('evitar atrito e confirmar fechamento do pedido');
+  if (maturity === 'handoff') actionHints.push('priorizar contato operacional sem esfriar a cliente');
   if (checkout.deliveryMode === 'local_delivery') actionHints.push('acompanhar logística local');
   if (checkout.deliveryMode === 'usps') actionHints.push('acompanhar envio e confirmação de frete');
-  if (!checkout.deliveryMode && product?.name) actionHints.push('seguir condução comercial para fechamento');
+  if (maturity === 'avanço' && !checkout.deliveryMode && product?.name) actionHints.push('seguir condução comercial para fechamento');
 
   const priorityMarker = priority === 'alta' ? '🔥' : priority === 'média' ? '🟡' : '⚪️';
 
@@ -208,6 +209,7 @@ function buildSalesEscortMessage(context = {}) {
 function buildMemoryEscortMessage(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
+  const maturity = buildConversationMaturity(context);
   const profileHints = [];
   const continuityHints = [];
 
@@ -221,14 +223,14 @@ function buildMemoryEscortMessage(context = {}) {
   if (checkout.email) continuityHints.push('já temos email');
   if (checkout.phone) continuityHints.push('já temos telefone');
   if (checkout.address) continuityHints.push('já temos endereço');
-  if (context.currentStage === 'handoff_ready') continuityHints.push('conversa pronta para retomada operacional');
-  if (context.currentStage === 'checkout_review') continuityHints.push('cliente parou na revisão do pedido');
+  if (maturity === 'handoff') continuityHints.push('conversa pronta para retomada operacional');
+  if (maturity === 'fechamento') continuityHints.push('cliente parou na revisão do pedido');
 
   const lines = [
     '🧠 *Memória & Clientes*',
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
-    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
+    maturity ? `• Maturidade: ${maturity}` : null,
     context.customerId ? `• Customer ID: ${context.customerId}` : null,
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
     profileHints.length > 0 ? `• Perfil: ${profileHints.join(' · ')}` : null,
@@ -245,6 +247,7 @@ function buildMemoryEscortMessage(context = {}) {
 }
 
 function buildCatalogEscortMessage(context = {}) {
+  const maturity = buildConversationMaturity(context);
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const availableSizes = Array.isArray(product?.variationDetails)
     ? product.variationDetails.map((variation) => variation?.size || variation?.name).filter(Boolean)
@@ -277,7 +280,7 @@ function buildCatalogEscortMessage(context = {}) {
     hasCatalogAttention ? '📦 *Produtos & Estoque* ⚠️' : '📦 *Produtos & Estoque*',
     '',
     `• Saúde: ${healthLabel}`,
-    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
+    maturity ? `• Maturidade: ${maturity}` : null,
     product?.name ? `• Produto: ${product.name}` : null,
     product?.price ? `• Preço base: ${product.price}` : null,
     availableSizes.length > 0 ? `• Tamanhos visíveis: ${[...new Set(availableSizes)].join(', ')}` : null,
@@ -293,6 +296,7 @@ function buildCatalogEscortMessage(context = {}) {
 }
 
 function buildSystemEscortMessage(context = {}, meta = {}) {
+  const maturity = buildConversationMaturity(context);
   const alerts = [];
   if (meta.transportMode && meta.transportMode !== 'twilio') alerts.push(`transporte fora do ideal: ${meta.transportMode}`);
   if (meta.persistenceMode && meta.persistenceMode !== 'supabase') alerts.push(`persistência fora do ideal: ${meta.persistenceMode}`);
@@ -310,7 +314,7 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     hasTechnicalAttention ? '⚙️ *Sistema & Automação* 🚨' : '⚙️ *Sistema & Automação*',
     '',
     `• Saúde: ${healthLabel}`,
-    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
+    maturity ? `• Maturidade: ${maturity}` : null,
     meta.transportMode ? `• Transporte: ${meta.transportMode}` : null,
     meta.persistenceMode ? `• Persistência: ${meta.persistenceMode}` : null,
     meta.eventMode ? `• Eventos: ${meta.eventMode}` : null,
