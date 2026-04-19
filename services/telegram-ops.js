@@ -79,11 +79,23 @@ function buildShortSummary(context = {}) {
 
   if (product?.name) pieces.push(product.name);
   if (context.followUpSignals?.requestedSize) pieces.push(`tam ${context.followUpSignals.requestedSize}`);
-  if (checkout.deliveryMode === 'local_delivery') pieces.push('entrega local');
-  if (checkout.deliveryMode === 'usps') pieces.push('USPS');
-  if (checkout.deliveryMode === 'pickup') pieces.push('retirada');
-  if (context.currentStage === 'checkout_review') pieces.push('em revisão');
-  if (context.currentStage === 'handoff_ready') pieces.push('pronta para handoff');
+
+  const deliveryLabelMap = {
+    local_delivery: 'entrega local',
+    usps: 'USPS',
+    pickup: 'retirada',
+  };
+  const stageLabelMap = {
+    checkout_review: 'revisão',
+    handoff_ready: 'handoff',
+    checkout_collect_contact: 'contato',
+    checkout_collect_name: 'nome',
+    checkout_collect_address: 'endereço',
+    checkout_choose_delivery: 'entrega',
+  };
+
+  if (deliveryLabelMap[checkout.deliveryMode]) pieces.push(deliveryLabelMap[checkout.deliveryMode]);
+  if (stageLabelMap[context.currentStage]) pieces.push(stageLabelMap[context.currentStage]);
 
   return pieces.join(' · ');
 }
