@@ -242,12 +242,22 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
 
       catalogEscortMessage = buildCatalogEscortMessage(savedContext);
-      try {
-        catalogEscortDispatch = await sendOperationalTelegramMessage(catalogEscortMessage, {
-          topicKey: 'produtos_estoque',
-        });
-      } catch (err) {
-        console.error('[whatsapp/inbound] catalog escort dispatch error:', err.message);
+      const shouldSendCatalogEscort = Boolean(
+        savedContext.lastProductPayload?.name
+        || savedContext.lastProduct
+        || savedContext.followUpSignals?.requestedSize
+        || savedContext.followUpSignals?.asksColor
+        || savedContext.followUpSignals?.asksPrice
+        || savedContext.checkout?.deliveryMode === 'usps'
+      );
+      if (shouldSendCatalogEscort) {
+        try {
+          catalogEscortDispatch = await sendOperationalTelegramMessage(catalogEscortMessage, {
+            topicKey: 'produtos_estoque',
+          });
+        } catch (err) {
+          console.error('[whatsapp/inbound] catalog escort dispatch error:', err.message);
+        }
       }
 
       systemEscortMessage = buildSystemEscortMessage(savedContext, {
