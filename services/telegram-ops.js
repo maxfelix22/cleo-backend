@@ -235,9 +235,12 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
   if (!context.conversationId) alerts.push('conversationId ausente');
   if (!context.summary) alerts.push('summary ausente');
 
+  const healthLabel = alerts.length > 0 ? 'ciclo degradado' : 'ciclo saudável';
+
   const lines = [
     '⚙️ *Sistema & Automação*',
     '',
+    `• Saúde do ciclo: ${healthLabel}`,
     meta.transportMode ? `• Transporte: ${meta.transportMode}` : null,
     meta.persistenceMode ? `• Persistência: ${meta.persistenceMode}` : null,
     meta.eventMode ? `• Eventos: ${meta.eventMode}` : null,
