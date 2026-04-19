@@ -305,11 +305,19 @@ Se quiser agilizar, pode mandar tudo de uma vez:
   }
 
   if (stageNow === 'checkout_review' && context.checkout?.fullName) {
+    const shipping = buildShippingCopy(context);
     const lines = [];
     if (context.lastProducts?.[0]?.name) lines.push(`• Produto: ${context.lastProducts[0].name}`);
-    if (context.checkout.deliveryMode === 'usps') lines.push('• Entrega: USPS');
+    if (context.checkout.deliveryMode === 'usps') {
+      lines.push('• Entrega: USPS');
+      lines.push(`• Frete: ${shipping.uspsFeeLabel}`);
+      lines.push('• Atendimento: apenas endereços dentro dos Estados Unidos');
+    }
     if (context.checkout.deliveryMode === 'pickup') lines.push('• Entrega: Retirada');
-    if (context.checkout.deliveryMode === 'local_delivery') lines.push('• Entrega: Entrega local');
+    if (context.checkout.deliveryMode === 'local_delivery') {
+      lines.push('• Entrega: Entrega local');
+      lines.push(`• Taxa de entrega: ${shipping.localDeliveryLabel}`);
+    }
     if (context.checkout.address) lines.push(`• Endereço: ${context.checkout.address}`);
     if (context.checkout.fullName) lines.push(`• Nome: ${context.checkout.fullName}`);
     if (context.checkout.phone) lines.push(`• Telefone: ${context.checkout.phone}`);
