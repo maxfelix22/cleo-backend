@@ -99,8 +99,17 @@ function buildSalesEscortMessage(context = {}) {
 
   const stageLabel = stageLabelMap[context.currentStage] || context.currentStage || '';
 
+  let priority = 'normal';
+  if (followUpSignals.wantsThis || context.currentStage === 'handoff_ready' || context.currentStage === 'checkout_review') {
+    priority = 'alta';
+  } else if (followUpSignals.asksPrice || followUpSignals.requestedSize || followUpSignals.asksColor) {
+    priority = 'média';
+  }
+
   const actionHints = [];
   if (followUpSignals.wantsThis) actionHints.push('aproveitar intenção de compra e acelerar fechamento');
+  if (context.currentStage === 'checkout_review') actionHints.push('evitar atrito e confirmar fechamento do pedido');
+  if (context.currentStage === 'handoff_ready') actionHints.push('priorizar contato operacional sem esfriar a cliente');
   if (checkout.deliveryMode === 'local_delivery') actionHints.push('acompanhar logística local');
   if (checkout.deliveryMode === 'usps') actionHints.push('acompanhar envio e confirmação de frete');
   if (!checkout.deliveryMode && product?.name) actionHints.push('seguir condução comercial para fechamento');
@@ -109,6 +118,7 @@ function buildSalesEscortMessage(context = {}) {
     '💬 *Atendimento & Vendas*',
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
+    priority ? `• Prioridade comercial: ${priority}` : null,
     stageLabel ? `• Etapa comercial: ${stageLabel}` : null,
     meaningfulLastMessage ? `• Última msg útil: ${meaningfulLastMessage}` : null,
     product?.name ? `• Produto em foco: ${product.name}` : null,
