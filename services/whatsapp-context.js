@@ -40,14 +40,36 @@ function hasAnyInventory(lastProduct = null) {
   return details.some((variation) => variation?.inventory_in_stock === true);
 }
 
-function buildAlternativeSuggestion(products = [], currentName = '') {
+function inferProductFamily(product = null) {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  if (/lingerie|conjunto|calcinha|suti[aã]|body|camisola|baby.?doll/.test(text)) return 'moda-intima';
+  if (/lubrificant|gel|deslizante|beij[aá]vel|oral|xupa xana/.test(text)) return 'gel-lubrificante';
+  if (/excitante|libido|retard|ere[cç][aã]o|adstringente|hot ball|capsula/.test(text)) return 'funcional';
+  if (/vibrador|bullet|sugador|dildo|massageador|masturbador/.test(text)) return 'toy';
+  if (/perfume|fragr[aâ]ncia|sabonete|higiene/.test(text)) return 'cuidado';
+  return 'geral';
+}
+
+function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null) {
   const normalizedCurrent = String(currentName || '').trim().toLowerCase();
-  const alternative = (Array.isArray(products) ? products : []).find((product) => {
+  const currentFamily = inferProductFamily(currentProduct);
+  const currentPrice = Number(currentProduct?.priceNumber || 0);
+  const candidates = (Array.isArray(products) ? products : []).filter((product) => {
     if (!product?.name) return false;
     if (normalizedCurrent && String(product.name).trim().toLowerCase() === normalizedCurrent) return false;
     return product.inventory_in_stock !== false;
   });
-  return alternative || null;
+
+  const sameFamily = candidates.filter((product) => inferProductFamily(product) === currentFamily);
+  const pool = sameFamily.length > 0 ? sameFamily : candidates;
+
+  pool.sort((a, b) => {
+    const aPrice = Number(a?.priceNumber || 0);
+    const bPrice = Number(b?.priceNumber || 0);
+    return Math.abs(aPrice - currentPrice) - Math.abs(bPrice - currentPrice);
+  });
+
+  return pool[0] || null;
 }
 
 function buildInitialReply(inbound, options = {}) {
@@ -62,7 +84,7 @@ function buildInitialReply(inbound, options = {}) {
   const availableSizes = listAvailableSizes(lastProduct);
   const availableColors = listAvailableColors(lastProduct);
   const hasInventory = hasAnyInventory(lastProduct);
-  const alternativeSuggestion = buildAlternativeSuggestion(products, lastProduct?.name || '');
+  const alternativeSuggestion = buildAlternativeSuggestion(products, lastProduct?.name || '', lastProduct);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
