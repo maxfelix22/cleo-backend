@@ -149,10 +149,35 @@ function buildMemoryEscortMessage(context = {}) {
   return lines.join('\n');
 }
 
+function buildCatalogEscortMessage(context = {}) {
+  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const availableSizes = Array.isArray(product?.variationDetails)
+    ? product.variationDetails.map((variation) => variation?.size || variation?.name).filter(Boolean)
+    : [];
+  const availableColors = Array.isArray(product?.availableColors)
+    ? product.availableColors
+    : [];
+
+  const lines = [
+    '📦 *Produtos & Estoque*',
+    '',
+    product?.name ? `• Produto consultado: ${product.name}` : null,
+    product?.price ? `• Preço base: ${product.price}` : null,
+    availableSizes.length > 0 ? `• Tamanhos visíveis: ${[...new Set(availableSizes)].join(', ')}` : null,
+    availableColors.length > 0 ? `• Cores visíveis: ${[...new Set(availableColors)].join(', ')}` : null,
+    context.followUpSignals?.requestedSize ? `• Tamanho pedido na conversa: ${context.followUpSignals.requestedSize}` : null,
+    context.followUpSignals?.asksColor ? '• Sinal: cliente perguntou cor' : null,
+    context.summary ? `• Resumo atual: ${context.summary}` : null,
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
   sendOperationalTelegramMessage,
   buildSalesEscortMessage,
   buildMemoryEscortMessage,
+  buildCatalogEscortMessage,
 };

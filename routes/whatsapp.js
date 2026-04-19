@@ -11,7 +11,7 @@ const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversat
 const { appendEvent } = require('../services/event-store');
 const { applyCheckoutState, buildCheckoutReply } = require('../services/checkout-state');
 const { buildHandoffPayload, buildOperationalMessage } = require('../services/handoff-service');
-const { sendOperationalTelegramMessage, hasTelegramOpsConfig, buildSalesEscortMessage, buildMemoryEscortMessage } = require('../services/telegram-ops');
+const { sendOperationalTelegramMessage, hasTelegramOpsConfig, buildSalesEscortMessage, buildMemoryEscortMessage, buildCatalogEscortMessage } = require('../services/telegram-ops');
 
 router.post('/whatsapp/inbound', async (req, res, next) => {
   try {
@@ -189,6 +189,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     let salesEscortDispatch = null;
     let memoryEscortMessage = '';
     let memoryEscortDispatch = null;
+    let catalogEscortMessage = '';
+    let catalogEscortDispatch = null;
     if ((savedContext.currentStage || '') === 'handoff_ready') {
       salesEscortMessage = buildSalesEscortMessage(savedContext);
       try {
@@ -206,6 +208,15 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         });
       } catch (err) {
         console.error('[whatsapp/inbound] memory escort dispatch error:', err.message);
+      }
+
+      catalogEscortMessage = buildCatalogEscortMessage(savedContext);
+      try {
+        catalogEscortDispatch = await sendOperationalTelegramMessage(catalogEscortMessage, {
+          topicKey: 'produtos_estoque',
+        });
+      } catch (err) {
+        console.error('[whatsapp/inbound] catalog escort dispatch error:', err.message);
       }
       handoffDebug = {
         currentStage: savedContext.currentStage,
@@ -275,6 +286,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       salesEscortDispatch,
       memoryEscortMessage,
       memoryEscortDispatch,
+      catalogEscortMessage,
+      catalogEscortDispatch,
       persistenceMode: customerResult?.mode || conversationResult?.mode || 'memory-fallback',
       opsDispatchMode: operationalDispatch?.mode || (hasTelegramOpsConfig() ? 'telegram' : 'stub'),
       eventMode: inboundEvent?.mode || outboundEvent?.mode || 'memory-fallback',
