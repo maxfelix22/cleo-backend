@@ -59,11 +59,12 @@ function inferDominantAttribute(product = null) {
   return 'geral';
 }
 
-function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null) {
+function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null, requestedSize = '') {
   const normalizedCurrent = String(currentName || '').trim().toLowerCase();
   const currentFamily = inferProductFamily(currentProduct);
   const currentAttribute = inferDominantAttribute(currentProduct);
   const currentPrice = Number(currentProduct?.priceNumber || 0);
+  const currentColors = listAvailableColors(currentProduct);
   const candidates = (Array.isArray(products) ? products : []).filter((product) => {
     if (!product?.name) return false;
     if (normalizedCurrent && String(product.name).trim().toLowerCase() === normalizedCurrent) return false;
@@ -76,8 +77,19 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
   const pool = sameFamilyAndAttribute.length > 0
     ? sameFamilyAndAttribute
     : (sameFamily.length > 0 ? sameFamily : (sameAttribute.length > 0 ? sameAttribute : candidates));
-
   pool.sort((a, b) => {
+    const aSizes = listAvailableSizes(a);
+    const bSizes = listAvailableSizes(b);
+    const aColors = listAvailableColors(a);
+    const bColors = listAvailableColors(b);
+    const aSizeScore = requestedSize && aSizes.includes(requestedSize) ? 1 : 0;
+    const bSizeScore = requestedSize && bSizes.includes(requestedSize) ? 1 : 0;
+    if (aSizeScore !== bSizeScore) return bSizeScore - aSizeScore;
+
+    const aColorScore = currentColors.some((color) => aColors.includes(color)) ? 1 : 0;
+    const bColorScore = currentColors.some((color) => bColors.includes(color)) ? 1 : 0;
+    if (aColorScore !== bColorScore) return bColorScore - aColorScore;
+
     const aPrice = Number(a?.priceNumber || 0);
     const bPrice = Number(b?.priceNumber || 0);
     return Math.abs(aPrice - currentPrice) - Math.abs(bPrice - currentPrice);
@@ -98,7 +110,7 @@ function buildInitialReply(inbound, options = {}) {
   const availableSizes = listAvailableSizes(lastProduct);
   const availableColors = listAvailableColors(lastProduct);
   const hasInventory = hasAnyInventory(lastProduct);
-  const alternativeSuggestion = buildAlternativeSuggestion(products, lastProduct?.name || '', lastProduct);
+  const alternativeSuggestion = buildAlternativeSuggestion(products, lastProduct?.name || '', lastProduct, requestedSize);
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
