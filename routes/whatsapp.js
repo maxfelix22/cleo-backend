@@ -11,7 +11,7 @@ const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversat
 const { appendEvent } = require('../services/event-store');
 const { applyCheckoutState, buildCheckoutReply } = require('../services/checkout-state');
 const { buildHandoffPayload, buildOperationalMessage } = require('../services/handoff-service');
-const { sendOperationalTelegramMessage, hasTelegramOpsConfig, buildSalesEscortMessage, buildMemoryEscortMessage, buildCatalogEscortMessage } = require('../services/telegram-ops');
+const { sendOperationalTelegramMessage, hasTelegramOpsConfig, buildSalesEscortMessage, buildMemoryEscortMessage, buildCatalogEscortMessage, buildSystemEscortMessage } = require('../services/telegram-ops');
 
 router.post('/whatsapp/inbound', async (req, res, next) => {
   try {
@@ -191,6 +191,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     let memoryEscortDispatch = null;
     let catalogEscortMessage = '';
     let catalogEscortDispatch = null;
+    let systemEscortMessage = '';
+    let systemEscortDispatch = null;
     if ((savedContext.currentStage || '') === 'handoff_ready') {
       salesEscortMessage = buildSalesEscortMessage(savedContext);
       try {
@@ -217,6 +219,20 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         });
       } catch (err) {
         console.error('[whatsapp/inbound] catalog escort dispatch error:', err.message);
+      }
+
+      systemEscortMessage = buildSystemEscortMessage(savedContext, {
+        transportMode: hasRealTwilioConfig() ? 'twilio' : 'stub',
+        persistenceMode: customerResult?.mode || conversationResult?.mode || 'memory-fallback',
+        eventMode: inboundEvent?.mode || outboundEvent?.mode || 'memory-fallback',
+        opsDispatchMode: operationalDispatch?.mode || (hasTelegramOpsConfig() ? 'telegram' : 'stub'),
+      });
+      try {
+        systemEscortDispatch = await sendOperationalTelegramMessage(systemEscortMessage, {
+          topicKey: 'sistema_automacao',
+        });
+      } catch (err) {
+        console.error('[whatsapp/inbound] system escort dispatch error:', err.message);
       }
       handoffDebug = {
         currentStage: savedContext.currentStage,
@@ -288,6 +304,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       memoryEscortDispatch,
       catalogEscortMessage,
       catalogEscortDispatch,
+      systemEscortMessage,
+      systemEscortDispatch,
       persistenceMode: customerResult?.mode || conversationResult?.mode || 'memory-fallback',
       opsDispatchMode: operationalDispatch?.mode || (hasTelegramOpsConfig() ? 'telegram' : 'stub'),
       eventMode: inboundEvent?.mode || outboundEvent?.mode || 'memory-fallback',

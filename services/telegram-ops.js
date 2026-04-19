@@ -173,6 +173,23 @@ function buildCatalogEscortMessage(context = {}) {
   return lines.join('\n');
 }
 
+function buildSystemEscortMessage(context = {}, meta = {}) {
+  const lines = [
+    '⚙️ *Sistema & Automação*',
+    '',
+    meta.transportMode ? `• Transporte: ${meta.transportMode}` : null,
+    meta.persistenceMode ? `• Persistência: ${meta.persistenceMode}` : null,
+    meta.eventMode ? `• Eventos: ${meta.eventMode}` : null,
+    meta.opsDispatchMode ? `• Ops dispatch: ${meta.opsDispatchMode}` : null,
+    context.customerId ? `• Customer ID: ${context.customerId}` : null,
+    context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
+    context.currentStage ? `• Stage atual: ${context.currentStage}` : null,
+    context.summary ? `• Resumo: ${context.summary}` : null,
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
@@ -180,4 +197,5 @@ module.exports = {
   buildSalesEscortMessage,
   buildMemoryEscortMessage,
   buildCatalogEscortMessage,
+  buildSystemEscortMessage,
 };
