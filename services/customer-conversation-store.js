@@ -66,7 +66,7 @@ async function updateConversationState({ conversationId, summary = '', currentSt
   return { mode: 'supabase', conversation, patch };
 }
 
-async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', phone = '', profileName = '' }) {
+async function getOrCreateOpenConversation({ customerId, existingConversationId = '', channel = 'whatsapp', phone = '', profileName = '' }) {
   if (!customerId) {
     throw new Error('customerId obrigatório para getOrCreateOpenConversation');
   }
@@ -78,7 +78,7 @@ async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', p
       ...existing,
       profileName,
       customerId,
-      conversationId: existing.conversationId || `memory-conversation:${channel}:${phone}`,
+      conversationId: existing.conversationId || existingConversationId || `memory-conversation:${channel}:${phone}`,
       currentStage: existing.currentStage || 'new_lead',
     });
     return {
@@ -91,6 +91,13 @@ async function getOrCreateOpenConversation({ customerId, channel = 'whatsapp', p
         current_stage: saved.currentStage,
       },
     };
+  }
+
+  if (existingConversationId) {
+    const byId = await supabaseRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(existingConversationId)}&status=eq.open&limit=1&select=*`);
+    if (Array.isArray(byId) && byId[0]) {
+      return { mode: 'supabase', conversation: byId[0], reused: true };
+    }
   }
 
   const found = await supabaseRequest(`/rest/v1/conversations?customer_id=eq.${encodeURIComponent(customerId)}&status=eq.open&order=last_message_at.desc&limit=1&select=*`);

@@ -26,6 +26,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       customerResult = await getOrCreateCustomerByPhone(inbound.from, inbound.profileName);
       conversationResult = await getOrCreateOpenConversation({
         customerId: customerResult?.customer?.id,
+        existingConversationId: existingContext.conversationId || '',
         channel: inbound.channel,
         phone: inbound.from,
         profileName: inbound.profileName,
