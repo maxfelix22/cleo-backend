@@ -40,6 +40,16 @@ function hasAnyInventory(lastProduct = null) {
   return details.some((variation) => variation?.inventory_in_stock === true);
 }
 
+function buildAlternativeSuggestion(products = [], currentName = '') {
+  const normalizedCurrent = String(currentName || '').trim().toLowerCase();
+  const alternative = (Array.isArray(products) ? products : []).find((product) => {
+    if (!product?.name) return false;
+    if (normalizedCurrent && String(product.name).trim().toLowerCase() === normalizedCurrent) return false;
+    return product.inventory_in_stock !== false;
+  });
+  return alternative || null;
+}
+
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
@@ -52,6 +62,7 @@ function buildInitialReply(inbound, options = {}) {
   const availableSizes = listAvailableSizes(lastProduct);
   const availableColors = listAvailableColors(lastProduct);
   const hasInventory = hasAnyInventory(lastProduct);
+  const alternativeSuggestion = buildAlternativeSuggestion(products, lastProduct?.name || '');
 
   if (!text) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
@@ -96,6 +107,9 @@ function buildInitialReply(inbound, options = {}) {
     if (lastProduct?.name) {
       if (requestedSize && matchingVariation) {
         if (matchingVariation.inventory_in_stock === false) {
+          if (alternativeSuggestion?.name) {
+            return `A *${lastProduct.name}* aparece no tamanho *${requestedSize}*, mas essa variação está sem estoque no momento 💜 Se você quiser, eu já posso te mostrar uma alternativa disponível como *${alternativeSuggestion.name}* ou confirmar reposição.`;
+          }
           return `A *${lastProduct.name}* aparece no tamanho *${requestedSize}*, mas essa variação está sem estoque no momento 💜 Se quiser, eu posso te mostrar outro tamanho disponível ou confirmar reposição.`;
         }
         const priceLine = matchingVariation.price ? ` e o valor dela fica em ${matchingVariation.price}` : '';
@@ -125,6 +139,9 @@ function buildInitialReply(inbound, options = {}) {
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
     if (lastProduct?.name) {
       if (!hasInventory) {
+        if (alternativeSuggestion?.name) {
+          return `Aaaamei amore 💜 A *${lastProduct.name}* aparece aqui, mas no momento estou vendo ela sem estoque disponível. Se você quiser, eu já te mostro outra opção parecida que está disponível, como *${alternativeSuggestion.name}*, ou confirmo reposição certinho.`;
+        }
         return `Aaaamei amore 💜 A *${lastProduct.name}* aparece aqui, mas no momento estou vendo ela sem estoque disponível. Se quiser, eu confirmo reposição certinho ou já te mostro outra opção parecida.`;
       }
       return `Aaaamei amore 💜 Perfeito, vamos seguir com a *${lastProduct.name}*. Essa peça está saindo super bem por aqui ✨ Me manda só seu nome completo que eu já começo seu pedido.`;
