@@ -248,7 +248,7 @@ function buildCatalogEscortMessage(context = {}) {
   if (!product?.price && (context.followUpSignals?.asksPrice || context.followUpSignals?.wantsThis)) {
     alerts.push('produto sem preço claro no payload atual');
   }
-  if (checkout.deliveryMode === 'usps') {
+  if (checkout.deliveryMode === 'usps' && ['checkout_collect_address', 'checkout_review', 'handoff_ready'].includes(context.currentStage)) {
     alerts.push('lembrar operação: loja atende apenas endereços dentro dos Estados Unidos');
   }
 
@@ -280,9 +280,9 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
   if (meta.persistenceMode && meta.persistenceMode !== 'supabase') alerts.push(`persistência fora do ideal: ${meta.persistenceMode}`);
   if (meta.eventMode && meta.eventMode !== 'supabase') alerts.push(`eventos fora do ideal: ${meta.eventMode}`);
   if (meta.opsDispatchMode && meta.opsDispatchMode !== 'telegram') alerts.push(`ops dispatch fora do ideal: ${meta.opsDispatchMode}`);
-  if (!context.customerId) alerts.push('customerId ausente');
-  if (!context.conversationId) alerts.push('conversationId ausente');
-  if (!context.summary) alerts.push('summary ausente');
+  if (!context.customerId && ['checkout_review', 'handoff_ready'].includes(context.currentStage)) alerts.push('customerId ausente');
+  if (!context.conversationId && ['checkout_review', 'handoff_ready'].includes(context.currentStage)) alerts.push('conversationId ausente');
+  if (!context.summary && ['checkout_review', 'handoff_ready'].includes(context.currentStage)) alerts.push('summary ausente');
 
   const healthLabel = alerts.length > 0 ? 'ciclo degradado' : 'ciclo saudável';
 
