@@ -130,16 +130,21 @@ function buildSalesEscortMessage(context = {}) {
 function buildMemoryEscortMessage(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
+  const profileHints = [];
+
+  if (checkout.deliveryMode === 'local_delivery') profileHints.push('prefere entrega local');
+  if (checkout.deliveryMode === 'usps') profileHints.push('aceita USPS');
+  if (checkout.deliveryMode === 'pickup') profileHints.push('aceita retirada');
+  if (product?.name) profileHints.push(`interesse atual em ${product.name}`);
+  if (context.followUpSignals?.requestedSize) profileHints.push(`tamanho pedido ${context.followUpSignals.requestedSize}`);
+
   const lines = [
     '🧠 *Memória & Clientes*',
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
     context.customerId ? `• Customer ID: ${context.customerId}` : null,
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
-    product?.name ? `• Produto em foco: ${product.name}` : null,
-    checkout.deliveryMode === 'local_delivery' ? '• Entrega preferida nesta conversa: entrega local' : null,
-    checkout.deliveryMode === 'usps' ? '• Entrega preferida nesta conversa: USPS' : null,
-    checkout.deliveryMode === 'pickup' ? '• Entrega preferida nesta conversa: retirada' : null,
+    profileHints.length > 0 ? `• Pistas de perfil: ${profileHints.join(' · ')}` : null,
     checkout.fullName ? `• Nome salvo: ${checkout.fullName}` : null,
     checkout.email ? `• Email salvo: ${checkout.email}` : null,
     checkout.phone ? `• Telefone salvo: ${checkout.phone}` : null,
