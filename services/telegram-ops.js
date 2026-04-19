@@ -149,12 +149,20 @@ function buildMemoryEscortMessage(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
   const profileHints = [];
+  const continuityHints = [];
 
   if (checkout.deliveryMode === 'local_delivery') profileHints.push('prefere entrega local');
   if (checkout.deliveryMode === 'usps') profileHints.push('aceita USPS');
   if (checkout.deliveryMode === 'pickup') profileHints.push('aceita retirada');
   if (product?.name) profileHints.push(`interesse atual em ${product.name}`);
   if (context.followUpSignals?.requestedSize) profileHints.push(`tamanho pedido ${context.followUpSignals.requestedSize}`);
+
+  if (checkout.fullName) continuityHints.push('já temos nome completo');
+  if (checkout.email) continuityHints.push('já temos email');
+  if (checkout.phone) continuityHints.push('já temos telefone');
+  if (checkout.address) continuityHints.push('já temos endereço');
+  if (context.currentStage === 'handoff_ready') continuityHints.push('conversa pronta para retomada operacional');
+  if (context.currentStage === 'checkout_review') continuityHints.push('cliente parou na revisão do pedido');
 
   const lines = [
     '🧠 *Memória & Clientes*',
@@ -163,6 +171,7 @@ function buildMemoryEscortMessage(context = {}) {
     context.customerId ? `• Customer ID: ${context.customerId}` : null,
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
     profileHints.length > 0 ? `• Pistas de perfil: ${profileHints.join(' · ')}` : null,
+    continuityHints.length > 0 ? `• Continuidade útil: ${continuityHints.join(' · ')}` : null,
     checkout.fullName ? `• Nome salvo: ${checkout.fullName}` : null,
     checkout.email ? `• Email salvo: ${checkout.email}` : null,
     checkout.phone ? `• Telefone salvo: ${checkout.phone}` : null,
