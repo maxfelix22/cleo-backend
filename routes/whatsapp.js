@@ -218,12 +218,27 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
 
       memoryEscortMessage = buildMemoryEscortMessage(savedContext);
-      try {
-        memoryEscortDispatch = await sendOperationalTelegramMessage(memoryEscortMessage, {
-          topicKey: 'memoria_clientes',
-        });
-      } catch (err) {
-        console.error('[whatsapp/inbound] memory escort dispatch error:', err.message);
+      const shouldSendMemoryEscort = Boolean(
+        savedContext.customerId
+        || savedContext.conversationId
+        || savedContext.checkout?.fullName
+        || savedContext.checkout?.email
+        || savedContext.checkout?.phone
+        || savedContext.checkout?.address
+        || savedContext.checkout?.deliveryMode
+        || savedContext.lastProductPayload?.name
+        || savedContext.followUpSignals?.requestedSize
+        || savedContext.currentStage === 'checkout_review'
+        || savedContext.currentStage === 'handoff_ready'
+      );
+      if (shouldSendMemoryEscort) {
+        try {
+          memoryEscortDispatch = await sendOperationalTelegramMessage(memoryEscortMessage, {
+            topicKey: 'memoria_clientes',
+          });
+        } catch (err) {
+          console.error('[whatsapp/inbound] memory escort dispatch error:', err.message);
+        }
       }
 
       catalogEscortMessage = buildCatalogEscortMessage(savedContext);
