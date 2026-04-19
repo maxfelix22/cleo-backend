@@ -190,6 +190,7 @@ function buildCatalogEscortMessage(context = {}) {
     ? product.availableColors
     : [];
   const requestedSize = context.followUpSignals?.requestedSize || '';
+  const checkout = context.checkout || {};
 
   const alerts = [];
   if (requestedSize && availableSizes.length > 0 && !availableSizes.map((item) => String(item).toUpperCase()).includes(requestedSize.toUpperCase())) {
@@ -201,10 +202,16 @@ function buildCatalogEscortMessage(context = {}) {
   if (!product?.price) {
     alerts.push('produto sem preço claro no payload atual');
   }
+  if (checkout.deliveryMode === 'usps') {
+    alerts.push('lembrar operação: loja atende apenas endereços dentro dos Estados Unidos');
+  }
+
+  const healthLabel = alerts.length > 0 ? 'catálogo/comercial com pontos de atenção' : 'catálogo com leitura suficiente neste ciclo';
 
   const lines = [
     '📦 *Produtos & Estoque*',
     '',
+    `• Saúde de catálogo: ${healthLabel}`,
     product?.name ? `• Produto consultado: ${product.name}` : null,
     product?.price ? `• Preço base: ${product.price}` : null,
     availableSizes.length > 0 ? `• Tamanhos visíveis: ${[...new Set(availableSizes)].join(', ')}` : null,
