@@ -132,16 +132,16 @@ function buildSalesEscortMessage(context = {}) {
   ].filter(Boolean);
 
   const stageLabelMap = {
-    catalog_browse: 'descoberta de produto',
-    checkout_choose_delivery: 'escolha de entrega',
-    checkout_collect_address: 'coleta de endereço',
-    checkout_collect_name: 'coleta de nome',
-    checkout_collect_contact: 'coleta de contato',
-    checkout_review: 'revisão do pedido',
-    handoff_ready: 'pronta para handoff',
+    catalog_browse: 'produto em descoberta',
+    checkout_choose_delivery: 'definindo entrega',
+    checkout_collect_address: 'coletando endereço',
+    checkout_collect_name: 'coletando nome',
+    checkout_collect_contact: 'coletando contato',
+    checkout_review: 'pedido em revisão',
+    handoff_ready: 'pronta para operação',
   };
 
-  const stageLabel = stageLabelMap[context.currentStage] || context.currentStage || '';
+  const stageLabel = stageLabelMap[context.currentStage] || '';
 
   let priorityScore = 0;
   if (followUpSignals.wantsThis) priorityScore += 3;
@@ -319,7 +319,8 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     meta.persistenceMode ? `• Persistência: ${meta.persistenceMode}` : null,
     meta.eventMode ? `• Eventos: ${meta.eventMode}` : null,
     meta.opsDispatchMode ? `• Dispatch: ${meta.opsDispatchMode}` : null,
-    context.currentStage ? `• Stage atual: ${context.currentStage}` : null,
+    maturity === 'fechamento' ? '• Momento: revisão final do pedido' : null,
+    maturity === 'handoff' ? '• Momento: pronto para operação' : null,
     alerts.length > 0 ? `• Alertas: ${alerts.join(' · ')}` : '• Alertas: nenhum sinal crítico neste ciclo',
     buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
     context.summary && context.summary !== buildShortSummary(context) ? `• Resumo: ${context.summary}` : null,
