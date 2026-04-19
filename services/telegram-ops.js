@@ -72,6 +72,20 @@ async function sendOperationalTelegramMessage(text, options = {}) {
   };
 }
 
+function buildConversationMaturity(context = {}) {
+  const maturityMap = {
+    catalog_browse: 'descoberta',
+    checkout_choose_delivery: 'avanço',
+    checkout_collect_address: 'avanço',
+    checkout_collect_name: 'avanço',
+    checkout_collect_contact: 'avanço',
+    checkout_review: 'fechamento',
+    handoff_ready: 'handoff',
+  };
+
+  return maturityMap[context.currentStage] || '';
+}
+
 function buildShortSummary(context = {}) {
   const pieces = [];
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
@@ -108,6 +122,7 @@ function buildSalesEscortMessage(context = {}) {
   const lastInboundText = String(context.lastInboundText || '').trim();
   const meaningfulLastMessage = lowSignalMessages.has(lastInboundText.toLowerCase()) ? '' : lastInboundText;
   const shortSummary = buildShortSummary(context);
+  const maturity = buildConversationMaturity(context);
 
   const signals = [
     followUpSignals.asksPrice ? 'perguntou preço' : null,
@@ -172,6 +187,7 @@ function buildSalesEscortMessage(context = {}) {
     context.profileName ? `• Cliente: ${context.profileName}` : null,
     priority ? `• Prioridade: ${priority}` : null,
     `• Score: ${priorityScore}`,
+    maturity ? `• Maturidade: ${maturity}` : null,
     stageLabel ? `• Etapa: ${stageLabel}` : null,
     meaningfulLastMessage ? `• Última msg útil: ${meaningfulLastMessage}` : null,
     product?.name ? `• Produto: ${product.name}` : null,
@@ -212,6 +228,7 @@ function buildMemoryEscortMessage(context = {}) {
     '🧠 *Memória & Clientes*',
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
+    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
     context.customerId ? `• Customer ID: ${context.customerId}` : null,
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
     profileHints.length > 0 ? `• Perfil: ${profileHints.join(' · ')}` : null,
@@ -260,6 +277,7 @@ function buildCatalogEscortMessage(context = {}) {
     hasCatalogAttention ? '📦 *Produtos & Estoque* ⚠️' : '📦 *Produtos & Estoque*',
     '',
     `• Saúde: ${healthLabel}`,
+    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
     product?.name ? `• Produto: ${product.name}` : null,
     product?.price ? `• Preço base: ${product.price}` : null,
     availableSizes.length > 0 ? `• Tamanhos visíveis: ${[...new Set(availableSizes)].join(', ')}` : null,
@@ -292,6 +310,7 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     hasTechnicalAttention ? '⚙️ *Sistema & Automação* 🚨' : '⚙️ *Sistema & Automação*',
     '',
     `• Saúde: ${healthLabel}`,
+    buildConversationMaturity(context) ? `• Maturidade: ${buildConversationMaturity(context)}` : null,
     meta.transportMode ? `• Transporte: ${meta.transportMode}` : null,
     meta.persistenceMode ? `• Persistência: ${meta.persistenceMode}` : null,
     meta.eventMode ? `• Eventos: ${meta.eventMode}` : null,
@@ -309,6 +328,7 @@ module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
   sendOperationalTelegramMessage,
+  buildConversationMaturity,
   buildShortSummary,
   buildSalesEscortMessage,
   buildMemoryEscortMessage,
