@@ -162,6 +162,18 @@ function buildCatalogEscortMessage(context = {}) {
   const availableColors = Array.isArray(product?.availableColors)
     ? product.availableColors
     : [];
+  const requestedSize = context.followUpSignals?.requestedSize || '';
+
+  const alerts = [];
+  if (requestedSize && availableSizes.length > 0 && !availableSizes.map((item) => String(item).toUpperCase()).includes(requestedSize.toUpperCase())) {
+    alerts.push(`tamanho ${requestedSize} pedido, mas não visível com clareza no catálogo`);
+  }
+  if (context.followUpSignals?.asksColor && availableColors.length === 0) {
+    alerts.push('cliente perguntou cor, mas o catálogo não mostrou cor com clareza');
+  }
+  if (!product?.price) {
+    alerts.push('produto sem preço claro no payload atual');
+  }
 
   const lines = [
     '📦 *Produtos & Estoque*',
@@ -170,8 +182,9 @@ function buildCatalogEscortMessage(context = {}) {
     product?.price ? `• Preço base: ${product.price}` : null,
     availableSizes.length > 0 ? `• Tamanhos visíveis: ${[...new Set(availableSizes)].join(', ')}` : null,
     availableColors.length > 0 ? `• Cores visíveis: ${[...new Set(availableColors)].join(', ')}` : null,
-    context.followUpSignals?.requestedSize ? `• Tamanho pedido na conversa: ${context.followUpSignals.requestedSize}` : null,
+    requestedSize ? `• Tamanho pedido na conversa: ${requestedSize}` : null,
     context.followUpSignals?.asksColor ? '• Sinal: cliente perguntou cor' : null,
+    alerts.length > 0 ? `• Alertas de catálogo: ${alerts.join(' · ')}` : null,
     context.summary ? `• Resumo atual: ${context.summary}` : null,
   ].filter(Boolean);
 
