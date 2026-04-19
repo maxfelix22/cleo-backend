@@ -22,6 +22,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     let customerResult = null;
     let conversationResult = null;
+    let recoveredContextFromConversation = null;
     try {
       customerResult = await getOrCreateCustomerByPhone(inbound.from, inbound.profileName);
       conversationResult = await getOrCreateOpenConversation({
@@ -35,6 +36,15 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         phone: inbound.from,
         profileName: inbound.profileName,
       });
+
+      if (!existingContext.summary && conversationResult?.conversation) {
+        recoveredContextFromConversation = {
+          summary: conversationResult.conversation.summary || '',
+          currentStage: conversationResult.conversation.current_stage || '',
+          lastProduct: conversationResult.conversation.last_product || '',
+          lastProductPayload: conversationResult.conversation.last_product_payload || null,
+        };
+      }
     } catch (err) {
       console.error('[whatsapp/inbound] customer/conversation bootstrap error:', err.message);
     }
@@ -75,11 +85,17 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       : preservedLastProducts;
 
     const effectiveProducts = mergedProducts;
-    const currentStageForState = existingContext.checkout?.stage || existingContext.currentStage || '';
+    const recoveredStage = recoveredContextFromConversation?.currentStage || '';
+    const currentStageForState = existingContext.checkout?.stage || existingContext.currentStage || recoveredStage || '';
     const contextForState = {
       ...existingContext,
+      summary: existingContext.summary || recoveredContextFromConversation?.summary || '',
       currentStage: currentStageForState,
-      lastProducts: effectiveProducts,
+      lastProduct: existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '',
+      lastProductPayload: existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null,
+      lastProducts: effectiveProducts.length > 0
+        ? effectiveProducts
+        : (recoveredContextFromConversation?.lastProductPayload ? [recoveredContextFromConversation.lastProductPayload] : []),
     };
 
     const checkoutContext = applyCheckoutState(contextForState, inbound);
