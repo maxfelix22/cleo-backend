@@ -110,8 +110,11 @@ function saveContext(key, patch = {}) {
   next.summary = isSummaryConsistent(patchedSummary, next.currentStage)
     ? patchedSummary
     : buildSummary(next);
-  next.lastProduct = next.lastProducts?.[0]?.name || existing.lastProduct || '';
+  next.lastProduct = next.lastProducts?.[0]?.name || patch.lastProduct || existing.lastProduct || next.lastProductPayload?.product_name || '';
   next.lastProductPayload = buildLastProductPayload(next);
+  if (next.lastProductPayload?.product_name && next.lastProduct !== next.lastProductPayload.product_name) {
+    next.lastProduct = next.lastProductPayload.product_name;
+  }
   memoryStore.set(key, next);
   return next;
 }
