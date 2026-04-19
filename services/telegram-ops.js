@@ -192,6 +192,15 @@ function buildCatalogEscortMessage(context = {}) {
 }
 
 function buildSystemEscortMessage(context = {}, meta = {}) {
+  const alerts = [];
+  if (meta.transportMode && meta.transportMode !== 'twilio') alerts.push(`transporte fora do ideal: ${meta.transportMode}`);
+  if (meta.persistenceMode && meta.persistenceMode !== 'supabase') alerts.push(`persistência fora do ideal: ${meta.persistenceMode}`);
+  if (meta.eventMode && meta.eventMode !== 'supabase') alerts.push(`eventos fora do ideal: ${meta.eventMode}`);
+  if (meta.opsDispatchMode && meta.opsDispatchMode !== 'telegram') alerts.push(`ops dispatch fora do ideal: ${meta.opsDispatchMode}`);
+  if (!context.customerId) alerts.push('customerId ausente');
+  if (!context.conversationId) alerts.push('conversationId ausente');
+  if (!context.summary) alerts.push('summary ausente');
+
   const lines = [
     '⚙️ *Sistema & Automação*',
     '',
@@ -202,6 +211,7 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     context.customerId ? `• Customer ID: ${context.customerId}` : null,
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
     context.currentStage ? `• Stage atual: ${context.currentStage}` : null,
+    alerts.length > 0 ? `• Alertas técnicos: ${alerts.join(' · ')}` : '• Alertas técnicos: nenhum sinal crítico neste ciclo',
     context.summary ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
