@@ -62,9 +62,10 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       products = buildFallbackProductsFromText(inbound.text);
     }
 
-    const preservedLastProducts = Array.isArray(existingContext.lastProducts)
+    const recoveredLastProductPayload = recoveredContextFromConversation?.lastProductPayload || null;
+    const preservedLastProducts = Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0
       ? existingContext.lastProducts
-      : [];
+      : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []);
 
     const mergedProducts = products.length > 0
       ? products.map((product) => {
@@ -95,7 +96,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastProductPayload: existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null,
       lastProducts: effectiveProducts.length > 0
         ? effectiveProducts
-        : (recoveredContextFromConversation?.lastProductPayload ? [recoveredContextFromConversation.lastProductPayload] : []),
+        : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []),
     };
 
     const checkoutContext = applyCheckoutState(contextForState, inbound);
