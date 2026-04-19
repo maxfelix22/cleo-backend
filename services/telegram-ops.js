@@ -177,7 +177,7 @@ function buildSalesEscortMessage(context = {}) {
     checkout.deliveryMode === 'pickup' ? '• Entrega escolhida: retirada' : null,
     actionHints.length > 0 ? `• Próximo olhar comercial: ${actionHints.join(' · ')}` : null,
     shortSummary ? `• Resumo curto: ${shortSummary}` : null,
-    context.summary ? `• Resumo: ${context.summary}` : null,
+    context.summary && context.summary !== shortSummary ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
@@ -215,7 +215,7 @@ function buildMemoryEscortMessage(context = {}) {
     checkout.phone ? `• Telefone salvo: ${checkout.phone}` : null,
     checkout.address ? '• Endereço salvo no contexto' : null,
     buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
-    context.summary ? `• Resumo atual: ${context.summary}` : null,
+    context.summary && context.summary !== buildShortSummary(context) ? `• Resumo atual: ${context.summary}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
@@ -260,7 +260,7 @@ function buildCatalogEscortMessage(context = {}) {
     context.followUpSignals?.asksColor ? '• Sinal: perguntou cor' : null,
     alerts.length > 0 ? `• Alertas: ${alerts.join(' · ')}` : null,
     buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
-    context.summary ? `• Resumo atual: ${context.summary}` : null,
+    context.summary && context.summary !== buildShortSummary(context) ? `• Resumo atual: ${context.summary}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
@@ -289,7 +289,7 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     context.currentStage ? `• Stage atual: ${context.currentStage}` : null,
     alerts.length > 0 ? `• Alertas: ${alerts.join(' · ')}` : '• Alertas: nenhum sinal crítico neste ciclo',
     buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
-    context.summary ? `• Resumo: ${context.summary}` : null,
+    context.summary && context.summary !== buildShortSummary(context) ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
