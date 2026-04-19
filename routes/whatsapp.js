@@ -88,10 +88,20 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     const effectiveProducts = mergedProducts;
     const recoveredStage = recoveredContextFromConversation?.currentStage || '';
     const currentStageForState = existingContext.checkout?.stage || existingContext.currentStage || recoveredStage || '';
+    const recoveredCheckout = recoveredContextFromConversation?.lastProductPayload?.checkout || {};
+    const mergedCheckout = {
+      ...recoveredCheckout,
+      ...(existingContext.checkout || {}),
+    };
+    if (!mergedCheckout.stage && currentStageForState) {
+      mergedCheckout.stage = currentStageForState;
+    }
+
     const contextForState = {
       ...existingContext,
       summary: existingContext.summary || recoveredContextFromConversation?.summary || '',
       currentStage: currentStageForState,
+      checkout: mergedCheckout,
       lastProduct: existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '',
       lastProductPayload: existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null,
       lastProducts: effectiveProducts.length > 0
