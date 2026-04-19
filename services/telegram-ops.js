@@ -72,6 +72,22 @@ async function sendOperationalTelegramMessage(text, options = {}) {
   };
 }
 
+function buildShortSummary(context = {}) {
+  const pieces = [];
+  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const checkout = context.checkout || {};
+
+  if (product?.name) pieces.push(product.name);
+  if (context.followUpSignals?.requestedSize) pieces.push(`tam ${context.followUpSignals.requestedSize}`);
+  if (checkout.deliveryMode === 'local_delivery') pieces.push('entrega local');
+  if (checkout.deliveryMode === 'usps') pieces.push('USPS');
+  if (checkout.deliveryMode === 'pickup') pieces.push('retirada');
+  if (context.currentStage === 'checkout_review') pieces.push('em revisão');
+  if (context.currentStage === 'handoff_ready') pieces.push('pronta para handoff');
+
+  return pieces.join(' · ');
+}
+
 function buildSalesEscortMessage(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const followUpSignals = context.followUpSignals || {};
@@ -79,6 +95,7 @@ function buildSalesEscortMessage(context = {}) {
   const lowSignalMessages = new Set(['ok', 'okay', 'okey', 'sim', 'certo', 'fechado', 'isso']);
   const lastInboundText = String(context.lastInboundText || '').trim();
   const meaningfulLastMessage = lowSignalMessages.has(lastInboundText.toLowerCase()) ? '' : lastInboundText;
+  const shortSummary = buildShortSummary(context);
 
   const signals = [
     followUpSignals.asksPrice ? 'perguntou preço' : null,
@@ -139,6 +156,7 @@ function buildSalesEscortMessage(context = {}) {
     checkout.email ? `• Email: ${checkout.email}` : null,
     checkout.phone ? `• Telefone: ${checkout.phone}` : null,
     actionHints.length > 0 ? `• Próximo olhar comercial: ${actionHints.join(' · ')}` : null,
+    shortSummary ? `• Resumo curto: ${shortSummary}` : null,
     context.summary ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
@@ -175,6 +193,7 @@ function buildMemoryEscortMessage(context = {}) {
     checkout.fullName ? `• Nome salvo: ${checkout.fullName}` : null,
     checkout.email ? `• Email salvo: ${checkout.email}` : null,
     checkout.phone ? `• Telefone salvo: ${checkout.phone}` : null,
+    buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
     context.summary ? `• Resumo atual: ${context.summary}` : null,
   ].filter(Boolean);
 
@@ -219,6 +238,7 @@ function buildCatalogEscortMessage(context = {}) {
     requestedSize ? `• Tamanho pedido na conversa: ${requestedSize}` : null,
     context.followUpSignals?.asksColor ? '• Sinal: cliente perguntou cor' : null,
     alerts.length > 0 ? `• Alertas de catálogo: ${alerts.join(' · ')}` : null,
+    buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
     context.summary ? `• Resumo atual: ${context.summary}` : null,
   ].filter(Boolean);
 
@@ -249,6 +269,7 @@ function buildSystemEscortMessage(context = {}, meta = {}) {
     context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
     context.currentStage ? `• Stage atual: ${context.currentStage}` : null,
     alerts.length > 0 ? `• Alertas técnicos: ${alerts.join(' · ')}` : '• Alertas técnicos: nenhum sinal crítico neste ciclo',
+    buildShortSummary(context) ? `• Resumo curto: ${buildShortSummary(context)}` : null,
     context.summary ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
@@ -259,6 +280,7 @@ module.exports = {
   hasTelegramOpsConfig,
   resolveThreadId,
   sendOperationalTelegramMessage,
+  buildShortSummary,
   buildSalesEscortMessage,
   buildMemoryEscortMessage,
   buildCatalogEscortMessage,
