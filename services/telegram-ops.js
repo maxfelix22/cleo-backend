@@ -75,17 +75,32 @@ async function sendOperationalTelegramMessage(text, options = {}) {
 function buildSalesEscortMessage(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const followUpSignals = context.followUpSignals || {};
+  const checkout = context.checkout || {};
+  const lowSignalMessages = new Set(['ok', 'okay', 'okey', 'sim', 'certo', 'fechado', 'isso']);
+  const lastInboundText = String(context.lastInboundText || '').trim();
+  const meaningfulLastMessage = lowSignalMessages.has(lastInboundText.toLowerCase()) ? '' : lastInboundText;
+
+  const signals = [
+    followUpSignals.asksPrice ? 'perguntou preço' : null,
+    followUpSignals.asksColor ? 'perguntou cor' : null,
+    followUpSignals.requestedSize ? `pediu tamanho ${followUpSignals.requestedSize}` : null,
+    followUpSignals.wantsThis ? 'mostrou intenção de compra' : null,
+  ].filter(Boolean);
+
   const lines = [
     '💬 *Atendimento & Vendas*',
     '',
     context.profileName ? `• Cliente: ${context.profileName}` : null,
-    context.lastInboundText ? `• Última msg: ${context.lastInboundText}` : null,
+    meaningfulLastMessage ? `• Última msg útil: ${meaningfulLastMessage}` : null,
     product?.name ? `• Produto em foco: ${product.name}` : null,
     product?.price ? `• Preço: ${product.price}` : null,
-    followUpSignals.requestedSize ? `• Tamanho pedido: ${followUpSignals.requestedSize}` : null,
-    followUpSignals.asksColor ? '• Sinal: perguntou cor' : null,
-    followUpSignals.asksPrice ? '• Sinal: perguntou preço' : null,
-    followUpSignals.wantsThis ? '• Sinal: intenção de compra' : null,
+    signals.length > 0 ? `• Sinais: ${signals.join(' · ')}` : null,
+    checkout.deliveryMode === 'local_delivery' ? '• Entrega escolhida: entrega local' : null,
+    checkout.deliveryMode === 'usps' ? '• Entrega escolhida: USPS' : null,
+    checkout.deliveryMode === 'pickup' ? '• Entrega escolhida: retirada' : null,
+    checkout.fullName ? `• Nome: ${checkout.fullName}` : null,
+    checkout.email ? `• Email: ${checkout.email}` : null,
+    checkout.phone ? `• Telefone: ${checkout.phone}` : null,
     context.summary ? `• Resumo: ${context.summary}` : null,
   ].filter(Boolean);
 
