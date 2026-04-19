@@ -37,7 +37,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         profileName: inbound.profileName,
       });
 
-      if (!existingContext.summary && conversationResult?.conversation) {
+      if (conversationResult?.conversation) {
         recoveredContextFromConversation = {
           summary: conversationResult.conversation.summary || '',
           currentStage: conversationResult.conversation.current_stage || '',
@@ -87,7 +87,21 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const effectiveProducts = mergedProducts;
     const recoveredStage = recoveredContextFromConversation?.currentStage || '';
-    const currentStageForState = existingContext.checkout?.stage || existingContext.currentStage || recoveredStage || '';
+    const persistedStagePriority = {
+      new_lead: 0,
+      catalog_browse: 1,
+      checkout_start: 2,
+      checkout_choose_delivery: 3,
+      checkout_collect_address: 4,
+      checkout_collect_name: 5,
+      checkout_collect_contact: 6,
+      checkout_review: 7,
+      handoff_ready: 8,
+    };
+    const localStageCandidate = existingContext.checkout?.stage || existingContext.currentStage || '';
+    const currentStageForState = (persistedStagePriority[localStageCandidate] || 0) >= (persistedStagePriority[recoveredStage] || 0)
+      ? localStageCandidate
+      : recoveredStage;
     const recoveredCheckout = recoveredContextFromConversation?.lastProductPayload?.checkout || {};
     const mergedCheckout = {
       ...recoveredCheckout,
@@ -97,13 +111,16 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       mergedCheckout.stage = currentStageForState;
     }
 
+    const resolvedSummary = existingContext.summary || recoveredContextFromConversation?.summary || '';
+    const resolvedLastProduct = existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '';
+    const resolvedLastProductPayload = existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null;
     const contextForState = {
       ...existingContext,
-      summary: existingContext.summary || recoveredContextFromConversation?.summary || '',
+      summary: resolvedSummary,
       currentStage: currentStageForState,
       checkout: mergedCheckout,
-      lastProduct: existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '',
-      lastProductPayload: existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null,
+      lastProduct: resolvedLastProduct,
+      lastProductPayload: resolvedLastProductPayload,
       lastProducts: effectiveProducts.length > 0
         ? effectiveProducts
         : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []),
