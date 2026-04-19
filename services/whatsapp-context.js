@@ -67,8 +67,12 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/tem\s+lingerie|tem\s+conjunto|tem\s+calcinha|tem\s+suti[aã]|tem\s+body|tem\s+camisola/.test(lower)) {
     if (products.length > 0) {
-      const top = products[0];
+      const firstInStock = products.find((product) => product?.inventory_in_stock !== false) || products[0];
+      const top = firstInStock;
       const priceLine = top.price ? ` por ${top.price}` : '';
+      if (top.inventory_in_stock === false) {
+        return `Tem sim amore 💜 Achei opções por aqui, mas essa primeira leitura está me mostrando itens sem estoque no momento. Se você quiser, eu sigo te mostrando alternativas que façam mais sentido pra você e confirmo a reposição certinho.`;
+      }
       return `Tem sim amore 💜 Já achei uma opção linda: *${top.name}*${priceLine}. Esse modelo é bem queridinho por aqui ✨ Se quiser, eu também posso te mostrar mais opções parecidas. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
     }
     return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, já posso te mostrar as que mais saem também. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
