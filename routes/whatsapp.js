@@ -84,7 +84,7 @@ function inferProductAngle(product = {}, family = 'geral') {
   }
 
   if (family === 'oral') {
-    if (/blow girl|xupa xana/.test(text)) return 'mais funcional';
+    if (/blow girl|xupa xana|garganta profunda/.test(text)) return 'mais funcional';
     if (/beij[aá]vel|sabor|boca gostosa/.test(text)) return 'mais sensorial';
     return 'mais voltada para oral';
   }
@@ -333,11 +333,16 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
   }
 
   if (intent === 'oral') {
-    if (/oral|blow girl|xupa xana|beij[aá]vel|garganta profunda/.test(text)) score += 10;
+    if (/blow girl|xupa xana|garganta profunda/.test(text)) score += 14;
+    if (/oral|beij[aá]vel|sabor|boca gostosa/.test(text)) score += 10;
+    if (/lubrificante|mylub|deslizante/.test(text)) score -= 6;
   }
 
   if (intent === 'lubrificacao') {
-    if (/lubrificante|lube|deslizante|mylub/.test(text)) score += 10;
+    if (/lubrificante|lube|deslizante|mylub|neutro/.test(text)) score += 12;
+    if (/anal|dessensibilizante/.test(text)) score += 4;
+    if (/blow girl|xupa xana|beij[aá]vel|sabor/.test(text)) score -= 8;
+    if (/xana loka|stimulus mulher|sedenta/.test(text)) score -= 5;
   }
 
   if (intent === 'visual') {
