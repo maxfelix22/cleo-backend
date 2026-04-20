@@ -307,19 +307,26 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
   let score = product?.inventory_in_stock === false ? -100 : 0;
 
   if (intent === 'libido') {
-    if (/stimulus mulher|xana loka|sedenta|excitante feminino|libido/.test(text)) score += 10;
-    if (/homem|masculino/.test(text)) score -= 4;
-    if (/oral|gel beij[aá]vel/.test(text)) score -= 3;
+    if (/stimulus mulher|xana loka|sedenta|excitante feminino|libido|tes[aã]o/.test(text)) score += 12;
+    if (/mulher|feminino/.test(text)) score += 2;
+    if (/homem|masculino/.test(text)) score -= 6;
+    if (/oral|gel beij[aá]vel/.test(text)) score -= 4;
+    if (/adstring|sempre virgem|lacradinha/.test(text)) score -= 8;
   }
 
   if (intent === 'apertar') {
-    if (/sempre virgem|adstringente|hamamelis|virgindade/.test(text)) score += 12;
-    if (/stimulus|libido|excitante/.test(text)) score -= 6;
+    if (/sempre virgem|lacradinha|adstringente|hamamelis|virgindade|contra[ií]/.test(text)) score += 14;
+    if (/stimulus|libido|excitante|xana loka|sedenta/.test(text)) score -= 10;
+    if (/lubrificante|mylub|deslizante/.test(text)) score -= 6;
   }
 
   if (intent === 'masculino') {
-    if (/homem|masculino|berinjelo|volum[aã]o|retard/.test(text)) score += 10;
-    if (/mulher|feminino/.test(text)) score -= 5;
+    if (/retard/.test(text)) score += 8;
+    if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) score += 8;
+    if (/berinjelo|volum[aã]o/.test(text)) score += 8;
+    if (/homem|masculino/.test(text)) score += 4;
+    if (/mulher|feminino/.test(text)) score -= 8;
+    if (/xana loka|sedenta|stimulus mulher/.test(text)) score -= 10;
   }
 
   if (intent === 'oral') {
@@ -369,7 +376,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const recommendationWhy = intent === 'libido'
     ? 'faz mais sentido pra libido e excitação'
     : intent === 'apertar'
-      ? 'faz mais sentido pra sensação mais apertadinha'
+      ? 'entra mais direto nessa linha de sensação mais apertadinha'
       : intent === 'masculino'
         ? 'faz mais sentido pra desempenho masculino'
         : intent === 'oral'
