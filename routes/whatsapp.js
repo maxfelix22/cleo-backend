@@ -24,19 +24,47 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 
   const priceLine = top.price ? ` por ${top.price}` : '';
   const shippingLocal = '$5';
-  const familyHint = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
-    ? 'nessa linha de desejo, excitação e mais vontade'
+  const intent = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
+    ? 'libido'
     : /apertad|sempre virgem|contrair|adstring/.test(text)
-      ? 'nessa linha de sensação mais apertadinha'
+      ? 'apertar'
       : /durar mais|retard|ere[cç][aã]o|berinjelo|volum[aã]o/.test(text)
-        ? 'nessa linha de desempenho masculino'
+        ? 'masculino'
         : /oral|boquete|chupar|beij[aá]vel|sabor/.test(text)
-          ? 'nessa linha para oral e estímulo sensorial'
+          ? 'oral'
           : /lubrific|molhar|seca|ressec/.test(text)
-            ? 'nessa linha de lubrificação e conforto'
+            ? 'lubrificacao'
             : /lingerie|sensual|fantasia|camisola|body/.test(text)
+              ? 'visual'
+              : 'geral';
+
+  const familyHint = intent === 'libido'
+    ? 'nessa linha de desejo, excitação e mais vontade'
+    : intent === 'apertar'
+      ? 'nessa linha de sensação mais apertadinha'
+      : intent === 'masculino'
+        ? 'nessa linha de desempenho masculino'
+        : intent === 'oral'
+          ? 'nessa linha para oral e estímulo sensorial'
+          : intent === 'lubrificacao'
+            ? 'nessa linha de lubrificação e conforto'
+            : intent === 'visual'
               ? 'nessa linha mais sensual/visual'
               : 'nessa linha que você está buscando';
+
+  const recommendationWhy = intent === 'libido'
+    ? 'eu começaria por ela porque entra bem nessa linha de mais desejo e excitação'
+    : intent === 'apertar'
+      ? 'eu começaria por ela porque conversa direto com essa busca de sensação mais apertadinha'
+      : intent === 'masculino'
+        ? 'eu começaria por ela porque conversa melhor com essa linha de desempenho masculino'
+        : intent === 'oral'
+          ? 'eu começaria por ela porque faz mais sentido para oral e estímulo sensorial'
+          : intent === 'lubrificacao'
+            ? 'eu começaria por ela porque tende a fazer mais sentido para conforto e lubrificação'
+            : intent === 'visual'
+              ? 'eu começaria por ela porque entra melhor nessa proposta mais sensual'
+              : 'eu começaria por ela porque foi a opção mais coerente que apareceu primeiro aqui';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
     return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *${shippingLocal}*.`;
@@ -52,10 +80,10 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     : ' Se você quiser, eu também posso te mostrar mais opções parecidas.';
 
   if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
-    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Uma opção que faz sentido é *${top.name}*${priceLine}.${moreLine} Se quiser, eu também te digo qual eu acho mais certeira para o que você quer ✨`;
+    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Eu começaria por *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine} Se quiser, eu também posso te dizer qual delas eu acho mais forte, mais suave ou mais certeira para você ✨`;
   }
 
-  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Uma opção que faz sentido é *${top.name}*${priceLine}.${moreLine} Se quiser, eu também te digo qual eu acho mais certeira para o que você quer ✨`;
+  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Eu começaria por *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine} Se quiser, eu também posso te dizer qual delas eu acho mais forte, mais suave ou mais certeira para você ✨`;
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
