@@ -330,7 +330,7 @@ Se quiser agilizar, pode mandar tudo de uma vez:
   }
 
   if (stageNow === 'handoff_ready') {
-    return 'Perfeito amore 💜 Seu pedido já ficou prontinho por aqui. Vou encaminhar isso certinho agora para seguir seu atendimento.';
+    return 'Perfeito amore 💜 Seu pedido já ficou certinho por aqui. Agora eu sigo com o próximo passo para deixar tudo alinhado pra você ✨';
   }
 
   return '';
