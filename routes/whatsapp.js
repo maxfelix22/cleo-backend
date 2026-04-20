@@ -156,6 +156,13 @@ function inferCrossSellFamily(product = {}) {
   return 'geral';
 }
 
+function pickSoftCloseIntro(text = '') {
+  if (/amei|adorei/.test(text)) return 'Amei esse também 💜';
+  if (/gostei|curti/.test(text)) return 'Lindo né? 💜';
+  if (/vou pensar/.test(text)) return 'Claro amore 💜';
+  return 'Perfeito 💜';
+}
+
 function buildCrossSellReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
@@ -194,6 +201,7 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
   const productName = anchoredProduct?.name || context?.lastProduct || '';
   if (!productName) return '';
+  const intro = pickSoftCloseIntro(text);
 
   if (/vou querer|quero sim|fech[ao]|pode separar|quero levar/.test(text)) {
     const checkout = context?.checkout || {};
@@ -242,7 +250,7 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
   }
 
   if (/gostei|amei|adorei|vou pensar|acho que vou querer|curti/.test(text)) {
-    return `Lindo né? 💜 Se você quiser, eu já separo o *${productName}* pra você.`;
+    return `${intro} Se você quiser, eu já separo o *${productName}* pra você.`;
   }
 
   const crossSellReply = buildCrossSellReply(context, inbound);
