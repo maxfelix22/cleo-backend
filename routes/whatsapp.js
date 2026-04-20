@@ -36,12 +36,40 @@ function buildContextualShippingReply(context = {}, inbound = {}) {
   }
 
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const quantity = Number(context?.checkout?.quantity || 1) || 1;
   const priceNumber = Number(anchoredProduct?.priceNumber || String(anchoredProduct?.price || '').replace(/[^\d.]/g, '')) || 0;
-  const uspsCopy = priceNumber >= 99
-    ? 'pra esse pedido o envio por USPS fica com *frete grátis* 💜'
-    : 'pra esse pedido o envio por USPS fica em *$10* 💜';
+  const orderTotal = priceNumber * quantity;
+  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  const uspsCopy = orderTotal >= 99
+    ? 'o envio por USPS fica com *frete grátis* 💜'
+    : 'o envio por USPS fica em *$10* 💜';
+
+  if (productName) {
+    return `Pra *${productName}*, ${uspsCopy}`;
+  }
 
   return `Enviamos sim amore 💜 ${uspsCopy}`;
+}
+
+function buildContextualFollowUpReply(context = {}, inbound = {}) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  if (!productName) return '';
+
+  if (/e se eu quiser esse|quero esse|vou querer esse|vou levar esse/.test(text)) {
+    return `Perfeito 💜 Se for esse *${productName}*, eu sigo com você por aqui. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
+  }
+
+  if (/tem mais opc|mais opc|tem outro parecido|outras opc|mais nessa linha/.test(text)) {
+    return `Tenho sim 💜 Se quiser, eu te mostro mais opções parecidas com *${productName}* nessa mesma linha.`;
+  }
+
+  if (/e o frete|frete pra c[aá]|quanto fica pra enviar|quanto fica pra mandar/.test(text)) {
+    return buildContextualShippingReply(context, inbound);
+  }
+
+  return '';
 }
 
 function buildDirectPurchaseReply(context = {}, inbound = {}) {
@@ -404,6 +432,9 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
           selectedColor: requestedColor || checkoutContext.checkout?.selectedColor || '',
         },
       };
+    }
+    if (!replyText) {
+      replyText = buildContextualFollowUpReply(checkoutContext, inbound);
     }
     if (!replyText && followUpSignals.asksUsShipping) {
       replyText = buildUsOnlyShippingReply();
