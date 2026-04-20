@@ -216,44 +216,45 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
     const hasFullName = Boolean(checkout.fullName);
     const hasContact = Boolean(checkout.email || checkout.phone);
     const hasAddress = Boolean(checkout.address);
+    const intro = pickCloseIntro(text);
 
     if (deliveryMode === 'pickup') {
       if (!hasFullName) {
-        return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só o nome completo para eu continuar.`;
+        return `${intro} Então eu já sigo com *${productName}* em *pickup*. Me manda só o nome completo para eu continuar.`;
       }
       if (!hasContact) {
-        return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só seu telefone ou email para eu continuar.`;
+        return `${intro} Então eu já sigo com *${productName}* em *pickup*. Me manda só seu telefone ou email para eu continuar.`;
       }
-      return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Se quiser, eu já posso te passar o resumo do pedido.`;
+      return `${intro} Então eu já sigo com *${productName}* em *pickup*. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
 
     if (deliveryMode === 'local_delivery') {
       if (!hasAddress) {
-        return `Perfeito 💜 Então eu já sigo com *${productName}* na *entrega em Marlborough*. Me manda só o endereço certinho para eu continuar.`;
+        return `${intro} Então eu já sigo com *${productName}* na *entrega em Marlborough*. Me manda só o endereço certinho para eu continuar.`;
       }
       if (!hasFullName) {
-        return `Perfeito 💜 Já anotei a entrega de *${productName}*. Me manda só o nome completo para eu continuar.`;
+        return `${intro} Já anotei a entrega de *${productName}*. Me manda só o nome completo para eu continuar.`;
       }
       if (!hasContact) {
-        return `Perfeito 💜 Já anotei a entrega de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
+        return `${intro} Já anotei a entrega de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
       }
-      return `Perfeito 💜 Então eu já sigo com *${productName}* na entrega local. Se quiser, eu já posso te passar o resumo do pedido.`;
+      return `${intro} Então eu já sigo com *${productName}* na entrega local. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
 
     if (deliveryMode === 'usps') {
       if (!hasAddress) {
-        return `Perfeito 💜 Então eu já sigo com *${productName}* por *USPS*. Me manda só o endereço completo com ZIP code para eu continuar.`;
+        return `${intro} Então eu já sigo com *${productName}* por *USPS*. Me manda só o endereço completo com ZIP code para eu continuar.`;
       }
       if (!hasFullName) {
-        return `Perfeito 💜 Já anotei o envio de *${productName}*. Me manda só o nome completo para eu continuar.`;
+        return `${intro} Já anotei o envio de *${productName}*. Me manda só o nome completo para eu continuar.`;
       }
       if (!hasContact) {
-        return `Perfeito 💜 Já anotei o envio de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
+        return `${intro} Já anotei o envio de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
       }
-      return `Perfeito 💜 Então eu já sigo com *${productName}* por USPS. Se quiser, eu já posso te passar o resumo do pedido.`;
+      return `${intro} Então eu já sigo com *${productName}* por USPS. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
 
-    return `Perfeito 💜 Então eu já sigo com *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
+    return `${intro} Então eu já sigo com *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
   }
 
   if (/gostei|amei|adorei|vou pensar|acho que vou querer|curti/.test(text)) {
@@ -293,11 +294,18 @@ function buildContextualFollowUpReply(context = {}, inbound = {}) {
   return '';
 }
 
+function pickCloseIntro(text = '') {
+  if (/vou querer|quero levar/.test(text)) return 'Fechou 💜';
+  if (/quero sim|pode separar/.test(text)) return 'Perfeito 💜';
+  return 'Perfeito 💜';
+}
+
 function buildDirectPurchaseReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').toLowerCase();
   const quantity = extractRequestedQuantity(text) || 1;
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
   const productName = anchoredProduct?.name || context?.lastProduct || 'esse item';
+  const intro = pickCloseIntro(text);
   const variationDetails = Array.isArray(anchoredProduct?.variationDetails) ? anchoredProduct.variationDetails : [];
   const requestedSize = extractRequestedSize(text);
   const colorMatch = text.match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
@@ -309,10 +317,10 @@ function buildDirectPurchaseReply(context = {}, inbound = {}) {
     const availableColors = [...new Set(variationDetails.map((variation) => variation.color).filter(Boolean))];
     const sizeLine = availableSizes.length > 0 ? ` tamanhos: *${availableSizes.join(', ')}*.` : '';
     const colorLine = availableColors.length > 0 ? ` cores: *${availableColors.join(', ')}*.` : '';
-    return `Tenho sim 💜 Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Me confirma só${sizeLine}${colorLine}`.trim();
+    return `${intro} Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Me confirma só${sizeLine}${colorLine}`.trim();
   }
 
-  return `Perfeito 💜 Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
+  return `${intro} Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
 }
 
 function inferAgenticIntent(text = '') {
