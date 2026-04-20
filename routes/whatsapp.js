@@ -137,6 +137,23 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
   return '';
 }
 
+function buildSoftCloseReply(context = {}, inbound = {}) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  if (!productName) return '';
+
+  if (/gostei|amei|adorei|vou pensar|acho que vou querer|curti/.test(text)) {
+    return `Lindo né? 💜 Se você quiser, eu já separo o *${productName}* pra você.`;
+  }
+
+  if (/tem mais alguma coisa|mais alguma sugest[aã]o|mais alguma op[cç][aã]o/.test(text)) {
+    return `Tenho sim 💜 Se você quiser, além de *${productName}*, eu também posso te mostrar mais uma opção nessa mesma linha ou algum complemento.`;
+  }
+
+  return '';
+}
+
 function buildContextualFollowUpReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
@@ -145,6 +162,9 @@ function buildContextualFollowUpReply(context = {}, inbound = {}) {
 
   const comparisonReply = buildContextualComparisonReply(context, inbound);
   if (comparisonReply) return comparisonReply;
+
+  const softCloseReply = buildSoftCloseReply(context, inbound);
+  if (softCloseReply) return softCloseReply;
 
   if (/e se eu quiser esse|quero esse|vou querer esse|vou levar esse/.test(text)) {
     return `Perfeito 💜 Se for esse *${productName}*, eu sigo com você por aqui. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
