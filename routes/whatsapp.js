@@ -45,9 +45,24 @@ function buildContextualShippingReply(context = {}, inbound = {}) {
 }
 
 function buildDirectPurchaseReply(context = {}, inbound = {}) {
-  const quantity = extractRequestedQuantity(inbound?.text || '') || 1;
+  const text = String(inbound?.text || '').toLowerCase();
+  const quantity = extractRequestedQuantity(text) || 1;
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
   const productName = anchoredProduct?.name || context?.lastProduct || 'esse item';
+  const variationDetails = Array.isArray(anchoredProduct?.variationDetails) ? anchoredProduct.variationDetails : [];
+  const requestedSize = extractRequestedSize(text);
+  const colorMatch = text.match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
+  const requestedColor = colorMatch ? colorMatch[0] : '';
+  const needsVariationChoice = variationDetails.length > 0 && (!requestedSize || !requestedColor);
+
+  if (needsVariationChoice) {
+    const availableSizes = [...new Set(variationDetails.map((variation) => variation.size).filter(Boolean))];
+    const availableColors = [...new Set(variationDetails.map((variation) => variation.color).filter(Boolean))];
+    const sizeLine = availableSizes.length > 0 ? ` tamanhos: *${availableSizes.join(', ')}*.` : '';
+    const colorLine = availableColors.length > 0 ? ` cores: *${availableColors.join(', ')}*.` : '';
+    return `Tenho sim 💜 Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Me confirma só${sizeLine}${colorLine}`.trim();
+  }
+
   return `Perfeito 💜 Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
 }
 
@@ -370,14 +385,23 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     let replyText = buildCheckoutReply(checkoutContext);
     if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
+      const purchaseAnchor = checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload;
+      const variationDetails = Array.isArray(purchaseAnchor?.variationDetails) ? purchaseAnchor.variationDetails : [];
+      const requestedColorMatch = String(inbound.text || '').match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
+      const requestedColor = requestedColorMatch ? requestedColorMatch[0] : '';
+      const requestedSize = extractRequestedSize(inbound.text || '');
+      const needsVariationChoice = variationDetails.length > 0 && (!requestedSize || !requestedColor);
+
       replyText = buildDirectPurchaseReply(checkoutContext, inbound);
       checkoutContext = {
         ...checkoutContext,
-        currentStage: 'checkout_choose_delivery',
+        currentStage: needsVariationChoice ? 'catalog_browse' : 'checkout_choose_delivery',
         checkout: {
           ...(checkoutContext.checkout || {}),
-          stage: 'checkout_choose_delivery',
+          stage: needsVariationChoice ? 'catalog_browse' : 'checkout_choose_delivery',
           quantity: followUpSignals.requestedQuantity || 1,
+          selectedSize: requestedSize || checkoutContext.checkout?.selectedSize || '',
+          selectedColor: requestedColor || checkoutContext.checkout?.selectedColor || '',
         },
       };
     }
