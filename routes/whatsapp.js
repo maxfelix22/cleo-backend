@@ -17,12 +17,13 @@ function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
 
 function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
-  const top = (Array.isArray(products) ? products : []).find((product) => product?.inventory_in_stock !== false) || products[0] || null;
+  const ranked = (Array.isArray(products) ? products : []).filter(Boolean);
+  const available = ranked.filter((product) => product?.inventory_in_stock !== false);
+  const top = available[0] || ranked[0] || null;
   if (!top) return '';
 
   const priceLine = top.price ? ` por ${top.price}` : '';
   const shippingLocal = '$5';
-  const shippingUsps = Number(top?.priceNumber || 0) >= 99 ? 'frete grátis' : '$10';
   const familyHint = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
     ? 'nessa linha de desejo, excitação e mais vontade'
     : /apertad|sempre virgem|contrair|adstring/.test(text)
@@ -45,11 +46,16 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     return `Pra entrega local em *Marlborough*, fica *${shippingLocal}* 💜`;
   }
 
-  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para/.test(text)) {
-    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Já achei uma opção que faz sentido: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais 2 ou 3 opções parecidas e te dizer qual eu acho mais certeira para o que você quer ✨`;
+  const moreOptions = available.slice(1, 3);
+  const moreLine = moreOptions.length > 0
+    ? ` Se você quiser, eu também posso te mostrar outras opções parecidas, como *${moreOptions.map((product) => product.name).join('* e *')}*.`
+    : ' Se você quiser, eu também posso te mostrar mais opções parecidas.';
+
+  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
+    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Uma opção que faz sentido é *${top.name}*${priceLine}.${moreLine} Se quiser, eu também te digo qual eu acho mais certeira para o que você quer ✨`;
   }
 
-  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Já achei uma opção que faz sentido: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais 2 ou 3 opções parecidas e te dizer qual eu acho mais certeira para o que você quer ✨`;
+  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Uma opção que faz sentido é *${top.name}*${priceLine}.${moreLine} Se quiser, eu também te digo qual eu acho mais certeira para o que você quer ✨`;
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
