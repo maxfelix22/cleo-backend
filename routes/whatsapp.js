@@ -188,16 +188,48 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
   if (!productName) return '';
 
   if (/vou querer|quero sim|fech[ao]|pode separar|quero levar/.test(text)) {
-    const deliveryMode = String(context?.checkout?.deliveryMode || '').toLowerCase();
+    const checkout = context?.checkout || {};
+    const deliveryMode = String(checkout.deliveryMode || '').toLowerCase();
+    const hasFullName = Boolean(checkout.fullName);
+    const hasContact = Boolean(checkout.email || checkout.phone);
+    const hasAddress = Boolean(checkout.address);
+
     if (deliveryMode === 'pickup') {
-      return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só o nome completo para eu continuar.`;
+      if (!hasFullName) {
+        return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só o nome completo para eu continuar.`;
+      }
+      if (!hasContact) {
+        return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só seu telefone ou email para eu continuar.`;
+      }
+      return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
+
     if (deliveryMode === 'local_delivery') {
-      return `Perfeito 💜 Então eu já sigo com *${productName}* na *entrega em Marlborough*. Me manda só o endereço certinho para eu continuar.`;
+      if (!hasAddress) {
+        return `Perfeito 💜 Então eu já sigo com *${productName}* na *entrega em Marlborough*. Me manda só o endereço certinho para eu continuar.`;
+      }
+      if (!hasFullName) {
+        return `Perfeito 💜 Já anotei a entrega de *${productName}*. Me manda só o nome completo para eu continuar.`;
+      }
+      if (!hasContact) {
+        return `Perfeito 💜 Já anotei a entrega de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
+      }
+      return `Perfeito 💜 Então eu já sigo com *${productName}* na entrega local. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
+
     if (deliveryMode === 'usps') {
-      return `Perfeito 💜 Então eu já sigo com *${productName}* por *USPS*. Me manda só o endereço completo com ZIP code para eu continuar.`;
+      if (!hasAddress) {
+        return `Perfeito 💜 Então eu já sigo com *${productName}* por *USPS*. Me manda só o endereço completo com ZIP code para eu continuar.`;
+      }
+      if (!hasFullName) {
+        return `Perfeito 💜 Já anotei o envio de *${productName}*. Me manda só o nome completo para eu continuar.`;
+      }
+      if (!hasContact) {
+        return `Perfeito 💜 Já anotei o envio de *${productName}*. Me manda só seu telefone ou email para eu continuar.`;
+      }
+      return `Perfeito 💜 Então eu já sigo com *${productName}* por USPS. Se quiser, eu já posso te passar o resumo do pedido.`;
     }
+
     return `Perfeito 💜 Então eu já sigo com *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
   }
 
