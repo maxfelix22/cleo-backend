@@ -163,6 +163,12 @@ function pickSoftCloseIntro(text = '') {
   return 'Perfeito 💜';
 }
 
+function pickCrossSellIntro(text = '') {
+  if (/mais alguma sugest[aã]o|tem mais alguma dica/.test(text)) return 'Tenho sim 💜';
+  if (/tem mais alguma coisa|tem algo a mais/.test(text)) return 'Tem sim 💜';
+  return 'Tenho sim 💜';
+}
+
 function buildCrossSellReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
@@ -173,27 +179,28 @@ function buildCrossSellReply(context = {}, inbound = {}) {
     return '';
   }
 
+  const intro = pickCrossSellIntro(text);
   const family = inferCrossSellFamily(anchoredProduct);
   if (family === 'libido') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção de libido na mesma linha.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção de libido na mesma linha.`;
   }
   if (family === 'apertar') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha de apertadinha.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha de apertadinha.`;
   }
   if (family === 'masculino') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção masculina ou alguma linha complementar pra fechar melhor.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria outra opção masculina ou alguma linha complementar pra fechar melhor.`;
   }
   if (family === 'oral') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item da mesma pegada.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item da mesma pegada.`;
   }
   if (family === 'lubrificacao') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outro gel ou alguma linha complementar mais específica.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria outro gel ou alguma linha complementar mais específica.`;
   }
   if (family === 'visual') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra peça da mesma linha ou algum complemento que combine.`;
+    return `${intro} Junto com *${productName}*, eu te mostraria outra peça da mesma linha ou algum complemento que combine.`;
   }
 
-  return `Tenho sim 💜 Junto com *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
+  return `${intro} Junto com *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
 }
 
 function buildSoftCloseReply(context = {}, inbound = {}) {
