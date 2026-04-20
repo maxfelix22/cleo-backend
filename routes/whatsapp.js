@@ -188,6 +188,16 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
   if (!productName) return '';
 
   if (/vou querer|quero sim|fech[ao]|pode separar|quero levar/.test(text)) {
+    const deliveryMode = String(context?.checkout?.deliveryMode || '').toLowerCase();
+    if (deliveryMode === 'pickup') {
+      return `Perfeito 💜 Então eu já sigo com *${productName}* em *pickup*. Me manda só o nome completo para eu continuar.`;
+    }
+    if (deliveryMode === 'local_delivery') {
+      return `Perfeito 💜 Então eu já sigo com *${productName}* na *entrega em Marlborough*. Me manda só o endereço certinho para eu continuar.`;
+    }
+    if (deliveryMode === 'usps') {
+      return `Perfeito 💜 Então eu já sigo com *${productName}* por *USPS*. Me manda só o endereço completo com ZIP code para eu continuar.`;
+    }
     return `Perfeito 💜 Então eu já sigo com *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
   }
 
