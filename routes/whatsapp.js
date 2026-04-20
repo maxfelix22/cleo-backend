@@ -160,25 +160,25 @@ function buildCrossSellReply(context = {}, inbound = {}) {
 
   const family = inferCrossSellFamily(anchoredProduct);
   if (family === 'libido') {
-    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar um lubrificante ou outra opção nessa linha de libido.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante ou outra opção de libido pra deixar essa linha mais completa.`;
   }
   if (family === 'apertar') {
-    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra opção dessa linha ou algum lubrificante pra usar junto.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha.`;
   }
   if (family === 'masculino') {
-    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar outra opção masculina ou algum complemento pra usar junto.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção masculina ou algum complemento pra fechar melhor essa linha.`;
   }
   if (family === 'oral') {
-    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra opção pra oral ou algum item complementar nessa linha.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item complementar nessa pegada.`;
   }
   if (family === 'lubrificacao') {
-    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar outra opção de gel ou algum produto complementar.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção de gel ou algum complemento mais específico.`;
   }
   if (family === 'visual') {
-    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra peça nessa mesma linha ou algum complemento.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra peça da mesma linha ou algum complemento que combine.`;
   }
 
-  return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
+  return `Tenho sim 💜 Junto com *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
 }
 
 function buildSoftCloseReply(context = {}, inbound = {}) {
