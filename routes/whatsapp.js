@@ -295,7 +295,10 @@ function buildDirectPurchaseReply(context = {}, inbound = {}) {
 function inferAgenticIntent(text = '') {
   if (/libido|desejo|vontade|tes[aã]o|excit/.test(text)) return 'libido';
   if (/apertad|sempre virgem|contrair|adstring/.test(text)) return 'apertar';
-  if (/durar mais|retard|ere[cç][aã]o|berinjelo|volum[aã]o/.test(text)) return 'masculino';
+  if (/durar mais|retard/.test(text)) return 'masculino_retardante';
+  if (/ere[cç][aã]o|ficar duro|levantar|super pen|pinto loko/.test(text)) return 'masculino_erecao';
+  if (/berinjelo|volum[aã]o|volume/.test(text)) return 'masculino_volume';
+  if (/homem|masculino/.test(text)) return 'masculino';
   if (/oral|boquete|chupar|beij[aá]vel|sabor/.test(text)) return 'oral';
   if (/lubrific|molhar|seca|ressec/.test(text)) return 'lubrificacao';
   if (/lingerie|sensual|fantasia|camisola|body/.test(text)) return 'visual';
@@ -320,10 +323,10 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
     if (/lubrificante|mylub|deslizante/.test(text)) score -= 6;
   }
 
-  if (intent === 'masculino') {
-    if (/retard/.test(text)) score += 8;
-    if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) score += 8;
-    if (/berinjelo|volum[aã]o/.test(text)) score += 8;
+  if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
+    if (/retard/.test(text)) score += intent === 'masculino_retardante' ? 14 : 8;
+    if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) score += intent === 'masculino_erecao' ? 14 : 8;
+    if (/berinjelo|volum[aã]o/.test(text)) score += intent === 'masculino_volume' ? 14 : 8;
     if (/homem|masculino/.test(text)) score += 4;
     if (/mulher|feminino/.test(text)) score -= 8;
     if (/xana loka|sedenta|stimulus mulher/.test(text)) score -= 10;
@@ -363,29 +366,41 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     ? 'nessa linha de desejo, excitação e mais vontade'
     : intent === 'apertar'
       ? 'nessa linha de sensação mais apertadinha'
-      : intent === 'masculino'
-        ? 'nessa linha de desempenho masculino'
-        : intent === 'oral'
-          ? 'nessa linha para oral e estímulo sensorial'
-          : intent === 'lubrificacao'
-            ? 'nessa linha de lubrificação e conforto'
-            : intent === 'visual'
-              ? 'nessa linha mais sensual/visual'
-              : 'nessa linha que você está buscando';
+      : intent === 'masculino_retardante'
+        ? 'nessa linha mais voltada para durar mais'
+        : intent === 'masculino_erecao'
+          ? 'nessa linha mais voltada para ereção e estímulo'
+          : intent === 'masculino_volume'
+            ? 'nessa linha mais voltada para volume e intensidade'
+            : intent === 'masculino'
+              ? 'nessa linha de desempenho masculino'
+              : intent === 'oral'
+                ? 'nessa linha para oral e estímulo sensorial'
+                : intent === 'lubrificacao'
+                  ? 'nessa linha de lubrificação e conforto'
+                  : intent === 'visual'
+                    ? 'nessa linha mais sensual/visual'
+                    : 'nessa linha que você está buscando';
 
   const recommendationWhy = intent === 'libido'
     ? 'faz mais sentido pra libido e excitação'
     : intent === 'apertar'
       ? 'entra mais direto nessa linha de sensação mais apertadinha'
-      : intent === 'masculino'
-        ? 'faz mais sentido pra desempenho masculino'
-        : intent === 'oral'
-          ? 'faz mais sentido pra oral'
-          : intent === 'lubrificacao'
-            ? 'faz mais sentido pra lubrificação e conforto'
-            : intent === 'visual'
-              ? 'faz mais sentido nessa proposta mais sensual'
-              : 'foi a opção mais coerente que apareceu primeiro aqui';
+      : intent === 'masculino_retardante'
+        ? 'entra mais direto nessa linha de durar mais'
+        : intent === 'masculino_erecao'
+          ? 'faz mais sentido pra ereção e estímulo'
+          : intent === 'masculino_volume'
+            ? 'faz mais sentido pra volume e intensidade'
+            : intent === 'masculino'
+              ? 'faz mais sentido pra desempenho masculino'
+              : intent === 'oral'
+                ? 'faz mais sentido pra oral'
+                : intent === 'lubrificacao'
+                  ? 'faz mais sentido pra lubrificação e conforto'
+                  : intent === 'visual'
+                    ? 'faz mais sentido nessa proposta mais sensual'
+                    : 'foi a opção mais coerente que apareceu primeiro aqui';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
     return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *${shippingLocal}*.`;
@@ -408,7 +423,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     return `Tenho sim 💜 Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
-  if (intent === 'masculino') {
+  if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
     return `Tenho sim 💜 Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
