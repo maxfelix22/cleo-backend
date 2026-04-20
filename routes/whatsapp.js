@@ -15,12 +15,14 @@ function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
   return /tem\s+|você tem|vc tem|trabalha com|algo pra|algo para|tem algo|me indica|me mostra|o que você tem/.test(text);
 }
 
-function buildAgenticDiscoveryReply(inbound = {}, products = []) {
+function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const top = (Array.isArray(products) ? products : []).find((product) => product?.inventory_in_stock !== false) || products[0] || null;
   if (!top) return '';
 
   const priceLine = top.price ? ` por ${top.price}` : '';
+  const shippingLocal = '$5';
+  const shippingUsps = Number(top?.priceNumber || 0) >= 99 ? 'frete grátis' : '$10';
   const familyHint = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
     ? 'nessa linha de desejo, excitação e mais vontade'
     : /apertad|sempre virgem|contrair|adstring/.test(text)
@@ -34,6 +36,18 @@ function buildAgenticDiscoveryReply(inbound = {}, products = []) {
             : /lingerie|sensual|fantasia|camisola|body/.test(text)
               ? 'nessa linha mais sensual/visual'
               : 'nessa linha que você está buscando';
+
+  if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
+    return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa é *${shippingLocal}*. Se você quiser, eu também posso te passar a opção por USPS — para esse pedido fica ${shippingUsps}.`;
+  }
+
+  if (/quanto fica pra entregar|valor da entrega|taxa de entrega|entregar em marlboro|entregar em marlborough/.test(text)) {
+    return `Pra entrega local em *Marlborough*, fica *${shippingLocal}* 💜 Se preferir envio por USPS, para esse pedido fica ${shippingUsps}.`;
+  }
+
+  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para/.test(text)) {
+    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Já achei uma opção que faz sentido: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais 2 ou 3 opções parecidas e te dizer qual eu acho mais certeira para o que você quer ✨`;
+  }
 
   return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Já achei uma opção que faz sentido: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais 2 ou 3 opções parecidas e te dizer qual eu acho mais certeira para o que você quer ✨`;
 }
@@ -207,7 +221,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     let replyText = buildCheckoutReply(checkoutContext);
     if (!replyText && shouldUseAgenticDiscovery(inbound, checkoutContext, effectiveProducts)) {
-      replyText = buildAgenticDiscoveryReply(inbound, effectiveProducts);
+      replyText = buildAgenticDiscoveryReply(inbound, effectiveProducts, checkoutContext);
     }
     if (!replyText) {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });

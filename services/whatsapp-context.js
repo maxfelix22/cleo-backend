@@ -129,7 +129,7 @@ function buildInitialReply(inbound, options = {}) {
     return 'Oiiee amore 💜 Recebi sua mensagem aqui. Me conta o que você está procurando que eu sigo com você.';
   }
 
-  if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
+  if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text) && !/tem\s+|você tem|vc tem|algo pra|algo para|trabalha com/.test(lower)) {
     return 'Oiiee amore 💜 Tudo bem? Me conta o que você está procurando que eu te ajudo por aqui.';
   }
 
@@ -185,6 +185,14 @@ function buildInitialReply(inbound, options = {}) {
       return `Entendi amore 💜 Aqui eu estou lendo a *${lastProduct.name}* pelo catálogo/runtime da operação, e às vezes o valor do site pode estar diferente por vitrine, variação, promoção ou sincronização. Para não te passar errado, eu prefiro te confirmar esse valor certinho antes de fechar como definitivo.`;
     }
     return 'Entendi amore 💜 Pode acontecer diferença entre site e catálogo operacional. Se você me disser qual peça é, eu confirmo certinho para não te passar nada errado.';
+  }
+
+  if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(lower)) {
+    return 'Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *$5*. Se preferir USPS, abaixo de $99 fica $10 e acima de $99 sai com frete grátis.';
+  }
+
+  if (/quanto fica pra entregar|valor da entrega|taxa de entrega/.test(lower)) {
+    return 'Pra entrega local em *Marlborough*, fica *$5* 💜 Se você preferir envio por USPS, abaixo de $99 fica $10 e acima de $99 sai com frete grátis.';
   }
 
   if (/e ai\??|e aí\??|oi\??|ol[aá]\??|hum\??/.test(lower)) {
