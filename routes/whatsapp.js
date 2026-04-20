@@ -4,6 +4,39 @@ const router = express.Router();
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 const { sendWhatsAppMessage, hasRealTwilioConfig } = require('../services/whatsapp-outbound');
 const { buildInitialReply, extractRequestedSize } = require('../services/whatsapp-context');
+
+function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const stage = String(context?.currentStage || context?.checkout?.stage || '');
+  if (!text) return false;
+  if (stage && /checkout_|handoff_ready/.test(stage)) return false;
+  if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa|quanto custa|preço|preco|valor|tem no tamanho|outra cor|outras cores/.test(text)) return false;
+  if (!Array.isArray(products) || products.length === 0) return false;
+  return /tem\s+|você tem|vc tem|trabalha com|algo pra|algo para|tem algo|me indica|me mostra|o que você tem/.test(text);
+}
+
+function buildAgenticDiscoveryReply(inbound = {}, products = []) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const top = (Array.isArray(products) ? products : []).find((product) => product?.inventory_in_stock !== false) || products[0] || null;
+  if (!top) return '';
+
+  const priceLine = top.price ? ` por ${top.price}` : '';
+  const familyHint = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
+    ? 'nessa linha de desejo, excitação e mais vontade'
+    : /apertad|sempre virgem|contrair|adstring/.test(text)
+      ? 'nessa linha de sensação mais apertadinha'
+      : /durar mais|retard|ere[cç][aã]o|berinjelo|volum[aã]o/.test(text)
+        ? 'nessa linha de desempenho masculino'
+        : /oral|boquete|chupar|beij[aá]vel|sabor/.test(text)
+          ? 'nessa linha para oral e estímulo sensorial'
+          : /lubrific|molhar|seca|ressec/.test(text)
+            ? 'nessa linha de lubrificação e conforto'
+            : /lingerie|sensual|fantasia|camisola|body/.test(text)
+              ? 'nessa linha mais sensual/visual'
+              : 'nessa linha que você está buscando';
+
+  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Já achei uma opção que faz sentido: *${top.name}*${priceLine}. Se você quiser, eu também posso te mostrar mais 2 ou 3 opções parecidas e te dizer qual eu acho mais certeira para o que você quer ✨`;
+}
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
@@ -173,6 +206,9 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
     let replyText = buildCheckoutReply(checkoutContext);
+    if (!replyText && shouldUseAgenticDiscovery(inbound, checkoutContext, effectiveProducts)) {
+      replyText = buildAgenticDiscoveryReply(inbound, effectiveProducts);
+    }
     if (!replyText) {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
