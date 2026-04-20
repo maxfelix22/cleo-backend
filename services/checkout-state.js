@@ -292,8 +292,7 @@ Se quiser agilizar, pode mandar tudo de uma vez:
 • email
 • endereço completo
 
-• Entrega local em Marlborough: ${shipping.localDeliveryLabel}
-• Prazo estimado: ${shipping.localDeliveryEta}`;
+• Entrega local em Marlborough: ${shipping.localDeliveryLabel}`;
     }
   }
 
