@@ -90,17 +90,17 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
               : 'nessa linha que você está buscando';
 
   const recommendationWhy = intent === 'libido'
-    ? 'ela entra bem nessa linha de mais desejo e excitação'
+    ? 'faz mais sentido pra libido e excitação'
     : intent === 'apertar'
-      ? 'ela conversa direto com essa busca de sensação mais apertadinha'
+      ? 'faz mais sentido pra sensação mais apertadinha'
       : intent === 'masculino'
-        ? 'ela conversa melhor com essa linha de desempenho masculino'
+        ? 'faz mais sentido pra desempenho masculino'
         : intent === 'oral'
-          ? 'ela faz mais sentido para oral e estímulo sensorial'
+          ? 'faz mais sentido pra oral'
           : intent === 'lubrificacao'
-            ? 'ela tende a fazer mais sentido para conforto e lubrificação'
+            ? 'faz mais sentido pra lubrificação e conforto'
             : intent === 'visual'
-              ? 'ela entra melhor nessa proposta mais sensual'
+              ? 'faz mais sentido nessa proposta mais sensual'
               : 'foi a opção mais coerente que apareceu primeiro aqui';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
@@ -113,14 +113,38 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 
   const moreOptions = available.slice(1, 3);
   const moreLine = moreOptions.length > 0
-    ? ` Se você quiser, eu também posso te mostrar outras opções parecidas, como *${moreOptions.map((product) => product.name).join('* e *')}*.`
-    : ' Se você quiser, eu também posso te mostrar mais opções parecidas.';
+    ? ` Se quiser, eu também te mostro outras nessa linha, como *${moreOptions.map((product) => product.name).join('* e *')}*.`
+    : '';
 
-  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
-    return `Oiiee amore 💜 Tenho sim. Pelo que você me falou, eu seguiria ${familyHint}. Eu começaria por *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine} Se quiser, eu também posso te dizer qual delas eu acho mais forte, mais suave ou mais certeira para você ✨`;
+  if (intent === 'apertar') {
+    return `Tenho sim 💜 Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
-  return `Tem sim amore 💜 Pelo que você me falou, eu seguiria ${familyHint}. Eu começaria por *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine} Se quiser, eu também posso te dizer qual delas eu acho mais forte, mais suave ou mais certeira para você ✨`;
+  if (intent === 'libido') {
+    return `Tenho sim 💜 Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+  }
+
+  if (intent === 'masculino') {
+    return `Tenho sim 💜 Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+  }
+
+  if (intent === 'oral') {
+    return `Tenho sim 💜 Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+  }
+
+  if (intent === 'lubrificacao') {
+    return `Tenho sim 💜 Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+  }
+
+  if (intent === 'visual') {
+    return `Tenho sim 💜 Pra essa linha mais sensual, eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
+  }
+
+  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
+    return `Oiiee amore 💜 Tenho sim. Eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
+  }
+
+  return `Tenho sim 💜 Eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
