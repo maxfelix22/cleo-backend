@@ -180,6 +180,20 @@ function buildInitialReply(inbound, options = {}) {
     return 'Claro amore 💜 Me confirma qual peça você quer que eu veja o valor certinho pra não te passar nada errado.';
   }
 
+  if (/site est[aá]|no site est[aá]|no site t[aá]|site t[aá]|na loja est[aá]|t[aá] no site/.test(lower)) {
+    if (lastProduct?.name) {
+      return `Entendi amore 💜 Aqui eu estou lendo a *${lastProduct.name}* pelo catálogo/runtime da operação, e às vezes o valor do site pode estar diferente por vitrine, variação, promoção ou sincronização. Para não te passar errado, eu prefiro te confirmar esse valor certinho antes de fechar como definitivo.`;
+    }
+    return 'Entendi amore 💜 Pode acontecer diferença entre site e catálogo operacional. Se você me disser qual peça é, eu confirmo certinho para não te passar nada errado.';
+  }
+
+  if (/e ai\??|e aí\??|oi\??|ol[aá]\??|hum\??/.test(lower)) {
+    if (lastProduct?.name) {
+      return `Tô aqui amore 💜 Se você quiser, eu posso confirmar certinho o valor da *${lastProduct.name}* e também te mostrar outras opções parecidas.`;
+    }
+    return 'Tô aqui amore 💜 Me fala qual peça ou efeito você quer que eu sigo com você.';
+  }
+
   if (/tem no tamanho|tamanho\s+[pmg]|tem p\b|tem m\b|tem g\b/.test(lower)) {
     if (lastProduct?.name) {
       if (requestedSize && matchingVariation) {
