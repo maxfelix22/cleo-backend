@@ -38,11 +38,11 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
               : 'nessa linha que você está buscando';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
-    return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa é *${shippingLocal}*. Se você quiser, eu também posso te passar a opção por USPS — para esse pedido fica ${shippingUsps}.`;
+    return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *${shippingLocal}*.`;
   }
 
   if (/quanto fica pra entregar|valor da entrega|taxa de entrega|entregar em marlboro|entregar em marlborough/.test(text)) {
-    return `Pra entrega local em *Marlborough*, fica *${shippingLocal}* 💜 Se preferir envio por USPS, para esse pedido fica ${shippingUsps}.`;
+    return `Pra entrega local em *Marlborough*, fica *${shippingLocal}* 💜`;
   }
 
   if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para/.test(text)) {

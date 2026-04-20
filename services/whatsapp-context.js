@@ -188,11 +188,11 @@ function buildInitialReply(inbound, options = {}) {
   }
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(lower)) {
-    return 'Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *$5*. Se preferir USPS, abaixo de $99 fica $10 e acima de $99 sai com frete grátis.';
+    return 'Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *$5*.';
   }
 
   if (/quanto fica pra entregar|valor da entrega|taxa de entrega/.test(lower)) {
-    return 'Pra entrega local em *Marlborough*, fica *$5* 💜 Se você preferir envio por USPS, abaixo de $99 fica $10 e acima de $99 sai com frete grátis.';
+    return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
   }
 
   if (/e ai\??|e aí\??|oi\??|ol[aá]\??|hum\??/.test(lower)) {
