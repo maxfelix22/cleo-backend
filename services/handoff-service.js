@@ -90,6 +90,7 @@ function buildHandoffPayload(context = {}) {
       phone: checkout.phone || '',
       email: checkout.email || '',
       review_confirmed: !!checkout.reviewConfirmed,
+      multi_item_text: checkout.multiItemText || '',
     },
     operational_priority: operationalPriority,
   };
@@ -106,6 +107,7 @@ function buildOperationalMessage(context = {}) {
     payload.checkout.delivery_mode === 'pickup' ? '• Entrega: Retirada' : null,
     payload.checkout.delivery_mode === 'local_delivery' ? '• Entrega: Entrega local' : null,
     payload.checkout.address ? `• Endereço: ${payload.checkout.address}` : null,
+    payload.checkout.multi_item_text ? `• Pedido composto: ${payload.checkout.multi_item_text}` : null,
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
     payload.checkout.email ? `• Email: ${payload.checkout.email}` : null,

@@ -25,6 +25,20 @@ function isDirectPurchaseIntent(text = '') {
   return /(quero|vou querer|quero levar|leva|me vê|me ver|separa|manda)\s+\d*\s*(desse|dessa|dele|dela|do|da|unidade|unidades)?/i.test(String(text || ''));
 }
 
+function detectMultiItemIntent(text = '') {
+  const normalized = String(text || '').toLowerCase();
+  if (!/(quero|vou querer|quero levar|leva|me vê|me ver|separa)/.test(normalized)) return false;
+  const commaParts = normalized.split(',').filter(Boolean).length;
+  const connectors = (normalized.match(/\be\b/g) || []).length;
+  const quantityMentions = (normalized.match(/\b\d+\b/g) || []).length;
+  return commaParts > 1 || connectors >= 2 || quantityMentions >= 2;
+}
+
+function buildMultiItemReply(inbound = {}) {
+  const text = String(inbound?.text || '').trim();
+  return `Fechou 💜 Já anotei esse pedido com mais de um item: *${text}*. Agora me confirma só se você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*.`;
+}
+
 function buildUsOnlyShippingReply() {
   return 'Sim amore 💜 Enviamos dentro dos Estados Unidos sim. Se você quiser, eu também te passo certinho o valor do frete para o seu pedido.';
 }
@@ -673,11 +687,25 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       asksShippingCost: /quanto custa o frete|quanto fica o frete|valor do frete|frete pra c[aá]|envio pra c[aá]/i.test(inbound.text || ''),
       wantsThis: /quero esse|quero essa|vou querer|gostei desse|gostei dessa/i.test(inbound.text || ''),
       directPurchase: isDirectPurchaseIntent(inbound.text || ''),
+      multiItemPurchase: detectMultiItemIntent(inbound.text || ''),
     };
 
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
     let replyText = buildCheckoutReply(checkoutContext);
+    if (!replyText && followUpSignals.multiItemPurchase) {
+      replyText = buildMultiItemReply(inbound);
+      checkoutContext = {
+        ...checkoutContext,
+        currentStage: 'checkout_choose_delivery',
+        checkout: {
+          ...(checkoutContext.checkout || {}),
+          stage: 'checkout_choose_delivery',
+          multiItemText: String(inbound.text || '').trim(),
+          quantity: null,
+        },
+      };
+    }
     if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
       const purchaseAnchor = checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload;
       const variationDetails = Array.isArray(purchaseAnchor?.variationDetails) ? purchaseAnchor.variationDetails : [];
