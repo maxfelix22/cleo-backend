@@ -160,19 +160,19 @@ function buildCrossSellReply(context = {}, inbound = {}) {
 
   const family = inferCrossSellFamily(anchoredProduct);
   if (family === 'libido') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante ou outra opção de libido pra deixar essa linha mais completa.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção de libido na mesma linha.`;
   }
   if (family === 'apertar') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha de apertadinha.`;
   }
   if (family === 'masculino') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção masculina ou algum complemento pra fechar melhor essa linha.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção masculina ou alguma linha complementar pra fechar melhor.`;
   }
   if (family === 'oral') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item complementar nessa pegada.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item da mesma pegada.`;
   }
   if (family === 'lubrificacao') {
-    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra opção de gel ou algum complemento mais específico.`;
+    return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outro gel ou alguma linha complementar mais específica.`;
   }
   if (family === 'visual') {
     return `Tenho sim 💜 Junto com *${productName}*, eu te mostraria outra peça da mesma linha ou algum complemento que combine.`;
