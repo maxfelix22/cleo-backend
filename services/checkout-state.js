@@ -28,9 +28,11 @@ function extractAddressBlock(text = '') {
 function buildShippingCopy(context = {}) {
   const product = context.lastProducts?.[0] || null;
   const priceNumber = Number(product?.priceNumber || 0);
+  const quantity = Number(context.checkout?.quantity || 1) || 1;
+  const orderTotal = priceNumber * quantity;
 
   const localDeliveryFee = 5;
-  const uspsFee = priceNumber >= 99 ? 0 : 10;
+  const uspsFee = orderTotal >= 99 ? 0 : 10;
   const uspsFeeLabel = uspsFee === 0 ? 'frete grátis' : `$${uspsFee}`;
 
   return {
@@ -307,7 +309,9 @@ Se quiser agilizar, pode mandar tudo de uma vez:
   if (stageNow === 'checkout_review' && context.checkout?.fullName) {
     const shipping = buildShippingCopy(context);
     const lines = [];
+    const quantity = Number(context.checkout?.quantity || 1) || 1;
     if (context.lastProducts?.[0]?.name) lines.push(`• Produto: ${context.lastProducts[0].name}`);
+    if (quantity > 1) lines.push(`• Quantidade: ${quantity}`);
     if (context.checkout.deliveryMode === 'usps') {
       lines.push('• Entrega: USPS');
       lines.push(`• Frete: ${shipping.uspsFeeLabel}`);
