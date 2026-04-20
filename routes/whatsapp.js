@@ -51,6 +51,16 @@ function buildContextualShippingReply(context = {}, inbound = {}) {
   return `Enviamos sim amore 💜 ${uspsCopy}`;
 }
 
+function inferComparisonFamily(text = '') {
+  const normalized = String(text || '').toLowerCase();
+  if (/libido|desejo|vontade|tes[aã]o|excit|xana loka|sedenta|stimulus mulher/.test(normalized)) return 'libido';
+  if (/apertad|sempre virgem|adstring|lacradinha/.test(normalized)) return 'apertar';
+  if (/durar mais|retard|ere[cç][aã]o|volum[aã]o|berinjelo|pinto loko|stimulus homem/.test(normalized)) return 'masculino';
+  if (/oral|blow girl|xupa xana|beij[aá]vel|garganta profunda/.test(normalized)) return 'oral';
+  if (/lubrific|mylub|deslizante|sedenta molhada/.test(normalized)) return 'lubrificacao';
+  return 'geral';
+}
+
 function buildContextualComparisonReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProducts = Array.isArray(context?.lastProducts) ? context.lastProducts.filter(Boolean) : [];
@@ -58,6 +68,28 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
   if (!first) return '';
 
   if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen[cç]a|qual muda mais|qual compensa mais/.test(text)) {
+    const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`);
+
+    if (family === 'libido' && second) {
+      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Normalmente eu deixaria *${first.name}* como opção mais certeira pra libido e *${second.name}* como segunda opção.`;
+    }
+
+    if (family === 'apertar' && second) {
+      return `Pra essa linha eu iria mais de *${first.name}* 💜 Ele conversa mais direto com essa busca de ficar mais apertadinha.`;
+    }
+
+    if (family === 'masculino' && second) {
+      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Se você quiser, eu também separo rapidinho qual faz mais sentido pra ereção e qual entra mais pra durar mais.`;
+    }
+
+    if (family === 'oral' && second) {
+      return `Pra oral eu iria mais de *${first.name}* 💜 Mas se você quiser, eu também te digo qual dos dois faz mais sentido pelo efeito ou pelo sabor.`;
+    }
+
+    if (family === 'lubrificacao' && second) {
+      return `Pra lubrificação eu iria mais de *${first.name}* 💜 Se você quiser, eu também te digo qual é mais neutro e qual vai mais pra sensação.`;
+    }
+
     if (second) {
       return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Se você quiser, eu também te digo rapidinho a diferença entre eles.`;
     }
