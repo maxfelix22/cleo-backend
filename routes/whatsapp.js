@@ -61,6 +61,44 @@ function inferComparisonFamily(text = '') {
   return 'geral';
 }
 
+function inferProductAngle(product = {}, family = 'geral') {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+
+  if (family === 'libido') {
+    if (/xana loka|stimulus mulher/.test(text)) return 'mais direta';
+    if (/sedenta|molhada/.test(text)) return 'mais voltada para excitação e lubrificação';
+    return 'mais focada em libido';
+  }
+
+  if (family === 'apertar') {
+    if (/sempre virgem/.test(text)) return 'mais direta';
+    if (/lacradinha|adstring/.test(text)) return 'mais funcional';
+    return 'mais focada em contração';
+  }
+
+  if (family === 'masculino') {
+    if (/retard/.test(text)) return 'mais para durar mais';
+    if (/berinjelo|volum[aã]o/.test(text)) return 'mais para volume e estímulo';
+    if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) return 'mais para ereção e estímulo';
+    return 'mais masculina';
+  }
+
+  if (family === 'oral') {
+    if (/blow girl|xupa xana/.test(text)) return 'mais funcional';
+    if (/beij[aá]vel|sabor|boca gostosa/.test(text)) return 'mais sensorial';
+    return 'mais voltada para oral';
+  }
+
+  if (family === 'lubrificacao') {
+    if (/neutro|mylub|deslizante/.test(text)) return 'mais neutra';
+    if (/esquenta|esfria|hot/.test(text)) return 'mais para sensação';
+    if (/anal|dessensibilizante/.test(text)) return 'mais específica';
+    return 'mais para lubrificação';
+  }
+
+  return 'mais nessa linha';
+}
+
 function buildContextualComparisonReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProducts = Array.isArray(context?.lastProducts) ? context.lastProducts.filter(Boolean) : [];
@@ -71,23 +109,23 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
     const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`);
 
     if (family === 'libido' && second) {
-      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Normalmente eu deixaria *${first.name}* como opção mais certeira pra libido e *${second.name}* como segunda opção.`;
+      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)}, e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'apertar' && second) {
-      return `Pra essa linha eu iria mais de *${first.name}* 💜 Ele conversa mais direto com essa busca de ficar mais apertadinha.`;
+      return `Pra essa linha eu iria mais de *${first.name}* 💜 O *${first.name}* entra de forma ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'masculino' && second) {
-      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Se você quiser, eu também separo rapidinho qual faz mais sentido pra ereção e qual entra mais pra durar mais.`;
+      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 O *${first.name}* vai mais como ${inferProductAngle(first, family)} e o *${second.name}* entra mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'oral' && second) {
-      return `Pra oral eu iria mais de *${first.name}* 💜 Mas se você quiser, eu também te digo qual dos dois faz mais sentido pelo efeito ou pelo sabor.`;
+      return `Pra oral eu iria mais de *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'lubrificacao' && second) {
-      return `Pra lubrificação eu iria mais de *${first.name}* 💜 Se você quiser, eu também te digo qual é mais neutro e qual vai mais pra sensação.`;
+      return `Pra lubrificação eu iria mais de *${first.name}* 💜 O *${first.name}* fica mais como ${inferProductAngle(first, family)} e o *${second.name}* mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (second) {
