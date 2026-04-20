@@ -15,6 +15,42 @@ function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
   return /tem\s+|você tem|vc tem|trabalha com|algo pra|algo para|tem algo|me indica|me mostra|o que você tem/.test(text);
 }
 
+function extractRequestedQuantity(text = '') {
+  const normalized = String(text || '').toLowerCase();
+  const match = normalized.match(/(?:quero|vou querer|quero levar|leva|me vê|me ver|separa|manda)\s+(\d{1,2})\b/);
+  return match ? Number(match[1]) : 0;
+}
+
+function isDirectPurchaseIntent(text = '') {
+  return /(quero|vou querer|quero levar|leva|me vê|me ver|separa|manda)\s+\d*\s*(desse|dessa|dele|dela|do|da|unidade|unidades)?/i.test(String(text || ''));
+}
+
+function buildUsOnlyShippingReply() {
+  return 'Sim amore 💜 Enviamos dentro dos Estados Unidos sim. Se você quiser, eu também te passo certinho o valor do frete para o seu pedido.';
+}
+
+function buildContextualShippingReply(context = {}, inbound = {}) {
+  const text = String(inbound?.text || '').toLowerCase();
+  if (/marlboro|marlborough/.test(text)) {
+    return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
+  }
+
+  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const priceNumber = Number(anchoredProduct?.priceNumber || String(anchoredProduct?.price || '').replace(/[^\d.]/g, '')) || 0;
+  const uspsCopy = priceNumber >= 99
+    ? 'pra esse pedido o envio por USPS fica com *frete grátis* 💜'
+    : 'pra esse pedido o envio por USPS fica em *$10* 💜';
+
+  return `Enviamos sim amore 💜 ${uspsCopy}`;
+}
+
+function buildDirectPurchaseReply(context = {}, inbound = {}) {
+  const quantity = extractRequestedQuantity(inbound?.text || '') || 1;
+  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const productName = anchoredProduct?.name || context?.lastProduct || 'esse item';
+  return `Perfeito 💜 Separei *${quantity} ${quantity === 1 ? 'unidade' : 'unidades'}* de *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
+}
+
 function inferAgenticIntent(text = '') {
   if (/libido|desejo|vontade|tes[aã]o|excit/.test(text)) return 'libido';
   if (/apertad|sempre virgem|contrair|adstring/.test(text)) return 'apertar';
@@ -320,15 +356,37 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       currentStageBefore: currentStageForState,
       currentStageAfter: checkoutContext.currentStage || currentStageForState,
       requestedSize: extractRequestedSize(inbound.text),
+      requestedQuantity: extractRequestedQuantity(inbound.text),
       asksSize: /tem\s+no\s+tamanho|tamanho\s+[pmg]|tem\s+p\b|tem\s+m\b|tem\s+g\b/i.test(inbound.text || ''),
       asksColor: /tem\s+em\s+outra\s+cor|outra\s+cor|outras\s+cores/i.test(inbound.text || ''),
       asksPrice: /quanto custa|preço|preco|valor/i.test(inbound.text || ''),
+      asksUsShipping: /envia pra|enviam pra|manda pra|faz envio pra|entrega na fl[oó]rida|entrega em miami|outro estado|dentro dos estados unidos|usa/i.test(inbound.text || ''),
+      asksShippingCost: /quanto custa o frete|quanto fica o frete|valor do frete|frete pra c[aá]|envio pra c[aá]/i.test(inbound.text || ''),
       wantsThis: /quero esse|quero essa|vou querer|gostei desse|gostei dessa/i.test(inbound.text || ''),
+      directPurchase: isDirectPurchaseIntent(inbound.text || ''),
     };
 
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
     let replyText = buildCheckoutReply(checkoutContext);
+    if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
+      replyText = buildDirectPurchaseReply(checkoutContext, inbound);
+      checkoutContext = {
+        ...checkoutContext,
+        currentStage: 'checkout_choose_delivery',
+        checkout: {
+          ...(checkoutContext.checkout || {}),
+          stage: 'checkout_choose_delivery',
+          quantity: followUpSignals.requestedQuantity || 1,
+        },
+      };
+    }
+    if (!replyText && followUpSignals.asksUsShipping) {
+      replyText = buildUsOnlyShippingReply();
+    }
+    if (!replyText && followUpSignals.asksShippingCost) {
+      replyText = buildContextualShippingReply(checkoutContext, inbound);
+    }
     if (!replyText && shouldUseAgenticDiscovery(inbound, checkoutContext, effectiveProducts)) {
       replyText = buildAgenticDiscoveryReply(inbound, effectiveProducts, checkoutContext);
     }
