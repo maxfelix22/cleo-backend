@@ -99,6 +99,13 @@ function inferProductAngle(product = {}, family = 'geral') {
   return 'mais nessa linha';
 }
 
+function pickComparisonIntro(text = '') {
+  if (/qual (é|e) melhor|qual compensa mais/.test(text)) return 'Eu iria mais de';
+  if (/qual (é|e) mais forte/.test(text)) return 'O mais forte aqui me parece';
+  if (/qual a diferen[cç]a/.test(text)) return 'A diferença aqui é que';
+  return 'Eu iria mais de';
+}
+
 function buildContextualComparisonReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProducts = Array.isArray(context?.lastProducts) ? context.lastProducts.filter(Boolean) : [];
@@ -107,31 +114,32 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
 
   if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen[cç]a|qual muda mais|qual compensa mais/.test(text)) {
     const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`);
+    const intro = pickComparisonIntro(text);
 
     if (family === 'libido' && second) {
-      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)}, e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
+      return `${intro} *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)}, e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'apertar' && second) {
-      return `Pra essa linha eu iria mais de *${first.name}* 💜 O *${first.name}* entra de forma ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
+      return `${intro} *${first.name}* 💜 O *${first.name}* entra de forma ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
-    if (family === 'masculino' && second) {
-      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 O *${first.name}* vai mais como ${inferProductAngle(first, family)} e o *${second.name}* entra mais como ${inferProductAngle(second, family)}.`;
+    if ((family === 'masculino' || family === 'geral') && second) {
+      return `${intro} *${first.name}* 💜 O *${first.name}* vai mais como ${inferProductAngle(first, family === 'geral' ? 'masculino' : family)} e o *${second.name}* entra mais como ${inferProductAngle(second, family === 'geral' ? 'masculino' : family)}.`;
     }
 
     if (family === 'oral' && second) {
-      return `Pra oral eu iria mais de *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
+      return `${intro} *${first.name}* 💜 O *${first.name}* me parece ${inferProductAngle(first, family)} e o *${second.name}* fica mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (family === 'lubrificacao' && second) {
-      return `Pra lubrificação eu iria mais de *${first.name}* 💜 O *${first.name}* fica mais como ${inferProductAngle(first, family)} e o *${second.name}* mais como ${inferProductAngle(second, family)}.`;
+      return `${intro} *${first.name}* 💜 O *${first.name}* fica mais como ${inferProductAngle(first, family)} e o *${second.name}* mais como ${inferProductAngle(second, family)}.`;
     }
 
     if (second) {
-      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Se você quiser, eu também te digo rapidinho a diferença entre eles.`;
+      return `${intro} *${first.name}* 💜 Se você quiser, eu também te digo rapidinho a diferença entre eles.`;
     }
-    return `Pra essa linha eu iria mais de *${first.name}* 💜 Se você quiser, eu também te mostro outra opção parecida pra comparar.`;
+    return `${intro} *${first.name}* 💜 Se você quiser, eu também te mostro outra opção parecida pra comparar.`;
   }
 
   return '';
