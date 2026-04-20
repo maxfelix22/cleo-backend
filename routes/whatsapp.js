@@ -352,10 +352,24 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
   return score;
 }
 
+function pickIntroVariant(intent = 'geral', text = '') {
+  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
+    return 'Oiiee amore 💜';
+  }
+  if (intent === 'libido') return 'Tenho sim 💜';
+  if (intent === 'apertar') return 'Tenho sim 💜';
+  if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') return 'Tenho sim 💜';
+  if (intent === 'oral') return 'Tenho sim 💜';
+  if (intent === 'lubrificacao') return 'Tenho sim 💜';
+  if (intent === 'visual') return 'Tenho sim 💜';
+  return 'Tenho sim 💜';
+}
+
 function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const ranked = (Array.isArray(products) ? products : []).filter(Boolean);
   const intent = inferAgenticIntent(text);
+  const intro = pickIntroVariant(intent, text);
   const rescored = ranked
     .map((product) => ({ product, score: scoreAgenticProduct(product, intent) }))
     .sort((a, b) => b.score - a.score)
@@ -421,34 +435,30 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     : '';
 
   if (intent === 'apertar') {
-    return `Tenho sim 💜 Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
   if (intent === 'libido') {
-    return `Tenho sim 💜 Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
   if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
-    return `Tenho sim 💜 Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
   if (intent === 'oral') {
-    return `Tenho sim 💜 Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
   if (intent === 'lubrificacao') {
-    return `Tenho sim 💜 Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
   }
 
   if (intent === 'visual') {
-    return `Tenho sim 💜 Pra essa linha mais sensual, eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
+    return `${intro} Pra essa linha mais sensual, eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
   }
 
-  if (/oi|ol[áa]|boa noite|boa tarde|bom dia/.test(text) && /algo pra|algo para|tem algo/.test(text)) {
-    return `Oiiee amore 💜 Tenho sim. Eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
-  }
-
-  return `Tenho sim 💜 Eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
+  return `${intro} Eu iria mais de *${top.name}*${priceLine}.${moreLine}`;
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
