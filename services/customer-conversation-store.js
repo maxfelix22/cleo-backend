@@ -66,7 +66,7 @@ async function updateConversationState({ conversationId, summary = '', currentSt
   return { mode: 'supabase', conversation, patch };
 }
 
-async function getOrCreateOpenConversation({ customerId, existingConversationId = '', existingSummary = '', existingStage = '', existingLastProduct = '', existingLastProductPayload = null, channel = 'whatsapp', phone = '', profileName = '' }) {
+async function getOrCreateOpenConversation({ customerId, existingConversationId = '', existingSummary = '', existingStage = '', existingLastProduct = '', existingLastProductPayload = null, channel = 'whatsapp', phone = '', profileName = '', forceNew = false }) {
   if (!customerId) {
     throw new Error('customerId obrigatório para getOrCreateOpenConversation');
   }
@@ -93,16 +93,18 @@ async function getOrCreateOpenConversation({ customerId, existingConversationId 
     };
   }
 
-  if (existingConversationId) {
-    const byId = await supabaseRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(existingConversationId)}&status=eq.open&limit=1&select=*`);
-    if (Array.isArray(byId) && byId[0]) {
-      return { mode: 'supabase', conversation: byId[0], reused: true };
+  if (!forceNew) {
+    if (existingConversationId) {
+      const byId = await supabaseRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(existingConversationId)}&status=eq.open&limit=1&select=*`);
+      if (Array.isArray(byId) && byId[0]) {
+        return { mode: 'supabase', conversation: byId[0], reused: true };
+      }
     }
-  }
 
-  const found = await supabaseRequest(`/rest/v1/conversations?customer_id=eq.${encodeURIComponent(customerId)}&status=eq.open&order=last_message_at.desc&limit=1&select=*`);
-  if (Array.isArray(found) && found[0]) {
-    return { mode: 'supabase', conversation: found[0] };
+    const found = await supabaseRequest(`/rest/v1/conversations?customer_id=eq.${encodeURIComponent(customerId)}&status=eq.open&order=last_message_at.desc&limit=1&select=*`);
+    if (Array.isArray(found) && found[0]) {
+      return { mode: 'supabase', conversation: found[0] };
+    }
   }
 
   const created = await supabaseRequest('/rest/v1/conversations', {

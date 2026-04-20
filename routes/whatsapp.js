@@ -148,7 +148,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
-const { getConversationKey, getContext, saveContext } = require('../services/context-store');
+const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
 const { applyCheckoutState, buildCheckoutReply } = require('../services/checkout-state');
@@ -162,6 +162,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     const contextKey = getConversationKey(inbound);
     const existingContext = getContext(contextKey) || {};
 
+    const resetRequested = /^#?reset( chat| conversa| session| sess[aã]o)?$/i.test(String(inbound.text || '').trim());
+
     let customerResult = null;
     let conversationResult = null;
     let recoveredContextFromConversation = null;
@@ -169,14 +171,15 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       customerResult = await getOrCreateCustomerByPhone(inbound.from, inbound.profileName);
       conversationResult = await getOrCreateOpenConversation({
         customerId: customerResult?.customer?.id,
-        existingConversationId: existingContext.conversationId || '',
-        existingSummary: existingContext.summary || '',
-        existingStage: existingContext.currentStage || existingContext.checkout?.stage || '',
-        existingLastProduct: existingContext.lastProduct || '',
-        existingLastProductPayload: existingContext.lastProductPayload || null,
+        existingConversationId: resetRequested ? '' : (existingContext.conversationId || ''),
+        existingSummary: '',
+        existingStage: '',
+        existingLastProduct: '',
+        existingLastProductPayload: null,
         channel: inbound.channel,
         phone: inbound.from,
         profileName: inbound.profileName,
+        forceNew: resetRequested,
       });
 
       if (conversationResult?.conversation) {
@@ -189,6 +192,17 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
     } catch (err) {
       console.error('[whatsapp/inbound] customer/conversation bootstrap error:', err.message);
+    }
+
+    if (resetRequested) {
+      clearContext(contextKey);
+      return res.json({
+        ok: true,
+        reset: true,
+        message: 'Conversa resetada com sucesso.',
+        contextKey,
+        conversationId: conversationResult?.conversation?.id || '',
+      });
     }
 
     let products = [];
