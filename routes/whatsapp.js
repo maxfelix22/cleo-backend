@@ -187,6 +187,10 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
   const productName = anchoredProduct?.name || context?.lastProduct || '';
   if (!productName) return '';
 
+  if (/vou querer|quero sim|fech[ao]|pode separar|quero levar/.test(text)) {
+    return `Perfeito 💜 Então eu já sigo com *${productName}*. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
+  }
+
   if (/gostei|amei|adorei|vou pensar|acho que vou querer|curti/.test(text)) {
     return `Lindo né? 💜 Se você quiser, eu já separo o *${productName}* pra você.`;
   }
