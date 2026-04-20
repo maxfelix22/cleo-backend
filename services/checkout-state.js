@@ -258,9 +258,8 @@ function buildCheckoutReply(context = {}) {
 
 • envio (USPS)
 • retirada
-• entrega local
+• entrega local em Marlborough (${shipping.localDeliveryLabel})
 
-• Entrega local em Marlborough: ${shipping.localDeliveryLabel}
 • USPS abaixo de $99: $10
 • USPS acima de $99: frete grátis
 • Atendemos apenas endereços dentro dos Estados Unidos`;
