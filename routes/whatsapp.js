@@ -137,6 +137,50 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
   return '';
 }
 
+function inferCrossSellFamily(product = {}) {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  if (/xana loka|stimulus mulher|sedenta|libido|tes[aã]o/.test(text)) return 'libido';
+  if (/sempre virgem|lacradinha|adstring/.test(text)) return 'apertar';
+  if (/volum[aã]o|berinjelo|pinto loko|stimulus homem|retard|ere[cç][aã]o/.test(text)) return 'masculino';
+  if (/oral|blow girl|xupa xana|beij[aá]vel/.test(text)) return 'oral';
+  if (/lubrificante|mylub|deslizante|gel/.test(text)) return 'lubrificacao';
+  if (/lingerie|camisola|body|fantasia|conjunto/.test(text)) return 'visual';
+  return 'geral';
+}
+
+function buildCrossSellReply(context = {}, inbound = {}) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
+  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  if (!productName) return '';
+
+  if (!/tem mais alguma coisa|mais alguma sugest[aã]o|mais alguma op[cç][aã]o|tem algo a mais|tem mais alguma dica/.test(text)) {
+    return '';
+  }
+
+  const family = inferCrossSellFamily(anchoredProduct);
+  if (family === 'libido') {
+    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar um lubrificante ou outra opção nessa linha de libido.`;
+  }
+  if (family === 'apertar') {
+    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra opção dessa linha ou algum lubrificante pra usar junto.`;
+  }
+  if (family === 'masculino') {
+    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar outra opção masculina ou algum complemento pra usar junto.`;
+  }
+  if (family === 'oral') {
+    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra opção pra oral ou algum item complementar nessa linha.`;
+  }
+  if (family === 'lubrificacao') {
+    return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar outra opção de gel ou algum produto complementar.`;
+  }
+  if (family === 'visual') {
+    return `Tenho sim 💜 Além de *${productName}*, eu posso te mostrar outra peça nessa mesma linha ou algum complemento.`;
+  }
+
+  return `Tenho sim 💜 Além de *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
+}
+
 function buildSoftCloseReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
@@ -147,9 +191,8 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
     return `Lindo né? 💜 Se você quiser, eu já separo o *${productName}* pra você.`;
   }
 
-  if (/tem mais alguma coisa|mais alguma sugest[aã]o|mais alguma op[cç][aã]o/.test(text)) {
-    return `Tenho sim 💜 Se você quiser, além de *${productName}*, eu também posso te mostrar mais uma opção nessa mesma linha ou algum complemento.`;
-  }
+  const crossSellReply = buildCrossSellReply(context, inbound);
+  if (crossSellReply) return crossSellReply;
 
   return '';
 }
