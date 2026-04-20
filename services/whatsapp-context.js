@@ -71,10 +71,23 @@ function inferDesiredEffect(text = '') {
   return '';
 }
 
+function inferEffectBucket(product = null) {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  if (/sempre virgem|lacradinha|adstring|hamamelis|contra[ií]/.test(text)) return 'apertar';
+  if (/xana loka|stimulus mulher|sedenta|libido|tes[aã]o|excitante feminino/.test(text)) return 'libido';
+  if (/retard|durar mais/.test(text)) return 'masculino-retardante';
+  if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) return 'masculino-erecao';
+  if (/berinjelo|volum[aã]o/.test(text)) return 'masculino-volume';
+  if (/blow girl|xupa xana|garganta profunda|beij[aá]vel|oral/.test(text)) return 'oral';
+  if (/lubrificante|mylub|deslizante|neutro/.test(text)) return 'lubrificacao';
+  return '';
+}
+
 function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null, requestedSize = '') {
   const normalizedCurrent = String(currentName || '').trim().toLowerCase();
   const currentFamily = inferProductFamily(currentProduct);
   const currentAttribute = inferDominantAttribute(currentProduct);
+  const currentEffect = inferEffectBucket(currentProduct);
   const currentPrice = Number(currentProduct?.priceNumber || 0);
   const currentColors = listAvailableColors(currentProduct);
   const candidates = (Array.isArray(products) ? products : []).filter((product) => {
@@ -83,12 +96,24 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
     return product.inventory_in_stock !== false;
   });
 
+  const sameEffect = currentEffect
+    ? candidates.filter((product) => inferEffectBucket(product) === currentEffect)
+    : [];
   const sameAttribute = candidates.filter((product) => inferDominantAttribute(product) === currentAttribute);
   const sameFamily = candidates.filter((product) => inferProductFamily(product) === currentFamily);
   const sameFamilyAndAttribute = sameAttribute.filter((product) => inferProductFamily(product) === currentFamily);
-  const pool = sameFamilyAndAttribute.length > 0
-    ? sameFamilyAndAttribute
-    : (sameFamily.length > 0 ? sameFamily : (sameAttribute.length > 0 ? sameAttribute : candidates));
+  const sameFamilyAndEffect = sameEffect.filter((product) => inferProductFamily(product) === currentFamily);
+  const pool = sameFamilyAndEffect.length > 0
+    ? sameFamilyAndEffect
+    : sameFamilyAndAttribute.length > 0
+      ? sameFamilyAndAttribute
+      : sameFamily.length > 0
+        ? sameFamily
+        : sameEffect.length > 0
+          ? sameEffect
+          : sameAttribute.length > 0
+            ? sameAttribute
+            : candidates;
   pool.sort((a, b) => {
     const aSizes = listAvailableSizes(a);
     const bSizes = listAvailableSizes(b);
