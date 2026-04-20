@@ -15,28 +15,65 @@ function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
   return /tem\s+|você tem|vc tem|trabalha com|algo pra|algo para|tem algo|me indica|me mostra|o que você tem/.test(text);
 }
 
+function inferAgenticIntent(text = '') {
+  if (/libido|desejo|vontade|tes[aã]o|excit/.test(text)) return 'libido';
+  if (/apertad|sempre virgem|contrair|adstring/.test(text)) return 'apertar';
+  if (/durar mais|retard|ere[cç][aã]o|berinjelo|volum[aã]o/.test(text)) return 'masculino';
+  if (/oral|boquete|chupar|beij[aá]vel|sabor/.test(text)) return 'oral';
+  if (/lubrific|molhar|seca|ressec/.test(text)) return 'lubrificacao';
+  if (/lingerie|sensual|fantasia|camisola|body/.test(text)) return 'visual';
+  return 'geral';
+}
+
+function scoreAgenticProduct(product = {}, intent = 'geral') {
+  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  let score = product?.inventory_in_stock === false ? -100 : 0;
+
+  if (intent === 'libido') {
+    if (/stimulus mulher|xana loka|sedenta|excitante feminino|libido/.test(text)) score += 10;
+    if (/homem|masculino/.test(text)) score -= 4;
+    if (/oral|gel beij[aá]vel/.test(text)) score -= 3;
+  }
+
+  if (intent === 'apertar') {
+    if (/sempre virgem|adstringente|hamamelis|virgindade/.test(text)) score += 12;
+    if (/stimulus|libido|excitante/.test(text)) score -= 6;
+  }
+
+  if (intent === 'masculino') {
+    if (/homem|masculino|berinjelo|volum[aã]o|retard/.test(text)) score += 10;
+    if (/mulher|feminino/.test(text)) score -= 5;
+  }
+
+  if (intent === 'oral') {
+    if (/oral|blow girl|xupa xana|beij[aá]vel|garganta profunda/.test(text)) score += 10;
+  }
+
+  if (intent === 'lubrificacao') {
+    if (/lubrificante|lube|deslizante|mylub/.test(text)) score += 10;
+  }
+
+  if (intent === 'visual') {
+    if (/lingerie|fantasia|camisola|body|conjunto/.test(text)) score += 10;
+  }
+
+  return score;
+}
+
 function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const ranked = (Array.isArray(products) ? products : []).filter(Boolean);
-  const available = ranked.filter((product) => product?.inventory_in_stock !== false);
-  const top = available[0] || ranked[0] || null;
+  const intent = inferAgenticIntent(text);
+  const rescored = ranked
+    .map((product) => ({ product, score: scoreAgenticProduct(product, intent) }))
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.product);
+  const available = rescored.filter((product) => product?.inventory_in_stock !== false);
+  const top = available[0] || rescored[0] || null;
   if (!top) return '';
 
   const priceLine = top.price ? ` por ${top.price}` : '';
   const shippingLocal = '$5';
-  const intent = /libido|desejo|vontade|tes[aã]o|excit/.test(text)
-    ? 'libido'
-    : /apertad|sempre virgem|contrair|adstring/.test(text)
-      ? 'apertar'
-      : /durar mais|retard|ere[cç][aã]o|berinjelo|volum[aã]o/.test(text)
-        ? 'masculino'
-        : /oral|boquete|chupar|beij[aá]vel|sabor/.test(text)
-          ? 'oral'
-          : /lubrific|molhar|seca|ressec/.test(text)
-            ? 'lubrificacao'
-            : /lingerie|sensual|fantasia|camisola|body/.test(text)
-              ? 'visual'
-              : 'geral';
 
   const familyHint = intent === 'libido'
     ? 'nessa linha de desejo, excitação e mais vontade'
@@ -53,18 +90,18 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
               : 'nessa linha que você está buscando';
 
   const recommendationWhy = intent === 'libido'
-    ? 'eu começaria por ela porque entra bem nessa linha de mais desejo e excitação'
+    ? 'ela entra bem nessa linha de mais desejo e excitação'
     : intent === 'apertar'
-      ? 'eu começaria por ela porque conversa direto com essa busca de sensação mais apertadinha'
+      ? 'ela conversa direto com essa busca de sensação mais apertadinha'
       : intent === 'masculino'
-        ? 'eu começaria por ela porque conversa melhor com essa linha de desempenho masculino'
+        ? 'ela conversa melhor com essa linha de desempenho masculino'
         : intent === 'oral'
-          ? 'eu começaria por ela porque faz mais sentido para oral e estímulo sensorial'
+          ? 'ela faz mais sentido para oral e estímulo sensorial'
           : intent === 'lubrificacao'
-            ? 'eu começaria por ela porque tende a fazer mais sentido para conforto e lubrificação'
+            ? 'ela tende a fazer mais sentido para conforto e lubrificação'
             : intent === 'visual'
-              ? 'eu começaria por ela porque entra melhor nessa proposta mais sensual'
-              : 'eu começaria por ela porque foi a opção mais coerente que apareceu primeiro aqui';
+              ? 'ela entra melhor nessa proposta mais sensual'
+              : 'foi a opção mais coerente que apareceu primeiro aqui';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
     return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *${shippingLocal}*.`;
