@@ -51,11 +51,30 @@ function buildContextualShippingReply(context = {}, inbound = {}) {
   return `Enviamos sim amore 💜 ${uspsCopy}`;
 }
 
+function buildContextualComparisonReply(context = {}, inbound = {}) {
+  const text = String(inbound?.text || '').trim().toLowerCase();
+  const anchoredProducts = Array.isArray(context?.lastProducts) ? context.lastProducts.filter(Boolean) : [];
+  const [first, second] = anchoredProducts;
+  if (!first) return '';
+
+  if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen[cç]a|qual muda mais|qual compensa mais/.test(text)) {
+    if (second) {
+      return `Entre *${first.name}* e *${second.name}*, eu iria mais de *${first.name}* 💜 Se você quiser, eu também te digo rapidinho a diferença entre eles.`;
+    }
+    return `Pra essa linha eu iria mais de *${first.name}* 💜 Se você quiser, eu também te mostro outra opção parecida pra comparar.`;
+  }
+
+  return '';
+}
+
 function buildContextualFollowUpReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
   const productName = anchoredProduct?.name || context?.lastProduct || '';
   if (!productName) return '';
+
+  const comparisonReply = buildContextualComparisonReply(context, inbound);
+  if (comparisonReply) return comparisonReply;
 
   if (/e se eu quiser esse|quero esse|vou querer esse|vou levar esse/.test(text)) {
     return `Perfeito 💜 Se for esse *${productName}*, eu sigo com você por aqui. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
