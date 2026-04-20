@@ -34,9 +34,34 @@ function detectMultiItemIntent(text = '') {
   return commaParts > 1 || connectors >= 2 || quantityMentions >= 2;
 }
 
+function parseMultiItemText(text = '') {
+  const normalized = String(text || '').trim();
+  if (!normalized) return [];
+  return normalized
+    .split(/,|\be\b/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const quantityMatch = part.match(/\b(\d{1,2})\b/);
+      const quantity = quantityMatch ? Number(quantityMatch[1]) : 1;
+      const cleaned = part
+        .replace(/^(vou querer|quero|quero levar|leva|me vê|me ver|separa)\s+/i, '')
+        .replace(/\b(\d{1,2})\b/, '')
+        .trim();
+      return {
+        quantity,
+        label: cleaned || part,
+      };
+    });
+}
+
 function buildMultiItemReply(inbound = {}) {
   const text = String(inbound?.text || '').trim();
-  return `Fechou 💜 Já anotei esse pedido com mais de um item: *${text}*. Agora me confirma só se você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*.`;
+  const items = parseMultiItemText(text);
+  const itemLine = items.length > 0
+    ? items.map((item) => `${item.quantity}x ${item.label}`).join(', ')
+    : text;
+  return `Fechou 💜 Já anotei esse pedido com mais de um item: *${itemLine}*. Agora me confirma só se você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*.`;
 }
 
 function buildUsOnlyShippingReply() {
@@ -694,6 +719,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     let replyText = buildCheckoutReply(checkoutContext);
     if (!replyText && followUpSignals.multiItemPurchase) {
+      const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
       checkoutContext = {
         ...checkoutContext,
@@ -702,6 +728,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
           ...(checkoutContext.checkout || {}),
           stage: 'checkout_choose_delivery',
           multiItemText: String(inbound.text || '').trim(),
+          multiItems,
           quantity: null,
         },
       };

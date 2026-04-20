@@ -91,6 +91,7 @@ function buildHandoffPayload(context = {}) {
       email: checkout.email || '',
       review_confirmed: !!checkout.reviewConfirmed,
       multi_item_text: checkout.multiItemText || '',
+      multi_items: Array.isArray(checkout.multiItems) ? checkout.multiItems : [],
     },
     operational_priority: operationalPriority,
   };
@@ -108,6 +109,9 @@ function buildOperationalMessage(context = {}) {
     payload.checkout.delivery_mode === 'local_delivery' ? '• Entrega: Entrega local' : null,
     payload.checkout.address ? `• Endereço: ${payload.checkout.address}` : null,
     payload.checkout.multi_item_text ? `• Pedido composto: ${payload.checkout.multi_item_text}` : null,
+    Array.isArray(payload.checkout.multi_items) && payload.checkout.multi_items.length > 0
+      ? `• Itens detectados: ${payload.checkout.multi_items.map((item) => `${item.quantity}x ${item.label}`).join(', ')}`
+      : null,
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
     payload.checkout.email ? `• Email: ${payload.checkout.email}` : null,
