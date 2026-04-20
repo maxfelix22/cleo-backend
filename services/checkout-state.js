@@ -326,7 +326,7 @@ Se quiser agilizar, pode mandar tudo de uma vez:
     if (context.checkout.fullName) lines.push(`• Nome: ${context.checkout.fullName}`);
     if (context.checkout.phone) lines.push(`• Telefone: ${context.checkout.phone}`);
     if (context.checkout.email) lines.push(`• Email: ${context.checkout.email}`);
-    return `Perfeito 💜 Aqui vai a revisão do seu pedido até agora:\n\n${lines.join('\n')}\n\nSe estiver tudo certinho, me responde *ok* que eu sigo e já encaminho seu atendimento. Se quiser ajustar alguma coisinha antes, me fala por aqui.`;
+    return `Perfeito amore 💜 Deixa eu te confirmar como seu pedido ficou até aqui:\n\n${lines.join('\n')}\n\nSe estiver tudo certinho, me responde *ok* que eu sigo por aqui. Se quiser ajustar alguma coisinha antes, me fala ✨`;
   }
 
   if (stageNow === 'handoff_ready') {
