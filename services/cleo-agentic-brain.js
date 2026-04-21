@@ -62,7 +62,7 @@ function detectConversationMode(text = '', context = {}) {
     return 'discovery';
   }
 
-  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial/.test(lower)) {
+  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(lower)) {
     return 'institutional';
   }
 
@@ -280,6 +280,14 @@ function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
 
   if (/whatsapp oficial/.test(text)) {
     return `Nosso WhatsApp oficial é esse aqui 💜 ${facts.whatsapp}`;
+  }
+
+  if (/troca|devolu[cç][aã]o/.test(text)) {
+    return 'Nossa troca funciona assim 💜 são *7 dias após o recebimento*, com a peça *sem uso e com etiqueta*. Não fazemos devolução em dinheiro e peça de promoção não tem troca.';
+  }
+
+  if (/pagamento|zelle|venmo|afterpay|square/.test(text)) {
+    return 'Aceitamos *Zelle, Venmo, AfterPay e Square* 💜 Se quiser, eu já te passo a melhor opção pra fechar seu pedido.';
   }
 
   return '';
