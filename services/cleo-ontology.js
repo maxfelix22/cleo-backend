@@ -20,32 +20,42 @@ function loadOntologyGraph() {
         return null;
       }
     })
-    .filter(Boolean)
-    .filter((entry) => entry.op === 'create' && entry.entity);
+    .filter(Boolean);
 }
 
-function listEntitiesByType(type) {
-  return loadOntologyGraph()
-    .map((entry) => entry.entity)
-    .filter((entity) => entity.type === type);
-}
+function buildOntologyIndex() {
+  const entries = loadOntologyGraph();
+  const entities = new Map();
+  const relations = [];
 
-function listRepresentativeEntities() {
-  return listEntitiesByType('ProductRepresentative');
+  entries.forEach((entry) => {
+    if (entry.op === 'create' && entry.entity) {
+      entities.set(entry.entity.id, entry.entity);
+    }
+    if (entry.op === 'relate') {
+      relations.push({
+        from: entry.from,
+        rel: entry.rel,
+        to: entry.to,
+        properties: entry.properties || {},
+      });
+    }
+  });
+
+  return { entities, relations };
 }
 
 function normalize(value = '') {
   return String(value || '').trim().toLowerCase();
 }
 
-function inferRepresentativeFamily(representative = {}) {
-  const name = normalize(representative?.properties?.name || representative?.name || '');
-  if (/xana loka|sedenta|stimulus mulher/.test(name)) return 'libido';
-  if (/sempre virgem|lacradinha/.test(name)) return 'apertadinha';
-  if (/volumao|berinjelo|pinto loko|super pen/.test(name)) return 'masculino';
-  if (/blow girl|xupa xana|garganta profunda|boca gostosa/.test(name)) return 'oral';
-  if (/mylub|lub/.test(name)) return 'lubrificacao';
-  return '';
+function listEntitiesByType(type) {
+  const { entities } = buildOntologyIndex();
+  return Array.from(entities.values()).filter((entity) => entity.type === type);
+}
+
+function listRepresentativeEntities() {
+  return listEntitiesByType('ProductRepresentative');
 }
 
 function findRepresentativeByName(name = '') {
@@ -60,8 +70,56 @@ function buildOntologyHint(product = {}) {
   return listRepresentativeEntities().find((entity) => haystack.includes(normalize(entity?.properties?.name))) || null;
 }
 
+function inferRepresentativeFamily(representative = {}) {
+  const direct = findOutgoingRelatedNames(representative?.id, 'belongs_to')[0];
+  if (direct) return direct;
+
+  const name = normalize(representative?.properties?.name || representative?.name || '');
+  if (/xana loka|sedenta|stimulus mulher/.test(name)) return 'libido';
+  if (/sempre virgem|lacradinha/.test(name)) return 'apertadinha';
+  if (/volumao|berinjelo|pinto loko|super pen/.test(name)) return 'masculino';
+  if (/blow girl|xupa xana|garganta profunda|boca gostosa/.test(name)) return 'oral';
+  if (/mylub|lub/.test(name)) return 'lubrificacao';
+  return '';
+}
+
+function findRelatedEntities(entityId, relationType, direction = 'outgoing') {
+  const { entities, relations } = buildOntologyIndex();
+  if (!entityId) return [];
+
+  return relations
+    .filter((relation) => {
+      if (direction === 'outgoing') return relation.from === entityId && relation.rel === relationType;
+      if (direction === 'incoming') return relation.to === entityId && relation.rel === relationType;
+      return relation.rel === relationType && (relation.from === entityId || relation.to === entityId);
+    })
+    .map((relation) => {
+      const otherId = direction === 'incoming'
+        ? relation.from
+        : direction === 'outgoing'
+          ? relation.to
+          : relation.from === entityId ? relation.to : relation.from;
+      return entities.get(otherId) || null;
+    })
+    .filter(Boolean);
+}
+
+function findOutgoingRelatedNames(entityId, relationType) {
+  return findRelatedEntities(entityId, relationType, 'outgoing')
+    .map((entity) => entity?.properties?.name || '')
+    .filter(Boolean)
+    .map((name) => normalize(name));
+}
+
 function findComparableRepresentatives(name = '', limit = 2) {
   const current = findRepresentativeByName(name);
+  if (current?.id) {
+    const graphComparables = findRelatedEntities(current.id, 'compares_with', 'outgoing');
+    if (graphComparables.length > 0) {
+      return graphComparables.slice(0, limit);
+    }
+  }
+
   const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
   const reps = listRepresentativeEntities()
     .filter((entity) => normalize(entity?.properties?.name) !== normalize(name));
@@ -76,6 +134,13 @@ function findComparableRepresentatives(name = '', limit = 2) {
 
 function findComplementaryRepresentatives(name = '', limit = 3) {
   const current = findRepresentativeByName(name);
+  if (current?.id) {
+    const graphComplements = findRelatedEntities(current.id, 'complements', 'outgoing');
+    if (graphComplements.length > 0) {
+      return graphComplements.slice(0, limit);
+    }
+  }
+
   const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
   const reps = listRepresentativeEntities()
     .filter((entity) => normalize(entity?.properties?.name) !== normalize(name));
@@ -99,6 +164,20 @@ function findComplementaryRepresentatives(name = '', limit = 3) {
 
 function buildAlternativeOntologyHints(product = {}, limit = 2) {
   const baseHint = buildOntologyHint(product);
+  if (baseHint?.id) {
+    const graphComparables = findRelatedEntities(baseHint.id, 'compares_with', 'outgoing')
+      .slice(0, limit)
+      .map((entity) => ({
+        name: entity?.properties?.name || '',
+        angle: entity?.properties?.angle || '',
+        family: inferRepresentativeFamily(entity),
+      }))
+      .filter((item) => item.name);
+    if (graphComparables.length > 0) {
+      return graphComparables;
+    }
+  }
+
   const family = inferRepresentativeFamily(baseHint || { properties: { name: product?.name || '' } });
   if (!family) return [];
 
@@ -122,4 +201,5 @@ module.exports = {
   findComplementaryRepresentatives,
   buildAlternativeOntologyHints,
   inferRepresentativeFamily,
+  findRelatedEntities,
 };
