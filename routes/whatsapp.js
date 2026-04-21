@@ -866,12 +866,26 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       products: effectiveProducts,
     });
 
-    if (brainResult.actions?.preferredNextStage && !checkoutContext.currentStage) {
+    if (brainResult.actions?.preferredNextStage && (!checkoutContext.currentStage || brainResult.actions.updateCheckout)) {
       checkoutContext.currentStage = brainResult.actions.preferredNextStage;
       checkoutContext.checkout = {
         ...(checkoutContext.checkout || {}),
         stage: brainResult.actions.preferredNextStage,
       };
+    }
+
+    if (brainResult.actions?.updateCart && !Array.isArray(checkoutContext.cart?.items)) {
+      const productName = getAnchoredProductName(checkoutContext) || effectiveProducts[0]?.name || '';
+      if (productName) {
+        checkoutContext.cart = {
+          ...(checkoutContext.cart || {}),
+          items: [{
+            quantity: 1,
+            label: productName,
+          }],
+          itemsCount: 1,
+        };
+      }
     }
 
     let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);

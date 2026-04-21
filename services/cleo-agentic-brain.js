@@ -129,21 +129,24 @@ function buildGeneralReply({ context = {} } = {}) {
   return '';
 }
 
-function buildActions({ mode = 'general', context = {} } = {}) {
+function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
   const stage = String(context.currentStage || context.checkout?.stage || '');
   const hasCart = Array.isArray(context.cart?.items) && context.cart.items.length > 0;
+  const text = String(inbound.text || '').trim().toLowerCase();
 
   return {
     shouldFallback: false,
     updateCart: mode === 'close' && !hasCart,
     updateCheckout: mode === 'close' || mode === 'recover' || mode === 'checkout',
-    triggerHandoff: stage === 'handoff_ready',
+    triggerHandoff: stage === 'handoff_ready' || /ok|pode seguir|fechado|certo/.test(text) && stage === 'checkout_review',
     needsHumanRecoveryStyle: mode === 'recover',
     preferredNextStage: mode === 'close'
       ? 'checkout_choose_delivery'
-      : mode === 'checkout'
-        ? stage || 'checkout_choose_delivery'
-        : '',
+      : mode === 'recover'
+        ? 'checkout_choose_delivery'
+        : mode === 'checkout'
+          ? stage || 'checkout_choose_delivery'
+          : '',
   };
 }
 
@@ -174,7 +177,7 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     contextBlock,
     replyText,
     actions: {
-      ...buildActions({ mode, context }),
+      ...buildActions({ mode, context, inbound }),
       shouldFallback: !replyText,
     },
   };
