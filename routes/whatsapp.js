@@ -382,6 +382,7 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
   const familyGroup = inferFamilyGroup(commercialFamily);
   const ontologyRepresentative = buildOntologyHint(product || {}) || findRepresentativeByName(product?.name || '');
   const ontologyFamily = inferRepresentativeFamily(ontologyRepresentative || { properties: { name: product?.name || '' } });
+  const ontologySubfamilies = findRepresentativeSubfamilies(ontologyRepresentative || {});
   let score = product?.inventory_in_stock === false ? -100 : 0;
 
   if (ontologyFamily === 'libido' && intent === 'libido') score += 8;
@@ -397,6 +398,12 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
     if (intent === 'oral' && ontologyFamily !== 'oral') score -= 6;
     if (intent === 'lubrificacao' && ontologyFamily !== 'lubrificacao') score -= 6;
   }
+
+  if (intent === 'masculino_retardante' && ontologySubfamilies.includes('masculino_retardante')) score += 10;
+  if (intent === 'masculino_erecao' && ontologySubfamilies.includes('masculino_erecao')) score += 10;
+  if (intent === 'masculino_volume' && ontologySubfamilies.includes('masculino_volume')) score += 10;
+  if (intent === 'oral' && (ontologySubfamilies.includes('oral_funcional') || ontologySubfamilies.includes('oral_funcional_plus') || ontologySubfamilies.includes('oral_sensorial'))) score += 6;
+  if (intent === 'lubrificacao' && (ontologySubfamilies.includes('lubrificacao_neutra') || ontologySubfamilies.includes('lubrificacao_sensacao'))) score += 6;
 
   if (intent === 'libido' && familyGroup === 'libido') score += 4;
   if (intent === 'apertar' && familyGroup === 'apertar') score += 4;
@@ -481,6 +488,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const shippingLocal = '$5';
 
   const ontologyHint = buildOntologyHint(top || {});
+  const ontologySubfamilies = findRepresentativeSubfamilies(ontologyHint || {});
   const topCommercialFamily = inferCommercialFamily(top || {});
   const topFamilyGroup = inferFamilyGroup(topCommercialFamily);
 
@@ -509,6 +517,22 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
                         : topFamilyGroup === 'masculino'
                           ? 'nessa linha de desempenho masculino'
                           : 'nessa linha que você está buscando';
+
+  const subfamilyWhy = ontologySubfamilies.includes('masculino_volume')
+    ? ' Ele entra mais na sublinha de volume.'
+    : ontologySubfamilies.includes('masculino_erecao')
+      ? ' Ele entra mais na sublinha de ereção e estímulo.'
+      : ontologySubfamilies.includes('masculino_retardante')
+        ? ' Ele entra mais na sublinha de durar mais.'
+        : ontologySubfamilies.includes('oral_sensorial')
+          ? ' Ele entra mais na parte sensorial do oral.'
+          : ontologySubfamilies.includes('oral_funcional') || ontologySubfamilies.includes('oral_funcional_plus')
+            ? ' Ele entra mais na parte funcional do oral.'
+            : ontologySubfamilies.includes('lubrificacao_sensacao')
+              ? ' Ele entra mais na linha de lubrificação com sensação.'
+              : ontologySubfamilies.includes('lubrificacao_neutra')
+                ? ' Ele entra mais na linha de lubrificação neutra.'
+                : '';
 
   const recommendationWhy = intent === 'libido'
     ? 'faz mais sentido pra libido e excitação'
@@ -557,23 +581,23 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     : '';
 
   if (intent === 'apertar') {
-    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
+    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
   }
 
   if (intent === 'libido') {
-    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
+    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
   }
 
   if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
-    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
+    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
   }
 
   if (intent === 'oral') {
-    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
+    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
   }
 
   if (intent === 'lubrificacao') {
-    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
+    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
   }
 
   if (intent === 'visual') {
@@ -585,7 +609,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
-const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints, inferRepresentativeFamily, findRepresentativeByName } = require('../services/cleo-ontology');
+const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints, inferRepresentativeFamily, findRepresentativeByName, findRepresentativeSubfamilies } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');

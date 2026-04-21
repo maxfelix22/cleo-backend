@@ -120,9 +120,30 @@ function findOutgoingRelatedNames(entityId, relationType) {
     .map((name) => normalize(name));
 }
 
+function findRepresentativeSubfamilies(representative = {}) {
+  if (!representative?.id) return [];
+  return findRelatedEntities(representative.id, 'belongs_to', 'outgoing')
+    .filter((entity) => entity?.type === 'Subfamily')
+    .map((entity) => normalize(entity?.properties?.name || ''))
+    .filter(Boolean);
+}
+
 function inferRepresentativeFamily(representative = {}) {
-  const direct = findOutgoingRelatedNames(representative?.id, 'belongs_to')[0];
-  if (direct) return direct;
+  const relatedFamilies = findRelatedEntities(representative?.id, 'belongs_to', 'outgoing')
+    .filter((entity) => entity?.type === 'Family')
+    .map((entity) => normalize(entity?.properties?.name || ''))
+    .filter(Boolean);
+  if (relatedFamilies[0]) return relatedFamilies[0];
+
+  const subfamilyEntities = findRelatedEntities(representative?.id, 'belongs_to', 'outgoing')
+    .filter((entity) => entity?.type === 'Subfamily');
+  for (const subfamily of subfamilyEntities) {
+    const subfamilyFamily = findRelatedEntities(subfamily.id, 'belongs_to', 'outgoing')
+      .filter((entity) => entity?.type === 'Family')
+      .map((entity) => normalize(entity?.properties?.name || ''))
+      .filter(Boolean)[0];
+    if (subfamilyFamily) return subfamilyFamily;
+  }
 
   const name = normalize(representative?.properties?.name || representative?.name || '');
   if (/xana loka|sedenta|stimulus mulher/.test(name)) return 'libido';
@@ -207,6 +228,7 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
           name: entity?.properties?.name || '',
           angle: entity?.properties?.angle || '',
           family: inferRepresentativeFamily(entity),
+          subfamilies: findRepresentativeSubfamilies(entity),
         }))
         .filter((item) => item.name)
         .filter((item) => item.family === baseFamily)
@@ -225,6 +247,7 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
         name: entity?.properties?.name || '',
         angle: entity?.properties?.angle || '',
         family: baseFamily,
+        subfamilies: findRepresentativeSubfamilies(entity),
       }))
   ).slice(0, limit);
 }
@@ -239,4 +262,5 @@ module.exports = {
   buildAlternativeOntologyHints,
   inferRepresentativeFamily,
   findRelatedEntities,
+  findRepresentativeSubfamilies,
 };
