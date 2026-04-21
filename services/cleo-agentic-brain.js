@@ -32,6 +32,14 @@ function detectConversationMode(text = '', context = {}) {
     return 'recover';
   }
 
+  if (/e aí|e ai|oi\?|olá\?|ola\?|hum\?|cadê|me responde/.test(lower)) {
+    return 'nudge';
+  }
+
+  if (/tem outro parecido|mais nessa linha|mais opções|mais opc|tem mais opc/.test(lower)) {
+    return 'alternatives';
+  }
+
   if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen|qual compensa/.test(lower)) {
     return 'compare';
   }
@@ -127,6 +135,20 @@ function buildCrossSellReplyAgentic({ context = {} } = {}) {
   return `Tenho sim 💜 Junto com *${productName}*, eu também te mostraria algo que complete melhor essa proposta e faça mais sentido no conjunto.`;
 }
 
+function buildAlternativesReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (!productName) return '';
+  return `Tenho sim 💜 Se você quiser, eu te mostro outras opções parecidas com *${productName}* e já te digo qual muda mais de verdade.`;
+}
+
+function buildNudgeReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (productName) {
+    return `Tô aqui 💜 Se você quiser, eu continuo por *${productName}* ou te mostro outra opção parecida.`;
+  }
+  return 'Tô aqui 💜 Me fala só o que você quer que eu sigo com você.';
+}
+
 function buildFollowUpReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
@@ -203,6 +225,10 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildRecoveryReply(context);
   } else if (mode === 'discovery') {
     replyText = buildDiscoveryReply({ inbound, context, products });
+  } else if (mode === 'alternatives') {
+    replyText = buildAlternativesReplyAgentic({ context });
+  } else if (mode === 'nudge') {
+    replyText = buildNudgeReplyAgentic({ context });
   } else if (mode === 'compare') {
     replyText = buildComparisonReply({ context });
   } else if (mode === 'cross_sell') {
