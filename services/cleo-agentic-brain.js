@@ -124,7 +124,7 @@ function buildComparisonReply({ context = {} } = {}) {
 function buildCrossSellReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   if (!productName) return '';
-  return `Tenho sim 💜 Junto com *${productName}*, eu também posso te indicar algo que combine melhor com essa proposta.`;
+  return `Tenho sim 💜 Se você quiser, junto com *${productName}* eu também te mostro algo que combine de verdade com essa proposta.`;
 }
 
 function buildCloseReply({ context = {} } = {}) {
@@ -149,7 +149,7 @@ function buildGeneralReply({ context = {} } = {}) {
   if (productName) {
     return `Tô com você 💜 Se quiser, eu continuo por *${productName}* e te digo o próximo passo sem complicar.`;
   }
-  return '';
+  return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
 }
 
 function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
