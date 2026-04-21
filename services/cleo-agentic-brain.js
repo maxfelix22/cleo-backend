@@ -55,6 +55,16 @@ function detectConversationMode(text = '', context = {}) {
   return 'general';
 }
 
+function getPrimaryCartItem(context = {}) {
+  return Array.isArray(context.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items[0]
+    : null;
+}
+
+function getPrimaryItemName(context = {}) {
+  return getPrimaryCartItem(context)?.label || context.lastProducts?.[0]?.name || context.lastProduct || context.lastProductPayload?.name || '';
+}
+
 function buildRecoveryReply(context = {}) {
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
   if (cartItems.length > 1) {
@@ -76,29 +86,50 @@ function buildDiscoveryReply({ products = [] } = {}) {
   return `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}. Se quiser, eu já te mostro outras opções nessa mesma linha.`;
 }
 
-function buildComparisonReply({ context = {}, helpers = {} } = {}) {
-  if (typeof helpers.buildContextualComparisonReply !== 'function') return '';
-  return helpers.buildContextualComparisonReply(context, helpers.inbound || {});
-}
-
-function buildCrossSellReplyAgentic({ context = {}, helpers = {} } = {}) {
-  if (typeof helpers.buildCrossSellReply !== 'function') return '';
-  return helpers.buildCrossSellReply(context, helpers.inbound || {});
-}
-
-function buildCloseReply({ context = {}, helpers = {} } = {}) {
-  if (typeof helpers.buildSoftCloseReply !== 'function') return '';
-  return helpers.buildSoftCloseReply(context, helpers.inbound || {});
-}
-
-function buildGeneralReply({ context = {}, helpers = {} } = {}) {
-  if (typeof helpers.buildContextualFollowUpReply !== 'function') {
-    return '';
+function buildComparisonReply({ context = {} } = {}) {
+  const first = context.lastProducts?.[0] || null;
+  const second = context.lastProducts?.[1] || null;
+  if (first?.name && second?.name) {
+    return `Entre *${first.name}* e *${second.name}*, eu te explico bem simples: um muda mais para um lado e o outro puxa mais para outro. Se você quiser, eu já te digo qual faz mais sentido para o que você quer sentir 💜`;
   }
-  return helpers.buildContextualFollowUpReply(context, helpers.inbound || {});
+  if (first?.name) {
+    return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te digo o que muda de verdade entre eles 💜`;
+  }
+  return '';
 }
 
-function buildAgenticReply({ inbound = {}, context = {}, products = [], helpers = {} } = {}) {
+function buildCrossSellReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (!productName) return '';
+  return `Tenho sim 💜 Junto com *${productName}*, eu também posso te indicar algo que combine melhor com essa proposta.`;
+}
+
+function buildCloseReply({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (!productName) return '';
+  return `Perfeito 💜 Então vamos seguir com *${productName}*. Me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
+}
+
+function buildCheckoutReplyAgentic({ context = {} } = {}) {
+  const stage = String(context.currentStage || context.checkout?.stage || '');
+  const productName = getPrimaryItemName(context);
+
+  if (stage === 'checkout_choose_delivery') {
+    return `Perfeito 💜 Me diz só como você prefere receber${productName ? ` *${productName}*` : ' seu pedido'}: *pickup*, *entrega em Marlborough* ou *USPS*.`;
+  }
+
+  return '';
+}
+
+function buildGeneralReply({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (productName) {
+    return `Tô com você 💜 Se quiser, eu continuo por *${productName}* e te digo o próximo passo sem complicar.`;
+  }
+  return '';
+}
+
+function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   const text = String(inbound.text || '').trim();
   const mode = detectConversationMode(text, context);
   const contextBlock = buildContextBlock(context);
@@ -109,13 +140,15 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [], helpers 
   } else if (mode === 'discovery') {
     replyText = buildDiscoveryReply({ inbound, context, products });
   } else if (mode === 'compare') {
-    replyText = buildComparisonReply({ context, helpers: { ...helpers, inbound } });
+    replyText = buildComparisonReply({ context });
   } else if (mode === 'cross_sell') {
-    replyText = buildCrossSellReplyAgentic({ context, helpers: { ...helpers, inbound } });
+    replyText = buildCrossSellReplyAgentic({ context });
   } else if (mode === 'close') {
-    replyText = buildCloseReply({ context, helpers: { ...helpers, inbound } });
+    replyText = buildCloseReply({ context });
+  } else if (mode === 'checkout') {
+    replyText = buildCheckoutReplyAgentic({ context });
   } else {
-    replyText = buildGeneralReply({ context, helpers: { ...helpers, inbound } });
+    replyText = buildGeneralReply({ context });
   }
 
   return {
