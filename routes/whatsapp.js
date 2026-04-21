@@ -964,9 +964,6 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         },
       };
     }
-    if (!replyText) {
-      replyText = buildContextualFollowUpReply(checkoutContext, inbound);
-    }
     if (!replyText && followUpSignals.asksUsShipping) {
       replyText = buildUsOnlyShippingReply();
     }
