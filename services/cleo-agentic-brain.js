@@ -127,6 +127,19 @@ function buildCrossSellReplyAgentic({ context = {} } = {}) {
   return `Tenho sim 💜 Se você quiser, junto com *${productName}* eu também te mostro algo que combine de verdade com essa proposta.`;
 }
 
+function buildFollowUpReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
+  if (cartItems.length > 1) {
+    const itemsLine = cartItems.map((item) => `${item.quantity}x ${item.label}`).join(', ');
+    return `Até aqui ficou *${itemsLine}* 💜 Se quiser, eu sigo daqui e te conduzo no próximo passo sem embolar.`;
+  }
+  if (productName) {
+    return `Tô com você 💜 Se quiser, eu continuo por *${productName}* e te digo o próximo passo sem complicar.`;
+  }
+  return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
+}
+
 function buildCloseReply({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   if (!productName) return '';
@@ -145,11 +158,7 @@ function buildCheckoutReplyAgentic({ context = {} } = {}) {
 }
 
 function buildGeneralReply({ context = {} } = {}) {
-  const productName = getPrimaryItemName(context);
-  if (productName) {
-    return `Tô com você 💜 Se quiser, eu continuo por *${productName}* e te digo o próximo passo sem complicar.`;
-  }
-  return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
+  return buildFollowUpReplyAgentic({ context });
 }
 
 function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
