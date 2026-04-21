@@ -380,7 +380,23 @@ function scoreAgenticProduct(product = {}, intent = 'geral') {
   const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
   const commercialFamily = inferCommercialFamily(product || {});
   const familyGroup = inferFamilyGroup(commercialFamily);
+  const ontologyRepresentative = buildOntologyHint(product || {}) || findRepresentativeByName(product?.name || '');
+  const ontologyFamily = inferRepresentativeFamily(ontologyRepresentative || { properties: { name: product?.name || '' } });
   let score = product?.inventory_in_stock === false ? -100 : 0;
+
+  if (ontologyFamily === 'libido' && intent === 'libido') score += 8;
+  if (ontologyFamily === 'apertadinha' && intent === 'apertar') score += 8;
+  if (ontologyFamily === 'masculino' && (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume')) score += 8;
+  if (ontologyFamily === 'oral' && intent === 'oral') score += 8;
+  if (ontologyFamily === 'lubrificacao' && intent === 'lubrificacao') score += 8;
+
+  if (ontologyFamily && intent !== 'geral') {
+    if (intent === 'libido' && ontologyFamily !== 'libido') score -= 6;
+    if (intent === 'apertar' && ontologyFamily !== 'apertadinha') score -= 6;
+    if ((intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') && ontologyFamily !== 'masculino') score -= 6;
+    if (intent === 'oral' && ontologyFamily !== 'oral') score -= 6;
+    if (intent === 'lubrificacao' && ontologyFamily !== 'lubrificacao') score -= 6;
+  }
 
   if (intent === 'libido' && familyGroup === 'libido') score += 4;
   if (intent === 'apertar' && familyGroup === 'apertar') score += 4;
@@ -569,7 +585,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
-const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints, inferRepresentativeFamily } = require('../services/cleo-ontology');
+const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints, inferRepresentativeFamily, findRepresentativeByName } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
