@@ -76,17 +76,35 @@ function buildUsOnlyShippingReply() {
   return 'Sim amore 💜 Enviamos dentro dos Estados Unidos sim. Se você quiser, eu também te passo certinho o valor do frete para o seu pedido.';
 }
 
+function getPrimaryCartItem(context = {}) {
+  return Array.isArray(context?.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items[0]
+    : null;
+}
+
+function getAnchoredProduct(context = {}) {
+  return getPrimaryCartItem(context)
+    || context?.lastProducts?.[0]
+    || context?.lastProductPayload
+    || null;
+}
+
+function getAnchoredProductName(context = {}) {
+  const primaryCartItem = getPrimaryCartItem(context);
+  return primaryCartItem?.label || context?.lastProducts?.[0]?.name || context?.lastProduct || context?.lastProductPayload?.name || '';
+}
+
 function buildContextualShippingReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').toLowerCase();
   if (/marlboro|marlborough/.test(text)) {
     return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
   }
 
-  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
-  const quantity = Number(context?.checkout?.quantity || 1) || 1;
+  const anchoredProduct = getAnchoredProduct(context);
+  const quantity = Number(context?.checkout?.quantity || 1) || Number(getPrimaryCartItem(context)?.quantity || 1) || 1;
   const priceNumber = Number(anchoredProduct?.priceNumber || String(anchoredProduct?.price || '').replace(/[^\d.]/g, '')) || 0;
   const orderTotal = priceNumber * quantity;
-  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  const productName = getAnchoredProductName(context);
   const uspsCopy = orderTotal >= 99
     ? 'o envio por USPS fica com *frete grátis* 💜'
     : 'o envio por USPS fica em *$10* 💜';
@@ -231,8 +249,8 @@ function pickCrossSellIntro(text = '') {
 
 function buildCrossSellReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
-  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
-  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  const anchoredProduct = getAnchoredProduct(context);
+  const productName = getAnchoredProductName(context);
   if (!productName) return '';
 
   if (!/tem mais alguma coisa|mais alguma sugest[aã]o|mais alguma op[cç][aã]o|tem algo a mais|tem mais alguma dica/.test(text)) {
@@ -272,8 +290,8 @@ function buildCrossSellReply(context = {}, inbound = {}) {
 
 function buildSoftCloseReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
-  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
-  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  const anchoredProduct = getAnchoredProduct(context);
+  const productName = getAnchoredProductName(context);
   if (!productName) return '';
   const intro = pickSoftCloseIntro(text);
 
@@ -336,8 +354,8 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
 
 function buildContextualFollowUpReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
-  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
-  const productName = anchoredProduct?.name || context?.lastProduct || '';
+  const anchoredProduct = getAnchoredProduct(context);
+  const productName = getAnchoredProductName(context);
   if (!productName) return '';
 
   const comparisonReply = buildContextualComparisonReply(context, inbound);
@@ -377,8 +395,8 @@ function pickCloseIntro(text = '') {
 function buildDirectPurchaseReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').toLowerCase();
   const quantity = extractRequestedQuantity(text) || 1;
-  const anchoredProduct = context?.lastProducts?.[0] || context?.lastProductPayload || null;
-  const productName = anchoredProduct?.name || context?.lastProduct || 'esse item';
+  const anchoredProduct = getAnchoredProduct(context);
+  const productName = getAnchoredProductName(context) || 'esse item';
   const intro = pickCloseIntro(text);
   const variationDetails = Array.isArray(anchoredProduct?.variationDetails) ? anchoredProduct.variationDetails : [];
   const requestedSize = extractRequestedSize(text);
