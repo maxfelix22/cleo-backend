@@ -706,6 +706,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
           currentStage: conversationResult.conversation.current_stage || '',
           lastProduct: conversationResult.conversation.last_product || '',
           lastProductPayload: conversationResult.conversation.last_product_payload || null,
+          cart: conversationResult.conversation.last_product_payload?.cart || null,
         };
       }
     } catch (err) {
@@ -782,6 +783,11 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       ...recoveredCheckout,
       ...(existingContext.checkout || {}),
     };
+    const recoveredCart = recoveredContextFromConversation?.cart || {};
+    const mergedCart = {
+      ...(recoveredCart || {}),
+      ...(existingContext.cart || {}),
+    };
     if (!mergedCheckout.stage && currentStageForState) {
       mergedCheckout.stage = currentStageForState;
     }
@@ -794,6 +800,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       summary: resolvedSummary,
       currentStage: currentStageForState,
       checkout: mergedCheckout,
+      cart: mergedCart,
       lastProduct: resolvedLastProduct,
       lastProductPayload: resolvedLastProductPayload,
       lastProducts: effectiveProducts.length > 0
@@ -812,6 +819,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         ...checkoutContext,
         currentStage: 'catalog_browse',
         checkout: {},
+        cart: { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] },
         summary: '',
       };
     }
@@ -970,7 +978,10 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         summary: savedContext.summary,
         currentStage: savedContext.currentStage,
         lastProduct: savedContext.lastProduct,
-        lastProductPayload: savedContext.lastProductPayload,
+        lastProductPayload: {
+          ...(savedContext.lastProductPayload || {}),
+          cart: savedContext.cart || { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] },
+        },
       });
       conversationUpdateDebug = {
         ok: true,
