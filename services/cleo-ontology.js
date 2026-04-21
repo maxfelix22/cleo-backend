@@ -135,14 +135,16 @@ function inferRepresentativeFamily(representative = {}) {
 
 function findComparableRepresentatives(name = '', limit = 2) {
   const current = findRepresentativeByName(name);
+  const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
+
   if (current?.id) {
-    const graphComparables = findRelatedEntities(current.id, 'compares_with', 'outgoing');
+    const graphComparables = findRelatedEntities(current.id, 'compares_with', 'outgoing')
+      .filter((entity) => !currentFamily || inferRepresentativeFamily(entity) === currentFamily);
     if (graphComparables.length > 0) {
       return graphComparables.slice(0, limit);
     }
   }
 
-  const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
   const reps = listRepresentativeEntities()
     .filter((entity) => normalize(entity?.properties?.name) !== normalize(name));
 
@@ -156,14 +158,23 @@ function findComparableRepresentatives(name = '', limit = 2) {
 
 function findComplementaryRepresentatives(name = '', limit = 3) {
   const current = findRepresentativeByName(name);
+  const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
+
   if (current?.id) {
-    const graphComplements = findRelatedEntities(current.id, 'complements', 'outgoing');
+    const graphComplements = findRelatedEntities(current.id, 'complements', 'outgoing')
+      .filter((entity) => {
+        const family = inferRepresentativeFamily(entity);
+        if (!currentFamily) return true;
+        if (currentFamily === 'libido' || currentFamily === 'apertadinha') return family === 'lubrificacao';
+        if (currentFamily === 'oral') return family === 'oral' || family === 'lubrificacao';
+        if (currentFamily === 'masculino') return family === 'masculino' || family === 'lubrificacao';
+        return family !== currentFamily;
+      });
     if (graphComplements.length > 0) {
       return dedupeEntities(graphComplements).slice(0, limit);
     }
   }
 
-  const currentFamily = inferRepresentativeFamily(current || { properties: { name } });
   const reps = listRepresentativeEntities()
     .filter((entity) => normalize(entity?.properties?.name) !== normalize(name));
 
@@ -186,6 +197,9 @@ function findComplementaryRepresentatives(name = '', limit = 3) {
 
 function buildAlternativeOntologyHints(product = {}, limit = 2) {
   const baseHint = buildOntologyHint(product);
+  const baseFamily = inferRepresentativeFamily(baseHint || { properties: { name: product?.name || '' } });
+  if (!baseFamily) return [];
+
   if (baseHint?.id) {
     const graphComparables = dedupeItemsByName(
       findRelatedEntities(baseHint.id, 'compares_with', 'outgoing')
@@ -195,6 +209,7 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
           family: inferRepresentativeFamily(entity),
         }))
         .filter((item) => item.name)
+        .filter((item) => item.family === baseFamily)
     ).slice(0, limit);
 
     if (graphComparables.length > 0) {
@@ -202,17 +217,14 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
     }
   }
 
-  const family = inferRepresentativeFamily(baseHint || { properties: { name: product?.name || '' } });
-  if (!family) return [];
-
   return dedupeItemsByName(
     listRepresentativeEntities()
       .filter((entity) => normalize(entity?.properties?.name) !== normalize(baseHint?.properties?.name))
-      .filter((entity) => inferRepresentativeFamily(entity) === family)
+      .filter((entity) => inferRepresentativeFamily(entity) === baseFamily)
       .map((entity) => ({
         name: entity?.properties?.name || '',
         angle: entity?.properties?.angle || '',
-        family,
+        family: baseFamily,
       }))
   ).slice(0, limit);
 }
