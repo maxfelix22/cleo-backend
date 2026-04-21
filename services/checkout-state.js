@@ -312,7 +312,11 @@ Se quiser agilizar, pode mandar tudo de uma vez:
     if (multiItems.length > 0) {
       lines.push('• Itens do pedido:');
       multiItems.forEach((item) => {
-        lines.push(`  - ${item.quantity}x ${item.label}`);
+        const semanticTags = [
+          item.ontologyFamily || '',
+          ...(Array.isArray(item.ontologySubfamilies) ? item.ontologySubfamilies : []),
+        ].filter(Boolean);
+        lines.push(`  - ${item.quantity}x ${item.label}${semanticTags.length ? ` [${Array.from(new Set(semanticTags)).join(' | ')}]` : ''}`);
       });
     } else if (context.lastProducts?.[0]?.name) {
       lines.push(`• Produto: ${context.lastProducts[0].name}`);
