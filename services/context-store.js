@@ -35,18 +35,29 @@ function normalizeLastProducts(lastProducts = []) {
     }));
 }
 
+function getPrimaryCartItem(next = {}) {
+  return Array.isArray(next.cart?.items) && next.cart.items.length > 0
+    ? next.cart.items[0]
+    : null;
+}
+
+function getPrimaryItemName(next = {}) {
+  return getPrimaryCartItem(next)?.label || next.lastProducts?.[0]?.name || '';
+}
+
 function buildSummary(next) {
-  if (next.currentStage === 'handoff_ready' && next.lastProducts?.[0]?.name) {
-    return `checkout pronto para handoff: ${next.lastProducts[0].name}`;
+  const primaryItemName = getPrimaryItemName(next);
+  if (next.currentStage === 'handoff_ready' && primaryItemName) {
+    return `checkout pronto para handoff: ${primaryItemName}`;
   }
-  if (next.currentStage === 'checkout_review' && next.lastProducts?.[0]?.name) {
-    return `checkout em revisão para ${next.lastProducts[0].name}`;
+  if (next.currentStage === 'checkout_review' && primaryItemName) {
+    return `checkout em revisão para ${primaryItemName}`;
   }
-  if ((next.currentStage === 'checkout_collect_contact' || next.currentStage === 'checkout_collect_name') && next.lastProducts?.[0]?.name) {
-    return `checkout iniciado para ${next.lastProducts[0].name}`;
+  if ((next.currentStage === 'checkout_collect_contact' || next.currentStage === 'checkout_collect_name') && primaryItemName) {
+    return `checkout iniciado para ${primaryItemName}`;
   }
-  if (next.lastProducts?.[0]?.name) {
-    return `produto em foco: ${next.lastProducts[0].name}`;
+  if (primaryItemName) {
+    return `produto em foco: ${primaryItemName}`;
   }
   if (next.lastInboundText) {
     return `última mensagem: ${next.lastInboundText}`;
@@ -56,24 +67,28 @@ function buildSummary(next) {
 
 function buildLastProductPayload(next) {
   const mainProduct = next.lastProducts?.[0] || null;
+  const primaryCartItem = getPrimaryCartItem(next);
   const existingPayload = next.lastProductPayload || null;
-  if (!mainProduct) return existingPayload;
+  if (!mainProduct && !primaryCartItem) return existingPayload;
 
   return {
-    product_id: mainProduct.id || existingPayload?.product_id || '',
-    product_name: mainProduct.name || existingPayload?.product_name || '',
-    price: mainProduct.price || existingPayload?.price || '',
-    image: mainProduct.image || existingPayload?.image || '',
-    source: mainProduct.source || existingPayload?.source || 'unknown',
-    variation: mainProduct.variation || existingPayload?.variation || '',
-    variation_details: mainProduct.variationDetails || mainProduct.raw?.variationDetails || existingPayload?.variation_details || [],
-    available_colors: mainProduct.availableColors || mainProduct.raw?.availableColors || existingPayload?.available_colors || [],
-    color: mainProduct.color || existingPayload?.color || '',
-    size: mainProduct.size || existingPayload?.size || '',
+    product_id: mainProduct?.id || existingPayload?.product_id || '',
+    product_name: primaryCartItem?.label || mainProduct?.name || existingPayload?.product_name || '',
+    price: mainProduct?.price || existingPayload?.price || '',
+    image: mainProduct?.image || existingPayload?.image || '',
+    source: mainProduct?.source || existingPayload?.source || (primaryCartItem ? 'cart' : 'unknown'),
+    variation: mainProduct?.variation || existingPayload?.variation || '',
+    variation_details: mainProduct?.variationDetails || mainProduct?.raw?.variationDetails || existingPayload?.variation_details || [],
+    available_colors: mainProduct?.availableColors || mainProduct?.raw?.availableColors || existingPayload?.available_colors || [],
+    color: mainProduct?.color || existingPayload?.color || '',
+    size: mainProduct?.size || existingPayload?.size || '',
     current_stage: next.currentStage || existingPayload?.current_stage || '',
     summary: next.summary || existingPayload?.summary || '',
     checkout: next.checkout || existingPayload?.checkout || null,
     follow_up_signals: next.followUpSignals || existingPayload?.follow_up_signals || null,
+    ontology_family: primaryCartItem?.ontologyFamily || existingPayload?.ontology_family || '',
+    ontology_subfamilies: primaryCartItem?.ontologySubfamilies || existingPayload?.ontology_subfamilies || [],
+    cart: next.cart || existingPayload?.cart || null,
     updated_at: next.updatedAt || new Date().toISOString(),
   };
 }
@@ -111,7 +126,7 @@ function saveContext(key, patch = {}) {
   next.summary = isSummaryConsistent(patchedSummary, next.currentStage)
     ? patchedSummary
     : buildSummary(next);
-  next.lastProduct = next.lastProducts?.[0]?.name || patch.lastProduct || existing.lastProduct || next.lastProductPayload?.product_name || '';
+  next.lastProduct = getPrimaryItemName(next) || patch.lastProduct || existing.lastProduct || next.lastProductPayload?.product_name || '';
   next.lastProductPayload = buildLastProductPayload(next);
   if (next.lastProductPayload?.product_name && next.lastProduct !== next.lastProductPayload.product_name) {
     next.lastProduct = next.lastProductPayload.product_name;
