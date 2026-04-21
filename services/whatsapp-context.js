@@ -71,16 +71,10 @@ function inferDesiredEffect(text = '') {
   return '';
 }
 
+const { inferCommercialFamily, inferCrossSellGroup } = require('./cleo-taxonomy');
+
 function inferEffectBucket(product = null) {
-  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
-  if (/sempre virgem|lacradinha|adstring|hamamelis|contra[ií]/.test(text)) return 'apertar';
-  if (/xana loka|stimulus mulher|sedenta|libido|tes[aã]o|excitante feminino/.test(text)) return 'libido';
-  if (/retard|durar mais/.test(text)) return 'masculino-retardante';
-  if (/ere[cç][aã]o|super pen|pinto loko/.test(text)) return 'masculino-erecao';
-  if (/berinjelo|volum[aã]o/.test(text)) return 'masculino-volume';
-  if (/blow girl|xupa xana|garganta profunda|beij[aá]vel|oral/.test(text)) return 'oral';
-  if (/lubrificante|mylub|deslizante|neutro/.test(text)) return 'lubrificacao';
-  return '';
+  return inferCommercialFamily(product || '');
 }
 
 function buildAlternativeSuggestion(products = [], currentName = '', currentProduct = null, requestedSize = '') {
@@ -88,6 +82,7 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
   const currentFamily = inferProductFamily(currentProduct);
   const currentAttribute = inferDominantAttribute(currentProduct);
   const currentEffect = inferEffectBucket(currentProduct);
+  const currentCrossSellGroup = inferCrossSellGroup(currentEffect);
   const currentPrice = Number(currentProduct?.priceNumber || 0);
   const currentColors = listAvailableColors(currentProduct);
   const candidates = (Array.isArray(products) ? products : []).filter((product) => {
@@ -98,6 +93,9 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
 
   const sameEffect = currentEffect
     ? candidates.filter((product) => inferEffectBucket(product) === currentEffect)
+    : [];
+  const sameCrossSellGroup = currentCrossSellGroup
+    ? candidates.filter((product) => inferCrossSellGroup(inferEffectBucket(product)) === currentCrossSellGroup)
     : [];
   const sameAttribute = candidates.filter((product) => inferDominantAttribute(product) === currentAttribute);
   const sameFamily = candidates.filter((product) => inferProductFamily(product) === currentFamily);
@@ -111,9 +109,11 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
         ? sameFamily
         : sameEffect.length > 0
           ? sameEffect
-          : sameAttribute.length > 0
-            ? sameAttribute
-            : candidates;
+          : sameCrossSellGroup.length > 0
+            ? sameCrossSellGroup
+            : sameAttribute.length > 0
+              ? sameAttribute
+              : candidates;
   pool.sort((a, b) => {
     const aSizes = listAvailableSizes(a);
     const bSizes = listAvailableSizes(b);
