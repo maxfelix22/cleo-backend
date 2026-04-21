@@ -23,6 +23,18 @@ function inferCustomerProfile(context = {}) {
   };
 }
 
+function pickVariant(list = [], seed = '') {
+  if (!Array.isArray(list) || list.length === 0) return '';
+  const base = String(seed || 'cleo');
+  let hash = 0;
+  for (let i = 0; i < base.length; i += 1) {
+    hash = ((hash << 5) - hash) + base.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % list.length;
+  return list[index];
+}
+
 function buildContextBlock(context = {}) {
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
   const checkout = context.checkout || {};
@@ -225,15 +237,31 @@ function buildInitialHelpReplyAgentic({ inbound = {}, products = [], context = {
 
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
     if (customerProfile.isVip && firstName) {
-      return `Oiiee ${firstName} 💜 Minha cliente querida, que bom te ver de volta. Quer que eu te mostre o que tem de mais lindo hoje?`;
+      return pickVariant([
+        `Oiiee ${firstName} 💜 Minha cliente querida, que bom te ver de volta. Quer que eu te mostre o que tem de mais lindo hoje?`,
+        `Oi ${firstName} 💜 Que bom te ver por aqui de novo. Quer ver o que eu separei de mais bonito hoje?`,
+        `${firstName}, coisa boa te ver de volta 💜 Quer que eu te mostre umas opções lindas primeiro?`,
+      ], `${firstName}:vip:greeting`);
     }
     if (customerProfile.inactive && firstName) {
-      return `Oiiee ${firstName} 💜 Quanto tempo! Me fala o que você tá procurando que eu já te mostro as novidades.`;
+      return pickVariant([
+        `Oiiee ${firstName} 💜 Quanto tempo! Me fala o que você tá procurando que eu já te mostro as novidades.`,
+        `Oii ${firstName} 💜 Faz tempo mesmo, hein? Me fala o que você quer que eu já te atualizo nas novidades.`,
+        `${firstName} 💜 Que bom te ver de novo. Quer me dizer o que você tá procurando hoje?`,
+      ], `${firstName}:inactive:greeting`);
     }
     if (customerProfile.isRecurring && firstName) {
-      return `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer hoje que eu sigo com você.`;
+      return pickVariant([
+        `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer hoje que eu sigo com você.`,
+        `Oii ${firstName} 💜 Bom te ver de novo por aqui. Me fala o que você quer que eu já te ajudo.`,
+        `${firstName} 💜 Que bom que você voltou. Me conta o que você tá procurando hoje.`,
+      ], `${firstName}:recurring:greeting`);
     }
-    return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
+    return pickVariant([
+      'Oi amore 💜 Me fala o que você quer que eu já te ajudo.',
+      'Oii mulher 💜 Me conta o que você tá procurando que eu sigo com você.',
+      'Oi linda 💜 Me diz o que você quer ver hoje que eu já te ajudo.',
+    ], `${text}:new:greeting`);
   }
   return buildDiscoveryReply({ inbound, products, context });
 }
@@ -314,11 +342,19 @@ function buildObjectionReplyAgentic({ context = {}, inbound = {} } = {}) {
   const productName = getPrimaryItemName(context);
 
   if (/desconto|descontinho|faz mais barato|faz um valor melhor|tem como melhorar|consegue melhorar|precinho/.test(text)) {
-    return 'Amore, no preço eu não consigo mexer 💜 Mas se você quiser, eu posso te ajudar a montar da melhor forma e ainda incluir um brindezinho especial 🎁';
+    return pickVariant([
+      'Amore, no preço eu não consigo mexer 💜 Mas se você quiser, eu posso te ajudar a montar da melhor forma e ainda incluir um brindezinho especial 🎁',
+      'No valor eu não consigo mexer, amore 💜 Mas posso te montar da forma mais vantajosa e colocar um brindezinho junto 🎁',
+      'Preço eu não consigo baixar, mulher 💜 Mas posso te ajudar a fechar do melhor jeito e ainda te mandar um brinde especial 🎁',
+    ], `${text}:discount`);
   }
 
   if (/t[aá] caro/.test(text)) {
-    return 'Entendo mulher 💜 Mas posso te ajudar a montar da forma que faça mais sentido pra você, e se fechar eu ainda vejo um brindezinho especial 🎁';
+    return pickVariant([
+      'Entendo mulher 💜 Mas posso te ajudar a montar da forma que faça mais sentido pra você, e se fechar eu ainda vejo um brindezinho especial 🎁',
+      'Te entendo, amore 💜 Vamos montar isso do jeito que fique melhor pra você, e eu ainda coloco um brindezinho especial 🎁',
+      'Eu te entendo 💜 Se quiser, eu penso com você numa opção que faça mais sentido e ainda incluo um brindezinho 🎁',
+    ], `${text}:expensive`);
   }
 
   if (/vou pensar/.test(text)) {
@@ -328,7 +364,11 @@ function buildObjectionReplyAgentic({ context = {}, inbound = {} } = {}) {
   }
 
   if (/tenho vergonha|t[oô] com vergonha|discreto|discreta/.test(text)) {
-    return 'Fica tranquila 💜 É tudo bem discreto e eu te conduzo com jeitinho, sem te deixar desconfortável.';
+    return pickVariant([
+      'Fica tranquila 💜 É tudo bem discreto e eu te conduzo com jeitinho, sem te deixar desconfortável.',
+      'Relaxa, amore 💜 É tudo bem discreto e eu vou te guiando com calma.',
+      'Pode ficar tranquila 💜 Aqui eu te ajudo com jeitinho e tudo fica bem discreto.',
+    ], `${text}:shy`);
   }
 
   return '';
@@ -516,15 +556,31 @@ function buildGeneralReply({ context = {}, inbound = {} } = {}) {
   const firstName = String(customerProfile.name || '').trim().split(/\s+/)[0] || '';
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
     if (customerProfile.isVip && firstName) {
-      return `Oiiee ${firstName} 💜 Minha cliente querida, quer ver novidade ou você já tá procurando algo específico?`;
+      return pickVariant([
+      `Oiiee ${firstName} 💜 Minha cliente querida, quer ver novidade ou você já tá procurando algo específico?`,
+      `Oii ${firstName} 💜 Quer que eu te mostre novidade primeiro ou você já sabe o que quer?`,
+      `${firstName} 💜 Quer ver as novidades ou você já veio atrás de algo certo?`,
+    ], `${firstName}:vip:general`);
     }
     if (customerProfile.inactive && firstName) {
-      return `Oiiee ${firstName} 💜 Saudade de você por aqui. Quer que eu te mostre novidade ou você já tem algo em mente?`;
+      return pickVariant([
+        `Oiiee ${firstName} 💜 Saudade de você por aqui. Quer que eu te mostre novidade ou você já tem algo em mente?`,
+        `Oii ${firstName} 💜 Quanto tempo. Quer ver o que chegou ou você já sabe o que procura?`,
+        `${firstName} 💜 Que bom te ver por aqui de novo. Quer que eu te mostre novidade?`,
+      ], `${firstName}:inactive:general`);
     }
     if (customerProfile.isRecurring && firstName) {
-      return `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer que eu sigo com você.`;
+      return pickVariant([
+        `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer que eu sigo com você.`,
+        `Oii ${firstName} 💜 Bom te ver por aqui de novo. Me fala o que você quer hoje.`,
+        `${firstName} 💜 Me conta o que você quer ver hoje que eu sigo com você.`,
+      ], `${firstName}:recurring:general`);
     }
-    return 'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.';
+    return pickVariant([
+      'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.',
+      'Oii mulher 💜 Me conta o que você quer ver que eu sigo com você.',
+      'Oi linda 💜 Me fala o que você tá procurando hoje que eu já te ajudo.',
+    ], `${text}:general:greeting`);
   }
   if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
     return hasWeakIntentSignal(text)
