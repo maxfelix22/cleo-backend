@@ -1,12 +1,16 @@
 function inferCustomerProfile(context = {}) {
   const customer = context.customer || {};
   const totalOrders = Number(customer.total_orders || customer.totalOrders || 0);
-  const isVip = Boolean(customer.is_vip || customer.isVip || (Array.isArray(customer.tags) && customer.tags.includes('vip')) || totalOrders >= 5);
+  const tags = Array.isArray(customer.tags) ? customer.tags.map((tag) => String(tag).toLowerCase()) : [];
+  const isVip = Boolean(customer.is_vip || customer.isVip || tags.includes('vip') || totalOrders >= 5);
   const lastInteraction = customer.last_interaction || customer.lastInteraction || '';
   const inactive = lastInteraction
     ? (Date.now() - new Date(lastInteraction).getTime()) > (60 * 24 * 60 * 60 * 1000)
     : false;
   const isRecurring = totalOrders >= 2;
+  const gender = String(customer.gender || '').toLowerCase();
+  const isMale = gender === 'male' || gender === 'masculino' || tags.includes('male') || tags.includes('masculino');
+  const isShy = tags.includes('shy') || tags.includes('timida') || tags.includes('tímida');
 
   return {
     name: customer.name || context.profileName || '',
@@ -14,6 +18,8 @@ function inferCustomerProfile(context = {}) {
     isVip,
     isRecurring,
     inactive,
+    isMale,
+    isShy,
   };
 }
 
@@ -148,16 +154,17 @@ function inferDiscoveryMood(text = '') {
   return 'geral';
 }
 
-function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
+function buildDiscoveryReply({ inbound = {}, products = [], context = {} } = {}) {
   const available = Array.isArray(products) ? products.filter(Boolean) : [];
   const top = available.find((item) => item?.inventory_in_stock !== false) || available[0] || null;
   if (!top?.name) return '';
   const text = String(inbound.text || '').trim();
   const mood = inferDiscoveryMood(text);
+  const customerProfile = inferCustomerProfile(context);
   const priceLine = top.price ? ` por ${top.price}` : '';
   const second = available.find((item) => item?.name && item.name !== top.name);
   const secondLine = second?.name ? ` Se quiser, eu também te mostro *${second.name}* para você sentir melhor a diferença.` : '';
-  const base = mood === 'libido'
+  let base = mood === 'libido'
     ? `Tenho sim 💜 Pra libido, eu começaria por *${top.name}*${priceLine}.`
     : mood === 'apertar'
       ? `Tenho sim 💜 Pra essa linha mais apertadinha, eu iria primeiro em *${top.name}*${priceLine}.`
@@ -168,6 +175,17 @@ function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
           : mood === 'lubrificacao'
             ? `Tenho sim 💜 Pra lubrificação, eu te mostraria primeiro *${top.name}*${priceLine}.`
             : `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}.`;
+
+  if (customerProfile.isVip) {
+    base = `Separei uma opção linda pra você 💜 Eu começaria por *${top.name}*${priceLine}.`;
+  } else if (customerProfile.inactive) {
+    base = `Tenho novidade boa pra você 💜 Eu começaria por *${top.name}*${priceLine}.`;
+  } else if (customerProfile.isMale) {
+    base = `Tenho sim 💜 Se for presente ou pra facilitar sua escolha, eu começaria por *${top.name}*${priceLine}.`;
+  } else if (customerProfile.isShy) {
+    base = `Tenho sim 💜 Vou te mostrar de um jeito bem leve e discreto: eu começaria por *${top.name}*${priceLine}.`;
+  }
+
   return `${base}${secondLine}`;
 }
 
@@ -188,7 +206,7 @@ function buildInitialHelpReplyAgentic({ inbound = {}, products = [], context = {
     }
     return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
   }
-  return buildDiscoveryReply({ inbound, products });
+  return buildDiscoveryReply({ inbound, products, context });
 }
 
 function buildComparisonReply({ context = {} } = {}) {
@@ -205,7 +223,21 @@ function buildComparisonReply({ context = {} } = {}) {
 
 function buildCrossSellReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
+  const customerProfile = inferCustomerProfile(context);
   if (!productName) return '';
+
+  if (customerProfile.isVip) {
+    return `Tenho sim 💜 Junto com *${productName}*, eu também posso te mostrar um complemento mais especial pra fechar redondinho.`;
+  }
+
+  if (customerProfile.isMale) {
+    return `Tenho sim 💜 Junto com *${productName}*, eu posso te mostrar mais um item que combine e facilite seu presente.`;
+  }
+
+  if (customerProfile.isShy) {
+    return `Tenho sim 💜 Junto com *${productName}*, eu posso te sugerir um complemento bem discreto e fácil de encaixar.`;
+  }
+
   return `Tenho sim 💜 Junto com *${productName}*, eu também te mostraria algo que complete melhor essa proposta e faça mais sentido no conjunto.`;
 }
 
@@ -422,6 +454,29 @@ function buildMediaRecoveryReplyAgentic() {
   return 'Recebi aqui 💜 Se quiser, me diz rapidinho o que você quer ver ou confirmar nessa imagem que eu sigo com você.';
 }
 
+function buildProfileAwareFollowUp(context = {}) {
+  const customerProfile = inferCustomerProfile(context);
+  const productName = getPrimaryItemName(context);
+
+  if (customerProfile.isVip && productName) {
+    return `Pra você, eu seguiria por *${productName}* e se quiser também separo uma opção mais especial junto 💜`;
+  }
+
+  if (customerProfile.inactive && productName) {
+    return `Se quiser, eu retomo por *${productName}* e também te mostro o que chegou de novidade nessa linha 💜`;
+  }
+
+  if (customerProfile.isMale && productName) {
+    return `Se quiser, eu sigo por *${productName}* e te ajudo a fechar isso de um jeito fácil, sem complicar 💜`;
+  }
+
+  if (customerProfile.isShy && productName) {
+    return `Se quiser, eu sigo por *${productName}* com calma e de um jeito bem discreto 💜`;
+  }
+
+  return '';
+}
+
 function buildGeneralReply({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').trim();
   const customerProfile = inferCustomerProfile(context);
@@ -441,7 +496,7 @@ function buildGeneralReply({ context = {}, inbound = {} } = {}) {
   if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
     return 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
   }
-  return buildFollowUpReplyAgentic({ context });
+  return buildProfileAwareFollowUp(context) || buildFollowUpReplyAgentic({ context });
 }
 
 function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
