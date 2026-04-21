@@ -312,6 +312,13 @@ function buildContextualFollowUpReply(context = {}, inbound = {}) {
   }
 
   if (/tem mais opc|mais opc|tem outro parecido|outras opc|mais nessa linha/.test(text)) {
+    const alternativeHints = buildAlternativeOntologyHints(anchoredProduct || { name: productName }, 2);
+    if (alternativeHints.length > 0) {
+      const alternativesLine = alternativeHints
+        .map((item) => item.angle ? `*${item.name}* (${item.angle})` : `*${item.name}*`)
+        .join(' e ');
+      return `Tenho sim 💜 Nessa mesma linha, eu te mostraria ${alternativesLine}.`;
+    }
     return `Tenho sim 💜 Se quiser, eu te mostro mais opções parecidas com *${productName}* nessa mesma linha.`;
   }
 
@@ -546,7 +553,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
-const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives } = require('../services/cleo-ontology');
+const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
