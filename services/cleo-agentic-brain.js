@@ -154,10 +154,39 @@ function inferDiscoveryMood(text = '') {
   return 'geral';
 }
 
+function hasWeakIntentSignal(text = '') {
+  const lower = String(text || '').trim().toLowerCase();
+  if (!lower) return true;
+  if (lower.length <= 3) return true;
+  if (/^(oi+|ol[áa]|boa noite|boa tarde|bom dia|hum|hmm|quero|tem|me ajuda|me indica)$/.test(lower)) return true;
+  return false;
+}
+
+function buildClarifyingQuestion({ context = {}, inbound = {} } = {}) {
+  const text = String(inbound.text || '').toLowerCase();
+  const customerProfile = inferCustomerProfile(context);
+
+  if (/presente|namorado|marido|esposa|mulher/.test(text) || customerProfile.isMale) {
+    return 'Me fala só se é pra presente ou pra você, que eu já te indico no caminho certo 💜';
+  }
+
+  if (/lingerie|conjunto|camisola|body/.test(text)) {
+    return 'Você quer algo mais pra dia a dia, mais sensual, ou pra uma ocasião especial? 💜';
+  }
+
+  if (/libido|tes[aã]o|excita|desejo|apertad|oral|boquete|lubrific|seca|molhar|masculino/.test(text)) {
+    return 'Você quer algo mais leve ou algo mais direto mesmo? 💜';
+  }
+
+  return 'Me fala rapidinho o que você quer: lingerie, sex shop, presente ou algo pra uma ocasião especial? 💜';
+}
+
 function buildDiscoveryReply({ inbound = {}, products = [], context = {} } = {}) {
   const available = Array.isArray(products) ? products.filter(Boolean) : [];
+  const weakIntent = hasWeakIntentSignal(inbound.text || '');
   const top = available.find((item) => item?.inventory_in_stock !== false) || available[0] || null;
-  if (!top?.name) return '';
+  if (weakIntent && available.length > 3) return buildClarifyingQuestion({ context, inbound });
+  if (!top?.name) return buildClarifyingQuestion({ context, inbound });
   const text = String(inbound.text || '').trim();
   const mood = inferDiscoveryMood(text);
   const customerProfile = inferCustomerProfile(context);
@@ -209,11 +238,15 @@ function buildInitialHelpReplyAgentic({ inbound = {}, products = [], context = {
   return buildDiscoveryReply({ inbound, products, context });
 }
 
-function buildComparisonReply({ context = {} } = {}) {
+function buildComparisonReply({ context = {}, inbound = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
   if (first?.name && second?.name) {
     return `Entre *${first.name}* e *${second.name}*, eu te falaria assim: se você quer algo mais direto para uma proposta, eu iria mais em um; se quer puxar mais para outra sensação, eu iria no outro. Se quiser, eu já te digo qual faz mais sentido pro que você quer 💜`;
+  }
+
+  if (hasWeakIntentSignal(inbound.text || '')) {
+    return buildClarifyingQuestion({ context, inbound });
   }
   if (first?.name) {
     return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te explico a diferença sem enrolação 💜`;
@@ -494,9 +527,11 @@ function buildGeneralReply({ context = {}, inbound = {} } = {}) {
     return 'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.';
   }
   if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
-    return 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
+    return hasWeakIntentSignal(text)
+      ? buildClarifyingQuestion({ context, inbound })
+      : 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
   }
-  return buildProfileAwareFollowUp(context) || buildFollowUpReplyAgentic({ context });
+  return buildProfileAwareFollowUp(context) || buildFollowUpReplyAgentic({ context }) || buildClarifyingQuestion({ context, inbound });
 }
 
 function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
@@ -547,7 +582,7 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   } else if (mode === 'recover' && /não é isso|não era isso/.test(text.toLowerCase())) {
     replyText = buildClarifyReplyAgentic({ context });
   } else if (mode === 'compare') {
-    replyText = buildComparisonReply({ context });
+    replyText = buildComparisonReply({ context, inbound });
   } else if (mode === 'cross_sell') {
     replyText = buildCrossSellReplyAgentic({ context });
   } else if (mode === 'close') {
