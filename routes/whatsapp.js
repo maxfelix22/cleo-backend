@@ -979,6 +979,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       cart: checkoutContext.cart || existingContext.cart || { items: [], itemsCount: 0 },
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
+      customer: customerResult?.customer || existingContext.customer || null,
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
       lastProducts: anchoredProducts,

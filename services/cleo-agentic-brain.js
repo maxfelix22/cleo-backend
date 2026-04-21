@@ -1,3 +1,22 @@
+function inferCustomerProfile(context = {}) {
+  const customer = context.customer || {};
+  const totalOrders = Number(customer.total_orders || customer.totalOrders || 0);
+  const isVip = Boolean(customer.is_vip || customer.isVip || (Array.isArray(customer.tags) && customer.tags.includes('vip')) || totalOrders >= 5);
+  const lastInteraction = customer.last_interaction || customer.lastInteraction || '';
+  const inactive = lastInteraction
+    ? (Date.now() - new Date(lastInteraction).getTime()) > (60 * 24 * 60 * 60 * 1000)
+    : false;
+  const isRecurring = totalOrders >= 2;
+
+  return {
+    name: customer.name || context.profileName || '',
+    totalOrders,
+    isVip,
+    isRecurring,
+    inactive,
+  };
+}
+
 function buildContextBlock(context = {}) {
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
   const checkout = context.checkout || {};
@@ -21,6 +40,7 @@ function buildContextBlock(context = {}) {
       email: checkout.email || '',
       address: checkout.address || '',
     },
+    customerProfile: inferCustomerProfile(context),
   };
 }
 
@@ -151,9 +171,21 @@ function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
   return `${base}${secondLine}`;
 }
 
-function buildInitialHelpReplyAgentic({ inbound = {}, products = [] } = {}) {
+function buildInitialHelpReplyAgentic({ inbound = {}, products = [], context = {} } = {}) {
   const text = String(inbound.text || '').trim();
+  const customerProfile = inferCustomerProfile(context);
+  const firstName = String(customerProfile.name || '').trim().split(/\s+/)[0] || '';
+
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
+    if (customerProfile.isVip && firstName) {
+      return `Oiiee ${firstName} 💜 Minha cliente querida, que bom te ver de volta. Quer que eu te mostre o que tem de mais lindo hoje?`;
+    }
+    if (customerProfile.inactive && firstName) {
+      return `Oiiee ${firstName} 💜 Quanto tempo! Me fala o que você tá procurando que eu já te mostro as novidades.`;
+    }
+    if (customerProfile.isRecurring && firstName) {
+      return `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer hoje que eu sigo com você.`;
+    }
     return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
   }
   return buildDiscoveryReply({ inbound, products });
@@ -392,7 +424,18 @@ function buildMediaRecoveryReplyAgentic() {
 
 function buildGeneralReply({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').trim();
+  const customerProfile = inferCustomerProfile(context);
+  const firstName = String(customerProfile.name || '').trim().split(/\s+/)[0] || '';
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
+    if (customerProfile.isVip && firstName) {
+      return `Oiiee ${firstName} 💜 Minha cliente querida, quer ver novidade ou você já tá procurando algo específico?`;
+    }
+    if (customerProfile.inactive && firstName) {
+      return `Oiiee ${firstName} 💜 Saudade de você por aqui. Quer que eu te mostre novidade ou você já tem algo em mente?`;
+    }
+    if (customerProfile.isRecurring && firstName) {
+      return `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer que eu sigo com você.`;
+    }
     return 'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.';
   }
   if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
