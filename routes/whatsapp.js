@@ -347,9 +347,6 @@ function buildSoftCloseReply(context = {}, inbound = {}) {
     return `${intro} Se você quiser, eu já separo o *${productName}* pra você.`;
   }
 
-  const crossSellReply = buildCrossSellReply(context, inbound);
-  if (crossSellReply) return crossSellReply;
-
   return '';
 }
 
@@ -359,11 +356,6 @@ function buildContextualFollowUpReply(context = {}, inbound = {}) {
   const productName = getAnchoredProductName(context);
   if (!productName) return '';
 
-  const comparisonReply = buildContextualComparisonReply(context, inbound);
-  if (comparisonReply) return comparisonReply;
-
-  const softCloseReply = buildSoftCloseReply(context, inbound);
-  if (softCloseReply) return softCloseReply;
 
   if (/e se eu quiser esse|quero esse|vou querer esse|vou levar esse/.test(text)) {
     return `Perfeito 💜 Se for esse *${productName}*, eu sigo com você por aqui. Você prefere *pickup*, *entrega em Marlborough* ou *envio por USPS*?`;
