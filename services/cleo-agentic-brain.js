@@ -48,6 +48,10 @@ function detectConversationMode(text = '', context = {}) {
     return 'cross_sell';
   }
 
+  if (/quero esse|vou querer esse|vou levar esse|esse não|qual você acha melhor pra mim|quero dois|vou levar dois|leva dois|separa dois/.test(lower)) {
+    return 'intent_short';
+  }
+
   if (/quero|vou querer|gostei|separa|leva/.test(lower)) {
     return 'close';
   }
@@ -170,6 +174,37 @@ function buildFollowUpReplyAgentic({ context = {} } = {}) {
   return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
 }
 
+function buildIntentShortReplyAgentic({ context = {}, inbound = {} } = {}) {
+  const text = String(inbound.text || '').trim().toLowerCase();
+  const productName = getPrimaryItemName(context);
+
+  if (/esse não/.test(text)) {
+    return productName
+      ? `Sem problema 💜 Então eu tiro *${productName}* da frente e te mostro outra opção melhor.`
+      : 'Sem problema 💜 Então me fala rapidinho qual direção você quer que eu te mostro outra opção.';
+  }
+
+  if (/qual você acha melhor pra mim/.test(text)) {
+    return productName
+      ? `Se eu fosse te indicar uma direção agora, eu começaria por *${productName}* e depois te mostraria a segunda melhor opção pra você sentir a diferença 💜`
+      : 'Se você quiser, eu te digo direto o que eu acho melhor pra você agora 💜';
+  }
+
+  if (/quero dois|vou levar dois|leva dois|separa dois/.test(text)) {
+    return productName
+      ? `Perfeito 💜 Então eu já considero *2x ${productName}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`
+      : 'Perfeito 💜 Então me fala só quais dois itens você quer que eu já organizo daqui.';
+  }
+
+  if (/quero esse|vou querer esse|vou levar esse/.test(text)) {
+    return productName
+      ? `Perfeito 💜 Então vamos seguir com *${productName}*. Me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`
+      : 'Perfeito 💜 Então me confirma só qual item você quer que eu sigo daqui.';
+  }
+
+  return '';
+}
+
 function buildCloseReply({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
@@ -237,6 +272,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildAlternativesReplyAgentic({ context });
   } else if (mode === 'nudge') {
     replyText = buildNudgeReplyAgentic({ context });
+  } else if (mode === 'intent_short') {
+    replyText = buildIntentShortReplyAgentic({ context, inbound });
   } else if (mode === 'recover' && /não é isso|não era isso/.test(text.toLowerCase())) {
     replyText = buildClarifyReplyAgentic({ context });
   } else if (mode === 'compare') {
