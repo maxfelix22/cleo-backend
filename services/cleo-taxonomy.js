@@ -43,8 +43,26 @@ function inferCrossSellGroup(commercialFamily = '') {
   return 'geral';
 }
 
+function buildCrossSellHint(commercialFamily = '') {
+  const family = normalizeText(commercialFamily);
+  if (family === 'libido') return 'um lubrificante pra usar junto ou outra opção de libido na mesma linha';
+  if (family === 'apertar') return 'um lubrificante pra usar junto ou outra opção mais nessa linha de apertadinha';
+  if (family === 'masculino_retardante') return 'outra opção masculina mais nessa linha de durar mais';
+  if (family === 'masculino_erecao') return 'outra opção masculina mais nessa linha de ereção e estímulo';
+  if (family === 'masculino_volume') return 'outra opção masculina mais nessa linha de volume e intensidade';
+  if (family === 'masculino') return 'outra opção masculina ou alguma linha complementar pra fechar melhor';
+  if (family === 'oral_funcional') return 'outra opção pra oral mais funcional ou algum item da mesma pegada';
+  if (family === 'oral_sensorial') return 'outra opção pra oral mais sensorial ou algum item da mesma pegada';
+  if (family === 'lubrificacao_neutra') return 'outro gel mais neutro ou alguma linha complementar';
+  if (family === 'lubrificacao_sensacao') return 'outro gel mais voltado para sensação ou alguma linha complementar';
+  if (family === 'lubrificacao_especifica') return 'outro gel mais específico ou alguma linha complementar';
+  if (family === 'visual') return 'outra peça da mesma linha ou algum complemento que combine';
+  return 'mais uma opção nessa linha ou algum complemento';
+}
+
 module.exports = {
   inferCommercialFamily,
   inferFamilyGroup,
   inferCrossSellGroup,
+  buildCrossSellHint,
 };

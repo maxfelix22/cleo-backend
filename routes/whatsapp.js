@@ -212,27 +212,9 @@ function buildCrossSellReply(context = {}, inbound = {}) {
   }
 
   const intro = pickCrossSellIntro(text);
-  const family = inferCrossSellFamily(anchoredProduct);
-  if (family === 'libido') {
-    return `${intro} Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção de libido na mesma linha.`;
-  }
-  if (family === 'apertar') {
-    return `${intro} Junto com *${productName}*, eu te mostraria um lubrificante pra usar junto ou outra opção mais nessa linha de apertadinha.`;
-  }
-  if (family === 'masculino') {
-    return `${intro} Junto com *${productName}*, eu te mostraria outra opção masculina ou alguma linha complementar pra fechar melhor.`;
-  }
-  if (family === 'oral') {
-    return `${intro} Junto com *${productName}*, eu te mostraria outra opção pra oral ou algum item da mesma pegada.`;
-  }
-  if (family === 'lubrificacao') {
-    return `${intro} Junto com *${productName}*, eu te mostraria outro gel ou alguma linha complementar mais específica.`;
-  }
-  if (family === 'visual') {
-    return `${intro} Junto com *${productName}*, eu te mostraria outra peça da mesma linha ou algum complemento que combine.`;
-  }
-
-  return `${intro} Junto com *${productName}*, eu também posso te mostrar mais uma opção nessa linha ou algum complemento.`;
+  const commercialFamily = inferCommercialFamily(anchoredProduct || {});
+  const hint = buildCrossSellHint(commercialFamily);
+  return `${intro} Junto com *${productName}*, eu te mostraria ${hint}.`;
 }
 
 function buildSoftCloseReply(context = {}, inbound = {}) {
@@ -548,7 +530,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
-const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup } = require('../services/cleo-taxonomy');
+const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
