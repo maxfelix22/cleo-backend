@@ -891,12 +891,12 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
     }
 
-    if (brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1 && !brainResult.replyText) {
+    let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
+
+    if (!replyText && brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1) {
       const itemsLine = checkoutContext.cart.items.map((item) => `${item.quantity}x ${item.label}`).join(', ');
       replyText = `Perfeito 💜 Então até aqui ficou *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
     }
-
-    let replyText = replyText || brainResult.replyText || buildCheckoutReply(checkoutContext);
 
     if (!replyText && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
