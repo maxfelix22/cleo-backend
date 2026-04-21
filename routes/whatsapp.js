@@ -725,6 +725,11 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       checkoutContext = {
         ...checkoutContext,
         currentStage: 'checkout_choose_delivery',
+        cart: {
+          ...(checkoutContext.cart || {}),
+          items: multiItems,
+          itemsCount: multiItems.length,
+        },
         checkout: {
           ...(checkoutContext.checkout || {}),
           stage: 'checkout_choose_delivery',
@@ -786,6 +791,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const savedContext = saveContext(contextKey, {
       ...checkoutContext,
+      cart: checkoutContext.cart || existingContext.cart || { items: [], itemsCount: 0 },
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',

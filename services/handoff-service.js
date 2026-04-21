@@ -36,7 +36,9 @@ function buildOperationalPriority(payload = {}) {
 function buildHandoffPayload(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
-  const multiItems = Array.isArray(checkout.multiItems) ? checkout.multiItems : [];
+  const multiItems = Array.isArray(context.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items
+    : (Array.isArray(checkout.multiItems) ? checkout.multiItems : []);
   const address = checkout.address || context.address || '';
 
   const customerMessage = String(context.lastInboundText || '').trim().toLowerCase();
