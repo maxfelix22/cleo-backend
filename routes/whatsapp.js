@@ -970,9 +970,6 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     if (!replyText && followUpSignals.asksShippingCost) {
       replyText = buildContextualShippingReply(checkoutContext, inbound);
     }
-    if (!replyText && shouldUseAgenticDiscovery(inbound, checkoutContext, effectiveProducts)) {
-      replyText = buildAgenticDiscoveryReply(inbound, effectiveProducts, checkoutContext);
-    }
     if (!replyText) {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
