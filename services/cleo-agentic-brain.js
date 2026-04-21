@@ -79,21 +79,44 @@ function buildRecoveryReply(context = {}) {
   return 'Você tem razão 💜 Vamos reorganizar direitinho. Me fala em uma frase só o que você quer agora que eu sigo sem complicar.';
 }
 
-function buildDiscoveryReply({ products = [] } = {}) {
+function inferDiscoveryMood(text = '') {
+  const lower = String(text || '').toLowerCase();
+  if (/libido|tes[aã]o|vontade|desejo|excita/.test(lower)) return 'libido';
+  if (/apertad|sempre virgem|lacradinha|adstring/.test(lower)) return 'apertar';
+  if (/oral|boquete|chupar|blow|garganta/.test(lower)) return 'oral';
+  if (/berinjelo|volum[aã]o|ere[cç][aã]o|retard|homem|masculino/.test(lower)) return 'masculino';
+  if (/lubrific|seca|molhar|desliz/.test(lower)) return 'lubrificacao';
+  return 'geral';
+}
+
+function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
   const top = Array.isArray(products) ? products.find((item) => item?.inventory_in_stock !== false) || products[0] : null;
   if (!top?.name) return '';
+  const text = String(inbound.text || '').trim();
+  const mood = inferDiscoveryMood(text);
   const priceLine = top.price ? ` por ${top.price}` : '';
-  return `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}. Se quiser, eu já te mostro outras opções nessa mesma linha.`;
+  const base = mood === 'libido'
+    ? `Tenho sim 💜 Pra libido, eu começaria por *${top.name}*${priceLine}.`
+    : mood === 'apertar'
+      ? `Tenho sim 💜 Pra essa linha mais apertadinha, eu iria primeiro em *${top.name}*${priceLine}.`
+      : mood === 'oral'
+        ? `Tenho sim 💜 Pra oral, eu te mostraria primeiro *${top.name}*${priceLine}.`
+        : mood === 'masculino'
+          ? `Tenho sim 💜 Pra essa linha masculina, eu começaria por *${top.name}*${priceLine}.`
+          : mood === 'lubrificacao'
+            ? `Tenho sim 💜 Pra lubrificação, eu te mostraria primeiro *${top.name}*${priceLine}.`
+            : `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}.`;
+  return `${base} Se quiser, eu já te mostro outras opções nessa mesma linha.`;
 }
 
 function buildComparisonReply({ context = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
   if (first?.name && second?.name) {
-    return `Entre *${first.name}* e *${second.name}*, eu te explico bem simples: um puxa mais para um lado e o outro muda mais em outro ponto. Se quiser, eu já te digo qual faz mais sentido para o que você quer sentir 💜`;
+    return `Entre *${first.name}* e *${second.name}*, o que eu te diria bem direto é: um deles puxa mais para uma proposta e o outro vai mais para outra. Se você quiser, eu já te digo qual faz mais sentido para o efeito que você quer 💜`;
   }
   if (first?.name) {
-    return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te digo o que muda de verdade entre eles 💜`;
+    return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te explico a diferença de um jeito bem simples 💜`;
   }
   return '';
 }
