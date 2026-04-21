@@ -60,6 +60,10 @@ function detectConversationMode(text = '', context = {}) {
     return 'discovery';
   }
 
+  if (/frete|envio|usps|pickup|retirada|entrega local|marlboro|marlborough/.test(lower)) {
+    return 'shipping';
+  }
+
   if (/checkout_|handoff_ready/.test(stage)) {
     return 'checkout';
   }
@@ -236,6 +240,18 @@ function buildCheckoutReplyAgentic({ context = {} } = {}) {
   return '';
 }
 
+function buildShippingReplyAgentic({ context = {}, inbound = {} } = {}) {
+  const text = String(inbound.text || '').toLowerCase();
+  const productName = getPrimaryItemName(context);
+  if (/marlboro|marlborough/.test(text)) {
+    return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
+  }
+  if (productName) {
+    return `Se for *${productName}*, eu te digo certinho o frete assim que você me falar se prefere *pickup*, *entrega em Marlborough* ou *USPS* 💜`;
+  }
+  return 'Eu te passo certinho o frete 💜 Me diz só se você quer *pickup*, *entrega em Marlborough* ou *USPS*.';
+}
+
 function buildGeneralReply({ context = {} } = {}) {
   return buildFollowUpReplyAgentic({ context });
 }
@@ -291,6 +307,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildCrossSellReplyAgentic({ context });
   } else if (mode === 'close') {
     replyText = buildCloseReply({ context });
+  } else if (mode === 'shipping') {
+    replyText = buildShippingReplyAgentic({ context, inbound });
   } else if (mode === 'checkout') {
     replyText = buildCheckoutReplyAgentic({ context });
   } else {
