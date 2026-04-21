@@ -28,7 +28,7 @@ function detectConversationMode(text = '', context = {}) {
   const lower = String(text || '').trim().toLowerCase();
   const stage = String(context.currentStage || context.checkout?.stage || '');
 
-  if (/não entendi|ficou confus|nossa conversa.*confus|pera|calma|explica melhor|me perdi/.test(lower)) {
+  if (/não entendi|ficou confus|nossa conversa.*confus|pera|calma|explica melhor|me perdi|não é isso|não era isso/.test(lower)) {
     return 'recover';
   }
 
@@ -36,7 +36,7 @@ function detectConversationMode(text = '', context = {}) {
     return 'nudge';
   }
 
-  if (/tem outro parecido|mais nessa linha|mais opções|mais opc|tem mais opc/.test(lower)) {
+  if (/tem outro parecido|mais nessa linha|mais opções|mais opc|tem mais opc|me mostra outro/.test(lower)) {
     return 'alternatives';
   }
 
@@ -141,6 +141,14 @@ function buildAlternativesReplyAgentic({ context = {} } = {}) {
   return `Tenho sim 💜 Se você quiser, eu te mostro outras opções parecidas com *${productName}* e já te digo qual muda mais de verdade.`;
 }
 
+function buildClarifyReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (productName) {
+    return `Se não era *${productName}*, me fala rapidinho o que você quer mudar que eu ajusto daqui 💜`;
+  }
+  return 'Me fala rapidinho o que você quer mudar que eu ajusto daqui 💜';
+}
+
 function buildNudgeReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   if (productName) {
@@ -229,6 +237,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildAlternativesReplyAgentic({ context });
   } else if (mode === 'nudge') {
     replyText = buildNudgeReplyAgentic({ context });
+  } else if (mode === 'recover' && /não é isso|não era isso/.test(text.toLowerCase())) {
+    replyText = buildClarifyReplyAgentic({ context });
   } else if (mode === 'compare') {
     replyText = buildComparisonReply({ context });
   } else if (mode === 'cross_sell') {
