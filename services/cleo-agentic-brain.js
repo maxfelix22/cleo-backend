@@ -113,10 +113,10 @@ function buildComparisonReply({ context = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
   if (first?.name && second?.name) {
-    return `Entre *${first.name}* e *${second.name}*, o que eu te diria bem direto é: um deles puxa mais para uma proposta e o outro vai mais para outra. Se você quiser, eu já te digo qual faz mais sentido para o efeito que você quer 💜`;
+    return `Entre *${first.name}* e *${second.name}*, eu te falaria assim: se você quer algo mais direto para uma proposta, eu iria mais em um; se quer puxar mais para outra sensação, eu iria no outro. Se quiser, eu já te digo qual faz mais sentido pro que você quer 💜`;
   }
   if (first?.name) {
-    return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te explico a diferença de um jeito bem simples 💜`;
+    return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te explico a diferença sem enrolação 💜`;
   }
   return '';
 }
@@ -124,7 +124,7 @@ function buildComparisonReply({ context = {} } = {}) {
 function buildCrossSellReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
   if (!productName) return '';
-  return `Tenho sim 💜 Se você quiser, junto com *${productName}* eu também te mostro algo que combine de verdade com essa proposta.`;
+  return `Tenho sim 💜 Junto com *${productName}*, eu também te mostraria algo que complete melhor essa proposta e faça mais sentido no conjunto.`;
 }
 
 function buildFollowUpReplyAgentic({ context = {} } = {}) {
@@ -142,6 +142,11 @@ function buildFollowUpReplyAgentic({ context = {} } = {}) {
 
 function buildCloseReply({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
+  const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
+  if (cartItems.length > 1) {
+    const itemsLine = cartItems.map((item) => `${item.quantity}x ${item.label}`).join(', ');
+    return `Perfeito 💜 Então vamos seguir com *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
+  }
   if (!productName) return '';
   return `Perfeito 💜 Então vamos seguir com *${productName}*. Me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
 }
