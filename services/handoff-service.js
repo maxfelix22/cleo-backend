@@ -36,6 +36,7 @@ function buildOperationalPriority(payload = {}) {
 function buildHandoffPayload(context = {}) {
   const product = context.lastProducts?.[0] || context.lastProductPayload || null;
   const checkout = context.checkout || {};
+  const multiItems = Array.isArray(checkout.multiItems) ? checkout.multiItems : [];
   const address = checkout.address || context.address || '';
 
   const customerMessage = String(context.lastInboundText || '').trim().toLowerCase();
@@ -83,6 +84,10 @@ function buildHandoffPayload(context = {}) {
       available_colors: product.availableColors || product.raw?.availableColors || [],
       available_sizes: product.variationDetails || product.raw?.variationDetails || [],
     } : null,
+    cart: {
+      items: multiItems,
+      items_count: multiItems.length,
+    },
     checkout: {
       delivery_mode: checkout.deliveryMode || '',
       address,
@@ -102,6 +107,9 @@ function buildOperationalMessage(context = {}) {
   const lines = [
     '🛍️ *Novo pedido pronto para handoff*',
     '',
+    Array.isArray(payload.cart?.items) && payload.cart.items.length > 0
+      ? `• Pedido com ${payload.cart.items.length} item(ns)`
+      : null,
     payload.product?.name ? `• Produto: ${payload.product.name}` : '• Produto: não identificado',
     payload.product?.price ? `• Preço: ${payload.product.price}` : null,
     payload.checkout.delivery_mode === 'usps' ? '• Entrega: USPS' : null,
