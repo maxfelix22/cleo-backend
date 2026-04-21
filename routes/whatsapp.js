@@ -236,17 +236,32 @@ function buildCrossSellReply(context = {}, inbound = {}) {
   const intro = pickCrossSellIntro(text);
   const commercialFamily = inferCommercialFamily(anchoredProduct || {});
   const hint = buildCrossSellHint(commercialFamily);
+  const ontologyRepresentative = buildOntologyHint(anchoredProduct || {}) || findRepresentativeByName(productName);
+  const ontologySubfamilies = findRepresentativeSubfamilies(ontologyRepresentative || {});
   const ontologyComplements = findComplementaryRepresentatives(productName, 2);
-  const complementsLine = ontologyComplements
+  const complementNames = ontologyComplements
     .map((entity) => entity?.properties?.name || '')
-    .filter(Boolean)
-    .join('* e *');
+    .filter(Boolean);
 
-  if (complementsLine) {
-    return `${intro} Junto com *${productName}*, eu te mostraria ${hint}, como *${complementsLine}*.`;
+  const subfamilyHint = ontologySubfamilies.includes('oral_sensorial')
+    ? ' algo que combine com essa linha mais sensorial'
+    : ontologySubfamilies.includes('oral_funcional') || ontologySubfamilies.includes('oral_funcional_plus')
+      ? ' algo que acompanhe essa linha mais funcional'
+      : ontologySubfamilies.includes('lubrificacao_sensacao')
+        ? ' algo que mantenha essa proposta de sensação'
+        : ontologySubfamilies.includes('lubrificacao_neutra')
+          ? ' algo que mantenha essa linha mais neutra'
+          : ontologySubfamilies.includes('masculino_volume')
+            ? ' algo que complemente essa linha de volume'
+            : ontologySubfamilies.includes('masculino_erecao')
+              ? ' algo que complemente essa linha de ereção e estímulo'
+              : '';
+
+  if (complementNames.length > 0) {
+    return `${intro} Junto com *${productName}*, eu te mostraria ${hint}${subfamilyHint}, como *${complementNames.join('* e *')}*.`;
   }
 
-  return `${intro} Junto com *${productName}*, eu te mostraria ${hint}.`;
+  return `${intro} Junto com *${productName}*, eu te mostraria ${hint}${subfamilyHint}.`;
 }
 
 function buildSoftCloseReply(context = {}, inbound = {}) {
@@ -547,6 +562,10 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
                 ? ' Ele entra mais na linha de lubrificação neutra.'
                 : '';
 
+  const explanationTail = ontologyHint?.properties?.cross_sell_hint
+    ? ` Se quiser, depois eu também te junto ${ontologyHint.properties.cross_sell_hint}.`
+    : '';
+
   const recommendationWhy = intent === 'libido'
     ? 'faz mais sentido pra libido e excitação'
     : intent === 'apertar'
@@ -594,23 +613,23 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     : '';
 
   if (intent === 'apertar') {
-    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
+    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}${explanationTail}`;
   }
 
   if (intent === 'libido') {
-    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
+    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}${explanationTail}`;
   }
 
   if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
-    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
+    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}${explanationTail}`;
   }
 
   if (intent === 'oral') {
-    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
+    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}${explanationTail}`;
   }
 
   if (intent === 'lubrificacao') {
-    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}`;
+    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${subfamilyWhy}${moreLine}${explanationTail}`;
   }
 
   if (intent === 'visual') {
