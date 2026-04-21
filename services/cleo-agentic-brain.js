@@ -128,6 +128,14 @@ function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
   return `${base}${secondLine}`;
 }
 
+function buildInitialHelpReplyAgentic({ inbound = {}, products = [] } = {}) {
+  const text = String(inbound.text || '').trim();
+  if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
+    return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
+  }
+  return buildDiscoveryReply({ inbound, products });
+}
+
 function buildComparisonReply({ context = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
@@ -292,7 +300,7 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   if (mode === 'recover') {
     replyText = buildRecoveryReply(context);
   } else if (mode === 'discovery') {
-    replyText = buildDiscoveryReply({ inbound, context, products });
+    replyText = buildInitialHelpReplyAgentic({ inbound, context, products });
   } else if (mode === 'alternatives') {
     replyText = buildAlternativesReplyAgentic({ context });
   } else if (mode === 'nudge') {
