@@ -48,9 +48,11 @@ function parseMultiItemText(text = '') {
         .replace(/^(vou querer|quero|quero levar|leva|me vê|me ver|separa)\s+/i, '')
         .replace(/\b(\d{1,2})\b/, '')
         .trim();
+      const commercialFamily = inferCommercialFamily({ name: cleaned || part, description: '' });
       return {
         quantity,
         label: cleaned || part,
+        commercialFamily,
       };
     });
 }

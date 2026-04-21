@@ -110,7 +110,7 @@ function buildOperationalMessage(context = {}) {
     payload.checkout.address ? `• Endereço: ${payload.checkout.address}` : null,
     payload.checkout.multi_item_text ? `• Pedido composto: ${payload.checkout.multi_item_text}` : null,
     Array.isArray(payload.checkout.multi_items) && payload.checkout.multi_items.length > 0
-      ? `• Itens detectados: ${payload.checkout.multi_items.map((item) => `${item.quantity}x ${item.label}`).join(', ')}`
+      ? `• Itens detectados: ${payload.checkout.multi_items.map((item) => `${item.quantity}x ${item.label}${item.commercialFamily ? ` [${item.commercialFamily}]` : ''}`).join(', ')}`
       : null,
     payload.checkout.full_name ? `• Nome: ${payload.checkout.full_name}` : '• Nome: não informado',
     payload.checkout.phone ? `• Telefone: ${payload.checkout.phone}` : null,
