@@ -875,7 +875,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       };
     }
     if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
-      const purchaseAnchor = checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload;
+      const purchaseAnchor = getAnchoredProduct(checkoutContext) || effectiveProducts[0] || checkoutContext.lastProductPayload;
       const variationDetails = Array.isArray(purchaseAnchor?.variationDetails) ? purchaseAnchor.variationDetails : [];
       const requestedColorMatch = String(inbound.text || '').match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
       const requestedColor = requestedColorMatch ? requestedColorMatch[0] : '';
@@ -929,9 +929,9 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const anchoredProduct = followUpSignals.multiItemPurchase
       ? null
-      : (checkoutContext.lastProducts?.[0]
+      : (getAnchoredProduct(checkoutContext)
         || effectiveProducts[0]
-        || existingContext.lastProducts?.[0]
+        || getAnchoredProduct(existingContext)
         || checkoutContext.lastProductPayload
         || existingContext.lastProductPayload
         || null);
@@ -950,7 +950,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       lastProducts: anchoredProducts,
       lastProduct: followUpSignals.multiItemPurchase
         ? ''
-        : (anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || ''),
+        : (getAnchoredProductName({ ...checkoutContext, cart: checkoutContext.cart || existingContext.cart }) || anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || ''),
       lastProductPayload: followUpSignals.multiItemPurchase
         ? null
         : (anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null),
