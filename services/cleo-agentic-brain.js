@@ -102,11 +102,14 @@ function inferDiscoveryMood(text = '') {
 }
 
 function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
-  const top = Array.isArray(products) ? products.find((item) => item?.inventory_in_stock !== false) || products[0] : null;
+  const available = Array.isArray(products) ? products.filter(Boolean) : [];
+  const top = available.find((item) => item?.inventory_in_stock !== false) || available[0] || null;
   if (!top?.name) return '';
   const text = String(inbound.text || '').trim();
   const mood = inferDiscoveryMood(text);
   const priceLine = top.price ? ` por ${top.price}` : '';
+  const second = available.find((item) => item?.name && item.name !== top.name);
+  const secondLine = second?.name ? ` Se quiser, eu também te mostro *${second.name}* para você sentir melhor a diferença.` : '';
   const base = mood === 'libido'
     ? `Tenho sim 💜 Pra libido, eu começaria por *${top.name}*${priceLine}.`
     : mood === 'apertar'
@@ -118,7 +121,7 @@ function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
           : mood === 'lubrificacao'
             ? `Tenho sim 💜 Pra lubrificação, eu te mostraria primeiro *${top.name}*${priceLine}.`
             : `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}.`;
-  return `${base} Se quiser, eu já te mostro outras opções nessa mesma linha.`;
+  return `${base}${secondLine}`;
 }
 
 function buildComparisonReply({ context = {} } = {}) {
