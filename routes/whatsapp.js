@@ -48,11 +48,17 @@ function parseMultiItemText(text = '') {
         .replace(/^(vou querer|quero|quero levar|leva|me vê|me ver|separa)\s+/i, '')
         .replace(/\b(\d{1,2})\b/, '')
         .trim();
-      const commercialFamily = inferCommercialFamily({ name: cleaned || part, description: '' });
+      const label = cleaned || part;
+      const ontologyRepresentative = buildOntologyHint({ name: label }) || findRepresentativeByName(label);
+      const commercialFamily = inferCommercialFamily({ name: label, description: '' });
+      const ontologyFamily = inferRepresentativeFamily(ontologyRepresentative || { properties: { name: label } });
+      const ontologySubfamilies = findRepresentativeSubfamilies(ontologyRepresentative || {});
       return {
         quantity,
-        label: cleaned || part,
+        label,
         commercialFamily,
+        ontologyFamily,
+        ontologySubfamilies,
       };
     });
 }
