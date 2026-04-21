@@ -864,13 +864,15 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       inbound,
       context: checkoutContext,
       products: effectiveProducts,
-      helpers: {
-        buildContextualComparisonReply,
-        buildCrossSellReply,
-        buildSoftCloseReply,
-        buildContextualFollowUpReply,
-      },
     });
+
+    if (brainResult.actions?.preferredNextStage && !checkoutContext.currentStage) {
+      checkoutContext.currentStage = brainResult.actions.preferredNextStage;
+      checkoutContext.checkout = {
+        ...(checkoutContext.checkout || {}),
+        stage: brainResult.actions.preferredNextStage,
+      };
+    }
 
     let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
     if (!replyText && followUpSignals.multiItemPurchase) {
@@ -961,7 +963,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       ? (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || []))
       : (anchoredProduct ? [anchoredProduct] : (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || [])));
 
-    const savedContext = saveContext(contextKey, {
+    let savedContext = saveContext(contextKey, {
       ...checkoutContext,
       cart: checkoutContext.cart || existingContext.cart || { items: [], itemsCount: 0 },
       profileName: inbound.profileName,
@@ -982,6 +984,17 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       followUpSignals,
       productDebug,
     });
+
+    if (brainResult.actions?.updateCheckout && brainResult.actions.preferredNextStage && savedContext.currentStage !== brainResult.actions.preferredNextStage) {
+      savedContext = saveContext(contextKey, {
+        ...savedContext,
+        currentStage: brainResult.actions.preferredNextStage,
+        checkout: {
+          ...(savedContext.checkout || {}),
+          stage: brainResult.actions.preferredNextStage,
+        },
+      });
+    }
 
     let conversationSnapshot = conversationResult?.conversation || null;
     let conversationUpdateDebug = null;
