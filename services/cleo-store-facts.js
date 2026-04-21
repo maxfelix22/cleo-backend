@@ -17,13 +17,13 @@ function matchLine(text, label) {
 function getStoreFacts() {
   const text = loadStoreFactsText();
   return {
-    publicName: matchLine(text, 'Nome público da loja'),
-    owner: matchLine(text, 'Razão / proprietária'),
-    address: matchLine(text, '79 Phelps St, Apt B, Marlborough, MA') ? '79 Phelps St, Apt B, Marlborough, MA' : '79 Phelps St, Apt B, Marlborough, MA',
-    site: matchLine(text, 'Site'),
-    linktree: matchLine(text, 'Linktree'),
-    whatsapp: matchLine(text, 'WhatsApp oficial'),
-    vipGroup: matchLine(text, 'Grupo VIP WhatsApp'),
+    publicName: matchLine(text, 'Nome público da loja') || 'Bruna Campos Moda Íntima',
+    owner: matchLine(text, 'Razão / proprietária') || 'Bruna Campos Samora Felix',
+    address: matchLine(text, 'Endereço físico') || '79 Phelps St, Apt B, Marlborough, MA',
+    site: matchLine(text, 'Site') || 'https://www.brunacamposboutique.com',
+    linktree: matchLine(text, 'Linktree') || 'https://linktr.ee/brunacamposmodaintima_',
+    whatsapp: matchLine(text, 'WhatsApp oficial') || 'https://tr.ee/mlMK9AfviU',
+    vipGroup: matchLine(text, 'Grupo VIP WhatsApp') || 'https://tr.ee/VWqn8cYpHo',
     marlboroughFee: '$5',
     hudsonFee: '$8',
     uspsFee: '$10',
@@ -31,6 +31,11 @@ function getStoreFacts() {
     hoursWeek: 'Segunda a sábado: 10am às 8pm',
     hoursSunday: 'Domingo: 2pm às 9pm',
     pickupRule: 'somente com horário marcado',
+    localAreas: ['marlborough', 'hudson'],
+    localCitiesSoft: ['framingham'],
+    localDeliveryCopy: 'entrega local combinada',
+    packagePickupCutoff: '11pm',
+    packageDispatchTime: '8:30am',
   };
 }
 

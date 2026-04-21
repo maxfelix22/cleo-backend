@@ -26,9 +26,18 @@ function buildContextBlock(context = {}) {
 
 const { getStoreFacts } = require('./cleo-store-facts');
 
-function detectConversationMode(text = '', context = {}) {
+function detectConversationMode(text = '', context = {}, inbound = {}) {
   const lower = String(text || '').trim().toLowerCase();
   const stage = String(context.currentStage || context.checkout?.stage || '');
+  const hasMedia = Array.isArray(inbound.media) && inbound.media.length > 0;
+
+  if (/áudio|audio|voice/i.test(String(inbound.media?.[0]?.contentType || '')) || /transcri/i.test(lower)) {
+    return 'audio_recovery';
+  }
+
+  if (hasMedia && !lower) {
+    return 'media_recovery';
+  }
 
   if (/não entendi|ficou confus|nossa conversa.*confus|pera|calma|explica melhor|me perdi|não é isso|não era isso/.test(lower)) {
     return 'recover';
@@ -62,11 +71,15 @@ function detectConversationMode(text = '', context = {}) {
     return 'discovery';
   }
 
-  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(lower)) {
+  if (/endere[cç]o|onde vocês ficam|onde fica a loja|tem loja f[ií]sica|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(lower)) {
     return 'institutional';
   }
 
-  if (/frete|envio|usps|pickup|retirada|entrega local|marlboro|marlborough/.test(lower)) {
+  if (/foto|fotos|imagem|imagens|v[ií]deo|video|me manda|me envia|quero ver foto|quero ver v[ií]deo/.test(lower)) {
+    return 'media_request';
+  }
+
+  if (/frete|envio|usps|pickup|retirada|entrega local|entrega em|voc[eê]s entregam|manda pra|marlboro|marlborough|hudson|framingham/.test(lower)) {
     return 'shipping';
   }
 
@@ -282,6 +295,10 @@ function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
     return `Nosso WhatsApp oficial é esse aqui 💜 ${facts.whatsapp}`;
   }
 
+  if (/tem loja f[ií]sica/.test(text)) {
+    return `Temos atendimento presencial sim 💜 Ficamos em *${facts.address}* e atendemos só com horário marcado.`;
+  }
+
   if (/troca|devolu[cç][aã]o/.test(text)) {
     return 'Nossa troca funciona assim 💜 são *7 dias após o recebimento*, com a peça *sem uso e com etiqueta*. Não fazemos devolução em dinheiro e peça de promoção não tem troca.';
   }
@@ -296,13 +313,48 @@ function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
 function buildShippingReplyAgentic({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').toLowerCase();
   const productName = getPrimaryItemName(context);
+
+  if (/framingham/.test(text)) {
+    return 'Entregamos na região sim 💜 Me confirma só o endereço certinho ou ZIP code que eu te digo a melhor forma de entrega pra você.';
+  }
+
+  if (/hudson/.test(text)) {
+    return 'Pra entrega local em *Hudson*, fica *$8* 💜';
+  }
+
   if (/marlboro|marlborough/.test(text)) {
     return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
   }
-  if (productName) {
-    return `Se for *${productName}*, eu te digo certinho o frete assim que você me falar se prefere *pickup*, *entrega em Marlborough* ou *USPS* 💜`;
+
+  if (/pickup|retirada/.test(text)) {
+    return 'Tem pickup sim 💜 É grátis, mas funciona só com horário marcado.';
   }
-  return 'Eu te passo certinho o frete 💜 Me diz só se você quer *pickup*, *entrega em Marlborough* ou *USPS*.';
+
+  if (/usps|frete|envio/.test(text)) {
+    return 'Enviamos por USPS para todo os EUA 💜 O frete é *$10 fixo* e acima de *$99* sai grátis.';
+  }
+
+  if (productName) {
+    return `Se for *${productName}*, eu te digo certinho a melhor entrega pra você 💜 Se quiser, me fala sua cidade ou ZIP code.`;
+  }
+
+  return 'Eu te passo certinho a melhor entrega 💜 Me fala só sua cidade ou se você prefere *pickup*, *entrega local* ou *USPS*.';
+}
+
+function buildMediaRequestReplyAgentic({ context = {} } = {}) {
+  const productName = getPrimaryItemName(context);
+  if (productName) {
+    return `Claro 💜 Se quiser, eu te mostro mais de *${productName}* e também posso te mandar outra opção parecida.`;
+  }
+  return 'Claro 💜 Me fala qual produto ou linha você quer ver que eu sigo por aí.';
+}
+
+function buildAudioRecoveryReplyAgentic() {
+  return 'Tô te ouvindo sim 💜 Se quiser, me manda em texto rapidinho o principal ponto ou repete o que você precisa que eu sigo certinho com você.';
+}
+
+function buildMediaRecoveryReplyAgentic() {
+  return 'Recebi aqui 💜 Se quiser, me diz rapidinho o que você quer ver ou confirmar nessa imagem que eu sigo com você.';
 }
 
 function buildGeneralReply({ context = {}, inbound = {} } = {}) {
@@ -345,7 +397,7 @@ function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
 
 function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   const text = String(inbound.text || '').trim();
-  const mode = detectConversationMode(text, context);
+  const mode = detectConversationMode(text, context, inbound);
   const contextBlock = buildContextBlock(context);
 
   let replyText = '';
@@ -369,6 +421,12 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildCloseReply({ context });
   } else if (mode === 'institutional') {
     replyText = buildInstitutionalReplyAgentic({ inbound });
+  } else if (mode === 'media_request') {
+    replyText = buildMediaRequestReplyAgentic({ context, inbound });
+  } else if (mode === 'audio_recovery') {
+    replyText = buildAudioRecoveryReplyAgentic({ inbound });
+  } else if (mode === 'media_recovery') {
+    replyText = buildMediaRecoveryReplyAgentic({ inbound });
   } else if (mode === 'shipping') {
     replyText = buildShippingReplyAgentic({ context, inbound });
   } else if (mode === 'checkout') {
