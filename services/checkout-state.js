@@ -308,7 +308,10 @@ Se quiser agilizar, pode mandar tudo de uma vez:
     const shipping = buildShippingCopy(context);
     const lines = [];
     const quantity = Number(context.checkout?.quantity || 1) || 1;
-    const multiItems = Array.isArray(context.checkout?.multiItems) ? context.checkout.multiItems : [];
+    const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
+    const multiItems = cartItems.length > 0
+      ? cartItems
+      : (Array.isArray(context.checkout?.multiItems) ? context.checkout.multiItems : []);
     if (multiItems.length > 0) {
       lines.push('• Itens do pedido:');
       multiItems.forEach((item) => {
@@ -318,6 +321,12 @@ Se quiser agilizar, pode mandar tudo de uma vez:
         ].filter(Boolean);
         lines.push(`  - ${item.quantity}x ${item.label}${semanticTags.length ? ` [${Array.from(new Set(semanticTags)).join(' | ')}]` : ''}`);
       });
+    } else if (cartItems.length === 1 && cartItems[0]?.label) {
+      const semanticTags = [
+        cartItems[0].ontologyFamily || '',
+        ...(Array.isArray(cartItems[0].ontologySubfamilies) ? cartItems[0].ontologySubfamilies : []),
+      ].filter(Boolean);
+      lines.push(`• Produto: ${cartItems[0].label}${semanticTags.length ? ` [${Array.from(new Set(semanticTags)).join(' | ')}]` : ''}`);
     } else if (context.lastProducts?.[0]?.name) {
       lines.push(`• Produto: ${context.lastProducts[0].name}`);
     }

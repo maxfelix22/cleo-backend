@@ -39,6 +39,7 @@ function buildHandoffPayload(context = {}) {
   const multiItems = Array.isArray(context.cart?.items) && context.cart.items.length > 0
     ? context.cart.items
     : (Array.isArray(checkout.multiItems) ? checkout.multiItems : []);
+  const primaryCartItem = multiItems[0] || null;
   const address = checkout.address || context.address || '';
 
   const customerMessage = String(context.lastInboundText || '').trim().toLowerCase();
@@ -80,12 +81,23 @@ function buildHandoffPayload(context = {}) {
     },
     product: product ? {
       id: product.id || '',
-      name: product.name || '',
+      name: product.name || primaryCartItem?.label || '',
       price: product.price || null,
       source: product.source || 'unknown',
       available_colors: product.availableColors || product.raw?.availableColors || [],
       available_sizes: product.variationDetails || product.raw?.variationDetails || [],
-    } : null,
+      ontology_family: primaryCartItem?.ontologyFamily || '',
+      ontology_subfamilies: Array.isArray(primaryCartItem?.ontologySubfamilies) ? primaryCartItem.ontologySubfamilies : [],
+    } : (primaryCartItem ? {
+      id: '',
+      name: primaryCartItem.label || '',
+      price: null,
+      source: 'cart',
+      available_colors: [],
+      available_sizes: [],
+      ontology_family: primaryCartItem.ontologyFamily || '',
+      ontology_subfamilies: Array.isArray(primaryCartItem.ontologySubfamilies) ? primaryCartItem.ontologySubfamilies : [],
+    } : null),
     cart: {
       items: multiItems,
       items_count: multiItems.length,
