@@ -104,6 +104,16 @@ function inferComparisonFamily(text = '', product = null) {
 
 function inferProductAngle(product = {}, family = 'geral') {
   const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  const ontologyRepresentative = buildOntologyHint(product || {}) || findRepresentativeByName(product?.name || '');
+  const ontologySubfamilies = findRepresentativeSubfamilies(ontologyRepresentative || {});
+
+  if (ontologySubfamilies.includes('oral_sensorial')) return 'mais sensorial';
+  if (ontologySubfamilies.includes('oral_funcional') || ontologySubfamilies.includes('oral_funcional_plus')) return 'mais funcional';
+  if (ontologySubfamilies.includes('lubrificacao_sensacao')) return 'mais para sensação';
+  if (ontologySubfamilies.includes('lubrificacao_neutra')) return 'mais neutra';
+  if (ontologySubfamilies.includes('masculino_volume')) return 'mais para volume e intensidade';
+  if (ontologySubfamilies.includes('masculino_erecao')) return 'mais para ereção e estímulo';
+  if (ontologySubfamilies.includes('masculino_retardante')) return 'mais para durar mais';
 
   if (family === 'libido') {
     if (/xana loka|stimulus mulher/.test(text)) return 'mais direta';
@@ -156,7 +166,10 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
   if (!second) {
     const ontologyPairs = findComparableRepresentatives(first?.name || '');
     if (ontologyPairs[0]) {
-      second = { name: ontologyPairs[0].properties?.name || ontologyPairs[0].name || '' };
+      second = {
+        name: ontologyPairs[0].properties?.name || ontologyPairs[0].name || '',
+        description: '',
+      };
     }
   }
 

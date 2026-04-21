@@ -219,6 +219,7 @@ function findComplementaryRepresentatives(name = '', limit = 3) {
 function buildAlternativeOntologyHints(product = {}, limit = 2) {
   const baseHint = buildOntologyHint(product);
   const baseFamily = inferRepresentativeFamily(baseHint || { properties: { name: product?.name || '' } });
+  const baseSubfamilies = findRepresentativeSubfamilies(baseHint || {});
   if (!baseFamily) return [];
 
   if (baseHint?.id) {
@@ -232,6 +233,11 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
         }))
         .filter((item) => item.name)
         .filter((item) => item.family === baseFamily)
+        .sort((a, b) => {
+          const aOverlap = a.subfamilies.filter((sub) => baseSubfamilies.includes(sub)).length;
+          const bOverlap = b.subfamilies.filter((sub) => baseSubfamilies.includes(sub)).length;
+          return bOverlap - aOverlap;
+        })
     ).slice(0, limit);
 
     if (graphComparables.length > 0) {
@@ -249,6 +255,11 @@ function buildAlternativeOntologyHints(product = {}, limit = 2) {
         family: baseFamily,
         subfamilies: findRepresentativeSubfamilies(entity),
       }))
+      .sort((a, b) => {
+        const aOverlap = a.subfamilies.filter((sub) => baseSubfamilies.includes(sub)).length;
+        const bOverlap = b.subfamilies.filter((sub) => baseSubfamilies.includes(sub)).length;
+        return bOverlap - aOverlap;
+      })
   ).slice(0, limit);
 }
 
