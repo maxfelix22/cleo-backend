@@ -370,7 +370,15 @@ function inferAgenticIntent(text = '') {
 
 function scoreAgenticProduct(product = {}, intent = 'geral') {
   const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
+  const commercialFamily = inferCommercialFamily(product || {});
+  const familyGroup = inferFamilyGroup(commercialFamily);
   let score = product?.inventory_in_stock === false ? -100 : 0;
+
+  if (intent === 'libido' && familyGroup === 'libido') score += 4;
+  if (intent === 'apertar' && familyGroup === 'apertar') score += 4;
+  if ((intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') && familyGroup === 'masculino') score += 4;
+  if (intent === 'oral' && familyGroup === 'oral') score += 4;
+  if (intent === 'lubrificacao' && familyGroup === 'lubrificacao') score += 4;
 
   if (intent === 'libido') {
     if (/stimulus mulher|xana loka|sedenta|excitante feminino|libido|tes[aã]o/.test(text)) score += 12;
@@ -444,6 +452,9 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const priceLine = top.price ? ` por ${top.price}` : '';
   const shippingLocal = '$5';
 
+  const topCommercialFamily = inferCommercialFamily(top || {});
+  const topFamilyGroup = inferFamilyGroup(topCommercialFamily);
+
   const familyHint = intent === 'libido'
     ? 'nessa linha de desejo, excitação e mais vontade'
     : intent === 'apertar'
@@ -462,7 +473,13 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
                   ? 'nessa linha de lubrificação e conforto'
                   : intent === 'visual'
                     ? 'nessa linha mais sensual/visual'
-                    : 'nessa linha que você está buscando';
+                    : topFamilyGroup === 'oral'
+                      ? 'nessa linha para oral e estímulo sensorial'
+                      : topFamilyGroup === 'lubrificacao'
+                        ? 'nessa linha de lubrificação e conforto'
+                        : topFamilyGroup === 'masculino'
+                          ? 'nessa linha de desempenho masculino'
+                          : 'nessa linha que você está buscando';
 
   const recommendationWhy = intent === 'libido'
     ? 'faz mais sentido pra libido e excitação'
@@ -482,7 +499,13 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
                   ? 'faz mais sentido pra lubrificação e conforto'
                   : intent === 'visual'
                     ? 'faz mais sentido nessa proposta mais sensual'
-                    : 'foi a opção mais coerente que apareceu primeiro aqui';
+                    : topFamilyGroup === 'oral'
+                      ? 'faz mais sentido para oral e estímulo sensorial'
+                      : topFamilyGroup === 'lubrificacao'
+                        ? 'faz mais sentido para lubrificação e conforto'
+                        : topFamilyGroup === 'masculino'
+                          ? 'faz mais sentido pra desempenho masculino'
+                          : 'foi a opção mais coerente que apareceu primeiro aqui';
 
   if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(text)) {
     return `Sim amore 💜 Fazemos entrega local em *Marlborough*. A taxa da entrega local é *${shippingLocal}*.`;
