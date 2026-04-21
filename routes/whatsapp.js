@@ -4,6 +4,7 @@ const router = express.Router();
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 const { sendWhatsAppMessage, hasRealTwilioConfig } = require('../services/whatsapp-outbound');
 const { buildInitialReply, extractRequestedSize } = require('../services/whatsapp-context');
+const { buildAgenticReply } = require('../services/cleo-agentic-brain');
 
 function shouldUseAgenticDiscovery(inbound = {}, context = {}, products = []) {
   const text = String(inbound?.text || '').trim().toLowerCase();
@@ -859,7 +860,13 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
-    let replyText = buildCheckoutReply(checkoutContext);
+    const brainResult = buildAgenticReply({
+      inbound,
+      context: checkoutContext,
+      products: effectiveProducts,
+    });
+
+    let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
     if (!replyText && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
