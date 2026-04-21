@@ -167,7 +167,7 @@ function buildInitialReply(inbound, options = {}) {
   }
 
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text) && !/tem\s+|você tem|vc tem|algo pra|algo para|trabalha com/.test(lower)) {
-    return 'Oiiee amore 💜 Tudo bem? Me conta o que você está procurando que eu te ajudo por aqui.';
+    return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
   }
 
   if (/quero comprar|quero pedir|quero fazer pedido/i.test(lower)) {
@@ -198,9 +198,9 @@ function buildInitialReply(inbound, options = {}) {
                   : desiredEffect === 'visual'
                     ? 'Ele entra bem nessa linha mais sensual/visual ✨'
                     : 'Esse tipo de produto sai super bem por aqui ✨';
-      return `Tem sim amore 💜 Já achei uma opção por aqui: *${top.name}*${priceLine}. ${effectLine} Se você quiser, eu também posso te mostrar mais opções parecidas e te dizer qual faz mais sentido para o que você quer. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`;
+      return `Tem sim 💜 O que eu mais iria te indicar aí é *${top.name}*${priceLine}. ${effectLine} Se quiser, eu já te mostro outras nessa linha também.`;
     }
-    return 'Tem sim amore 💜 Me deixa puxar as melhores opções pra você. Se quiser, eu também posso te mostrar alternativas parecidas e te orientar pelo que faz mais sentido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.';
+    return 'Tem sim 💜 Me fala só o que você quer sentir ou o tipo de produto que você quer que eu te mostro as melhores opções.';
   }
 
   if (/quanto custa|preço|preco|valor/.test(lower)) {
@@ -211,8 +211,8 @@ function buildInitialReply(inbound, options = {}) {
           : `Claro amore 💜 Vou confirmar certinho o valor e a disponibilidade da *${lastProduct.name}* pra te passar tudo redondinho.`;
       }
       return lastProduct.price
-        ? `Claro amore 💜 A *${lastProduct.name}* está por ${lastProduct.price}. Se quiser, eu já sigo com você nesse pedido. Trabalhamos com retirada, entrega local e envio dentro dos Estados Unidos.`
-        : `Claro amore 💜 Vou confirmar certinho o valor da *${lastProduct.name}* pra te passar tudo redondinho.`;
+        ? `A *${lastProduct.name}* está por ${lastProduct.price} 💜 Se quiser, já sigo com você nela.`
+        : `Vou te confirmar certinho o valor da *${lastProduct.name}* 💜`;
     }
     return 'Claro amore 💜 Me confirma qual peça você quer que eu veja o valor certinho pra não te passar nada errado.';
   }
@@ -234,7 +234,7 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/e ai\??|e aí\??|oi\??|ol[aá]\??|hum\??/.test(lower)) {
     if (lastProduct?.name) {
-      return `Tô aqui amore 💜 Se você quiser, eu posso confirmar certinho o valor da *${lastProduct.name}* e também te mostrar outras opções parecidas.`;
+      return `Tô aqui 💜 Se quiser, eu te mostro mais opções parecidas com a *${lastProduct.name}* ou já sigo nessa.`;
     }
     return 'Tô aqui amore 💜 Me fala qual peça ou efeito você quer que eu sigo com você.';
   }
@@ -280,7 +280,7 @@ function buildInitialReply(inbound, options = {}) {
         }
         return `Aaaamei amore 💜 A *${lastProduct.name}* aparece aqui, mas no momento estou vendo ela sem estoque disponível. Se quiser, eu confirmo reposição certinho ou já te mostro outra opção parecida.`;
       }
-      return `Aaaamei amore 💜 Perfeito, vamos seguir com a *${lastProduct.name}*. Essa peça está saindo super bem por aqui ✨ Me manda só seu nome completo que eu já começo seu pedido.`;
+      return `Perfeito 💜 Vamos seguir com a *${lastProduct.name}*. Me manda seu nome completo que eu já começo seu pedido.`;
     }
     return 'Aaaamei amore 💜 Me manda só o nome da peça, ou a foto de novo, que eu já sigo com seu pedido.';
   }
