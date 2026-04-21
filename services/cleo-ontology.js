@@ -30,6 +30,17 @@ function listRepresentativeEntities() {
     .filter((entity) => entity.type === 'ProductRepresentative');
 }
 
+function findComparableRepresentatives(name = '') {
+  const normalized = String(name || '').trim().toLowerCase();
+  if (!normalized) return [];
+  const reps = listRepresentativeEntities();
+  return reps.filter((entity) => String(entity?.properties?.name || '').trim().toLowerCase() !== normalized);
+}
+
+function findComplementaryRepresentatives(name = '') {
+  return findComparableRepresentatives(name).slice(0, 3);
+}
+
 function findRepresentativeByName(name = '') {
   const normalized = String(name || '').trim().toLowerCase();
   if (!normalized) return null;
@@ -46,4 +57,6 @@ module.exports = {
   listRepresentativeEntities,
   findRepresentativeByName,
   buildOntologyHint,
+  findComparableRepresentatives,
+  findComplementaryRepresentatives,
 };

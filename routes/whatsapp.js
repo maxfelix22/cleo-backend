@@ -150,8 +150,15 @@ function pickComparisonIntro(text = '') {
 function buildContextualComparisonReply(context = {}, inbound = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const anchoredProducts = Array.isArray(context?.lastProducts) ? context.lastProducts.filter(Boolean) : [];
-  const [first, second] = anchoredProducts;
+  let [first, second] = anchoredProducts;
   if (!first) return '';
+
+  if (!second) {
+    const ontologyPairs = findComparableRepresentatives(first?.name || '');
+    if (ontologyPairs[0]) {
+      second = { name: ontologyPairs[0].properties?.name || ontologyPairs[0].name || '' };
+    }
+  }
 
   if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen[cç]a|qual muda mais|qual compensa mais/.test(text)) {
     const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`, first);
@@ -216,6 +223,11 @@ function buildCrossSellReply(context = {}, inbound = {}) {
   const intro = pickCrossSellIntro(text);
   const commercialFamily = inferCommercialFamily(anchoredProduct || {});
   const hint = buildCrossSellHint(commercialFamily);
+  const ontologyComplements = findComplementaryRepresentatives(productName);
+  const complementName = ontologyComplements[0]?.properties?.name || '';
+  if (complementName) {
+    return `${intro} Junto com *${productName}*, eu te mostraria ${hint}, como *${complementName}*.`;
+  }
   return `${intro} Junto com *${productName}*, eu te mostraria ${hint}.`;
 }
 
@@ -534,7 +546,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
-const { buildOntologyHint } = require('../services/cleo-ontology');
+const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
