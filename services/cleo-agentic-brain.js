@@ -48,7 +48,7 @@ function detectConversationMode(text = '', context = {}) {
     return 'cross_sell';
   }
 
-  if (/quero esse|vou querer esse|vou levar esse|esse não|qual você acha melhor pra mim|quero dois|vou levar dois|leva dois|separa dois/.test(lower)) {
+  if (/quero esse|vou querer esse|vou levar esse|esse não|qual você acha melhor pra mim|quero dois|vou levar dois|leva dois|separa dois|me indica um|não sei qual escolher|quero algo mais forte/.test(lower)) {
     return 'intent_short';
   }
 
@@ -184,10 +184,16 @@ function buildIntentShortReplyAgentic({ context = {}, inbound = {} } = {}) {
       : 'Sem problema 💜 Então me fala rapidinho qual direção você quer que eu te mostro outra opção.';
   }
 
-  if (/qual você acha melhor pra mim/.test(text)) {
+  if (/qual você acha melhor pra mim|me indica um|não sei qual escolher/.test(text)) {
     return productName
       ? `Se eu fosse te indicar uma direção agora, eu começaria por *${productName}* e depois te mostraria a segunda melhor opção pra você sentir a diferença 💜`
       : 'Se você quiser, eu te digo direto o que eu acho melhor pra você agora 💜';
+  }
+
+  if (/quero algo mais forte/.test(text)) {
+    return productName
+      ? `Se você quer algo mais forte, eu posso subir um degrau a partir de *${productName}* e te mostrar uma opção mais intensa 💜`
+      : 'Se você quer algo mais forte, eu te mostro já a opção que sobe um degrau 💜';
   }
 
   if (/quero dois|vou levar dois|leva dois|separa dois/.test(text)) {
