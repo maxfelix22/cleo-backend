@@ -308,8 +308,16 @@ Se quiser agilizar, pode mandar tudo de uma vez:
     const shipping = buildShippingCopy(context);
     const lines = [];
     const quantity = Number(context.checkout?.quantity || 1) || 1;
-    if (context.lastProducts?.[0]?.name) lines.push(`• Produto: ${context.lastProducts[0].name}`);
-    if (quantity > 1) lines.push(`• Quantidade: ${quantity}`);
+    const multiItems = Array.isArray(context.checkout?.multiItems) ? context.checkout.multiItems : [];
+    if (multiItems.length > 0) {
+      lines.push('• Itens do pedido:');
+      multiItems.forEach((item) => {
+        lines.push(`  - ${item.quantity}x ${item.label}`);
+      });
+    } else if (context.lastProducts?.[0]?.name) {
+      lines.push(`• Produto: ${context.lastProducts[0].name}`);
+    }
+    if (multiItems.length === 0 && quantity > 1) lines.push(`• Quantidade: ${quantity}`);
     if (context.checkout.deliveryMode === 'usps') {
       lines.push('• Entrega: USPS');
       lines.push(`• Frete: ${shipping.uspsFeeLabel}`);
