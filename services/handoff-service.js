@@ -89,6 +89,8 @@ function buildHandoffPayload(context = {}) {
     cart: {
       items: multiItems,
       items_count: multiItems.length,
+      semantic_families: Array.isArray(context.cart?.semanticFamilies) ? context.cart.semanticFamilies : [],
+      semantic_subfamilies: Array.isArray(context.cart?.semanticSubfamilies) ? context.cart.semanticSubfamilies : [],
     },
     checkout: {
       delivery_mode: checkout.deliveryMode || '',
@@ -111,6 +113,12 @@ function buildOperationalMessage(context = {}) {
     '',
     Array.isArray(payload.cart?.items) && payload.cart.items.length > 0
       ? `• Pedido com ${payload.cart.items.length} item(ns)`
+      : null,
+    Array.isArray(payload.cart?.semantic_families) && payload.cart.semantic_families.length > 0
+      ? `• Famílias do carrinho: ${payload.cart.semantic_families.join(', ')}`
+      : null,
+    Array.isArray(payload.cart?.semantic_subfamilies) && payload.cart.semantic_subfamilies.length > 0
+      ? `• Subfamílias do carrinho: ${payload.cart.semantic_subfamilies.join(', ')}`
       : null,
     payload.product?.name ? `• Produto: ${payload.product.name}` : '• Produto: não identificado',
     payload.product?.price ? `• Preço: ${payload.product.price}` : null,

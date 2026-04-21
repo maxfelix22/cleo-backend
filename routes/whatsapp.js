@@ -844,6 +844,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
           ...(checkoutContext.cart || {}),
           items: multiItems,
           itemsCount: multiItems.length,
+          semanticFamilies: Array.from(new Set(multiItems.map((item) => item.ontologyFamily || item.commercialFamily || '').filter(Boolean))),
+          semanticSubfamilies: Array.from(new Set(multiItems.flatMap((item) => Array.isArray(item.ontologySubfamilies) ? item.ontologySubfamilies : []).filter(Boolean))),
         },
         checkout: {
           ...(checkoutContext.checkout || {}),
@@ -866,6 +868,22 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       checkoutContext = {
         ...checkoutContext,
         currentStage: needsVariationChoice ? 'catalog_browse' : 'checkout_choose_delivery',
+        cart: purchaseAnchor ? {
+          ...(checkoutContext.cart || {}),
+          items: [{
+            quantity: followUpSignals.requestedQuantity || 1,
+            label: purchaseAnchor.name || '',
+            commercialFamily: inferCommercialFamily(purchaseAnchor || {}),
+            ontologyFamily: inferRepresentativeFamily(buildOntologyHint(purchaseAnchor || {}) || findRepresentativeByName(purchaseAnchor?.name || '') || { properties: { name: purchaseAnchor?.name || '' } }),
+            ontologySubfamilies: findRepresentativeSubfamilies(buildOntologyHint(purchaseAnchor || {}) || findRepresentativeByName(purchaseAnchor?.name || '') || {}),
+          }],
+          itemsCount: 1,
+          semanticFamilies: Array.from(new Set([
+            inferRepresentativeFamily(buildOntologyHint(purchaseAnchor || {}) || findRepresentativeByName(purchaseAnchor?.name || '') || { properties: { name: purchaseAnchor?.name || '' } }),
+            inferCommercialFamily(purchaseAnchor || {}),
+          ].filter(Boolean))),
+          semanticSubfamilies: findRepresentativeSubfamilies(buildOntologyHint(purchaseAnchor || {}) || findRepresentativeByName(purchaseAnchor?.name || '') || {}),
+        } : (checkoutContext.cart || {}),
         checkout: {
           ...(checkoutContext.checkout || {}),
           stage: needsVariationChoice ? 'catalog_browse' : 'checkout_choose_delivery',
