@@ -133,20 +133,26 @@ function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
   const stage = String(context.currentStage || context.checkout?.stage || '');
   const hasCart = Array.isArray(context.cart?.items) && context.cart.items.length > 0;
   const text = String(inbound.text || '').trim().toLowerCase();
+  const closeSignals = /quero|vou querer|gostei|separa|leva/.test(text);
+  const confirmationSignals = /ok|pode seguir|fechado|certo|sim/.test(text);
+  const multiItemSignals = /\b\d+\b.*\be\b|,/.test(text) && closeSignals;
 
   return {
     shouldFallback: false,
-    updateCart: mode === 'close' && !hasCart,
-    updateCheckout: mode === 'close' || mode === 'recover' || mode === 'checkout',
-    triggerHandoff: stage === 'handoff_ready' || /ok|pode seguir|fechado|certo/.test(text) && stage === 'checkout_review',
+    updateCart: (mode === 'close' && !hasCart) || multiItemSignals,
+    updateCheckout: mode === 'close' || mode === 'recover' || mode === 'checkout' || confirmationSignals,
+    triggerHandoff: stage === 'handoff_ready' || (confirmationSignals && stage === 'checkout_review'),
     needsHumanRecoveryStyle: mode === 'recover',
     preferredNextStage: mode === 'close'
       ? 'checkout_choose_delivery'
       : mode === 'recover'
         ? 'checkout_choose_delivery'
-        : mode === 'checkout'
-          ? stage || 'checkout_choose_delivery'
-          : '',
+        : confirmationSignals && stage === 'checkout_review'
+          ? 'handoff_ready'
+          : mode === 'checkout'
+            ? stage || 'checkout_choose_delivery'
+            : '',
+    shouldSummarizeCart: multiItemSignals || mode === 'recover',
   };
 }
 

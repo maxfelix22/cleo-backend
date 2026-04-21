@@ -874,21 +874,37 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       };
     }
 
-    if (brainResult.actions?.updateCart && !Array.isArray(checkoutContext.cart?.items)) {
-      const productName = getAnchoredProductName(checkoutContext) || effectiveProducts[0]?.name || '';
-      if (productName) {
+    if (brainResult.actions?.updateCart) {
+      const parsedItems = detectMultiItemIntent(inbound.text || '') ? parseMultiItemText(inbound.text || '') : [];
+      if (parsedItems.length > 0) {
         checkoutContext.cart = {
           ...(checkoutContext.cart || {}),
-          items: [{
-            quantity: 1,
-            label: productName,
-          }],
-          itemsCount: 1,
+          items: parsedItems,
+          itemsCount: parsedItems.length,
+          semanticFamilies: Array.from(new Set(parsedItems.map((item) => item.ontologyFamily || item.commercialFamily || '').filter(Boolean))),
+          semanticSubfamilies: Array.from(new Set(parsedItems.flatMap((item) => Array.isArray(item.ontologySubfamilies) ? item.ontologySubfamilies : []).filter(Boolean))),
         };
+      } else if (!Array.isArray(checkoutContext.cart?.items)) {
+        const productName = getAnchoredProductName(checkoutContext) || effectiveProducts[0]?.name || '';
+        if (productName) {
+          checkoutContext.cart = {
+            ...(checkoutContext.cart || {}),
+            items: [{
+              quantity: 1,
+              label: productName,
+            }],
+            itemsCount: 1,
+          };
+        }
       }
     }
 
-    let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
+    if (brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1 && !brainResult.replyText) {
+      const itemsLine = checkoutContext.cart.items.map((item) => `${item.quantity}x ${item.label}`).join(', ');
+      replyText = `Perfeito 💜 Então até aqui ficou *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
+    }
+
+    let replyText = replyText || brainResult.replyText || buildCheckoutReply(checkoutContext);
     if (!replyText && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
