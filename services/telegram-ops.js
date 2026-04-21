@@ -86,12 +86,29 @@ function buildConversationMaturity(context = {}) {
   return maturityMap[context.currentStage] || '';
 }
 
+function getPrimaryCartItem(context = {}) {
+  return Array.isArray(context.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items[0]
+    : null;
+}
+
+function getAnchoredProduct(context = {}) {
+  return getPrimaryCartItem(context)
+    || context.lastProducts?.[0]
+    || context.lastProductPayload
+    || null;
+}
+
+function getAnchoredProductName(context = {}) {
+  return getPrimaryCartItem(context)?.label || context.lastProducts?.[0]?.name || context.lastProductPayload?.name || context.lastProduct || '';
+}
+
 function buildShortSummary(context = {}) {
   const pieces = [];
-  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const product = getAnchoredProduct(context);
   const checkout = context.checkout || {};
 
-  if (product?.name) pieces.push(product.name);
+  if (getAnchoredProductName(context)) pieces.push(getAnchoredProductName(context));
   if (context.followUpSignals?.requestedSize) pieces.push(`tam ${context.followUpSignals.requestedSize}`);
 
   const deliveryLabelMap = {
@@ -115,7 +132,7 @@ function buildShortSummary(context = {}) {
 }
 
 function buildSalesEscortMessage(context = {}) {
-  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const product = getAnchoredProduct(context);
   const followUpSignals = context.followUpSignals || {};
   const checkout = context.checkout || {};
   const lowSignalMessages = new Set(['ok', 'okay', 'okey', 'sim', 'certo', 'fechado', 'isso']);
@@ -207,7 +224,7 @@ function buildSalesEscortMessage(context = {}) {
 }
 
 function buildMemoryEscortMessage(context = {}) {
-  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const product = getAnchoredProduct(context);
   const checkout = context.checkout || {};
   const maturity = buildConversationMaturity(context);
   const profileHints = [];
@@ -248,7 +265,7 @@ function buildMemoryEscortMessage(context = {}) {
 
 function buildCatalogEscortMessage(context = {}) {
   const maturity = buildConversationMaturity(context);
-  const product = context.lastProducts?.[0] || context.lastProductPayload || null;
+  const product = getAnchoredProduct(context);
   const availableSizes = Array.isArray(product?.variationDetails)
     ? product.variationDetails.map((variation) => variation?.size || variation?.name).filter(Boolean)
     : [];

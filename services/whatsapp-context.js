@@ -135,14 +135,26 @@ function buildAlternativeSuggestion(products = [], currentName = '', currentProd
   return pool[0] || null;
 }
 
+function getPrimaryCartItem(context = {}) {
+  return Array.isArray(context.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items[0]
+    : null;
+}
+
+function getAnchoredProduct(context = {}) {
+  return getPrimaryCartItem(context)
+    || (Array.isArray(context.lastProducts) ? context.lastProducts[0] : null)
+    || context.lastProductPayload
+    || null;
+}
+
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
   const products = Array.isArray(options.products) ? options.products : [];
   const desiredEffect = inferDesiredEffect(text);
   const context = options.context || {};
-  const lastProducts = Array.isArray(context.lastProducts) ? context.lastProducts : [];
-  const lastProduct = lastProducts[0] || null;
+  const lastProduct = getAnchoredProduct(context);
   const requestedSize = extractRequestedSize(text);
   const matchingVariation = options.matchingVariation || null;
   const availableSizes = listAvailableSizes(lastProduct);
