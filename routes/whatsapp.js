@@ -436,6 +436,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const priceLine = top.price ? ` por ${top.price}` : '';
   const shippingLocal = '$5';
 
+  const ontologyHint = buildOntologyHint(top || {});
   const topCommercialFamily = inferCommercialFamily(top || {});
   const topFamilyGroup = inferFamilyGroup(topCommercialFamily);
 
@@ -505,23 +506,23 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     : '';
 
   if (intent === 'apertar') {
-    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra essa linha, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
   }
 
   if (intent === 'libido') {
-    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra libido, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
   }
 
   if (intent === 'masculino' || intent === 'masculino_retardante' || intent === 'masculino_erecao' || intent === 'masculino_volume') {
-    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra essa linha masculina, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
   }
 
   if (intent === 'oral') {
-    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra oral, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
   }
 
   if (intent === 'lubrificacao') {
-    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${moreLine}`;
+    return `${intro} Pra lubrificação, eu iria mais de *${top.name}*${priceLine}, porque ${recommendationWhy}.${ontologyHint?.properties?.angle ? ` Ele entra ${ontologyHint.properties.angle}.` : ''}${moreLine}`;
   }
 
   if (intent === 'visual') {
@@ -533,6 +534,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
+const { buildOntologyHint } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
