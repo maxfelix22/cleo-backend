@@ -852,11 +852,28 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
-    const brainResult = buildAgenticReply({
-      inbound,
-      context: checkoutContext,
-      products: effectiveProducts,
-    });
+    const agenticDisabled = String(process.env.CLEO_AGENTIC_DISABLED || '').toLowerCase() === 'true';
+
+    const brainResult = agenticDisabled
+      ? {
+          mode: 'disabled',
+          replyText: '',
+          contextBlock: {},
+          actions: {
+            shouldFallback: true,
+            updateCart: false,
+            updateCheckout: false,
+            triggerHandoff: false,
+            needsHumanRecoveryStyle: false,
+            preferredNextStage: '',
+            shouldSummarizeCart: false,
+          },
+        }
+      : buildAgenticReply({
+          inbound,
+          context: checkoutContext,
+          products: effectiveProducts,
+        });
 
     if (brainResult.actions?.preferredNextStage && (!checkoutContext.currentStage || brainResult.actions.updateCheckout)) {
       checkoutContext.currentStage = brainResult.actions.preferredNextStage;
