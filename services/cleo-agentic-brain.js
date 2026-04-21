@@ -90,7 +90,7 @@ function buildComparisonReply({ context = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
   if (first?.name && second?.name) {
-    return `Entre *${first.name}* e *${second.name}*, eu te explico bem simples: um muda mais para um lado e o outro puxa mais para outro. Se você quiser, eu já te digo qual faz mais sentido para o que você quer sentir 💜`;
+    return `Entre *${first.name}* e *${second.name}*, eu te explico bem simples: um puxa mais para um lado e o outro muda mais em outro ponto. Se quiser, eu já te digo qual faz mais sentido para o que você quer sentir 💜`;
   }
   if (first?.name) {
     return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te digo o que muda de verdade entre eles 💜`;
@@ -129,6 +129,24 @@ function buildGeneralReply({ context = {} } = {}) {
   return '';
 }
 
+function buildActions({ mode = 'general', context = {} } = {}) {
+  const stage = String(context.currentStage || context.checkout?.stage || '');
+  const hasCart = Array.isArray(context.cart?.items) && context.cart.items.length > 0;
+
+  return {
+    shouldFallback: false,
+    updateCart: mode === 'close' && !hasCart,
+    updateCheckout: mode === 'close' || mode === 'recover' || mode === 'checkout',
+    triggerHandoff: stage === 'handoff_ready',
+    needsHumanRecoveryStyle: mode === 'recover',
+    preferredNextStage: mode === 'close'
+      ? 'checkout_choose_delivery'
+      : mode === 'checkout'
+        ? stage || 'checkout_choose_delivery'
+        : '',
+  };
+}
+
 function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   const text = String(inbound.text || '').trim();
   const mode = detectConversationMode(text, context);
@@ -156,10 +174,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     contextBlock,
     replyText,
     actions: {
+      ...buildActions({ mode, context }),
       shouldFallback: !replyText,
-      updateCart: false,
-      updateCheckout: false,
-      triggerHandoff: false,
     },
   };
 }
