@@ -32,16 +32,16 @@ function detectConversationMode(text = '', context = {}) {
     return 'recover';
   }
 
-  if (/quero|vou querer|gostei|separa|leva/.test(lower)) {
-    return 'close';
-  }
-
-  if (/qual a diferen|qual é melhor|qual compensa|mais forte/.test(lower)) {
+  if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen|qual compensa/.test(lower)) {
     return 'compare';
   }
 
   if (/tem mais alguma coisa|mais alguma sugest|mais alguma opç|tem algo a mais/.test(lower)) {
     return 'cross_sell';
+  }
+
+  if (/quero|vou querer|gostei|separa|leva/.test(lower)) {
+    return 'close';
   }
 
   if (/tem\s+|você tem|vc tem|algo pra|me indica|me mostra|o que você tem/.test(lower)) {
@@ -69,17 +69,61 @@ function buildRecoveryReply(context = {}) {
   return 'Você tem razão 💜 Vamos reorganizar direitinho. Me fala em uma frase só o que você quer agora que eu sigo sem complicar.';
 }
 
-function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
+function buildDiscoveryReply({ products = [] } = {}) {
+  const top = Array.isArray(products) ? products.find((item) => item?.inventory_in_stock !== false) || products[0] : null;
+  if (!top?.name) return '';
+  const priceLine = top.price ? ` por ${top.price}` : '';
+  return `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}. Se quiser, eu já te mostro outras opções nessa mesma linha.`;
+}
+
+function buildComparisonReply({ context = {}, helpers = {} } = {}) {
+  if (typeof helpers.buildContextualComparisonReply !== 'function') return '';
+  return helpers.buildContextualComparisonReply(context, helpers.inbound || {});
+}
+
+function buildCrossSellReplyAgentic({ context = {}, helpers = {} } = {}) {
+  if (typeof helpers.buildCrossSellReply !== 'function') return '';
+  return helpers.buildCrossSellReply(context, helpers.inbound || {});
+}
+
+function buildCloseReply({ context = {}, helpers = {} } = {}) {
+  if (typeof helpers.buildSoftCloseReply !== 'function') return '';
+  return helpers.buildSoftCloseReply(context, helpers.inbound || {});
+}
+
+function buildGeneralReply({ context = {}, helpers = {} } = {}) {
+  if (typeof helpers.buildContextualFollowUpReply !== 'function') {
+    return '';
+  }
+  return helpers.buildContextualFollowUpReply(context, helpers.inbound || {});
+}
+
+function buildAgenticReply({ inbound = {}, context = {}, products = [], helpers = {} } = {}) {
   const text = String(inbound.text || '').trim();
   const mode = detectConversationMode(text, context);
   const contextBlock = buildContextBlock(context);
 
+  let replyText = '';
+  if (mode === 'recover') {
+    replyText = buildRecoveryReply(context);
+  } else if (mode === 'discovery') {
+    replyText = buildDiscoveryReply({ inbound, context, products });
+  } else if (mode === 'compare') {
+    replyText = buildComparisonReply({ context, helpers: { ...helpers, inbound } });
+  } else if (mode === 'cross_sell') {
+    replyText = buildCrossSellReplyAgentic({ context, helpers: { ...helpers, inbound } });
+  } else if (mode === 'close') {
+    replyText = buildCloseReply({ context, helpers: { ...helpers, inbound } });
+  } else {
+    replyText = buildGeneralReply({ context, helpers: { ...helpers, inbound } });
+  }
+
   return {
     mode,
     contextBlock,
-    replyText: mode === 'recover' ? buildRecoveryReply(context) : '',
+    replyText,
     actions: {
-      shouldFallback: mode !== 'recover',
+      shouldFallback: !replyText,
       updateCart: false,
       updateCheckout: false,
       triggerHandoff: false,

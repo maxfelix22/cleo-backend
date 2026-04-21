@@ -864,6 +864,12 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       inbound,
       context: checkoutContext,
       products: effectiveProducts,
+      helpers: {
+        buildContextualComparisonReply,
+        buildCrossSellReply,
+        buildSoftCloseReply,
+        buildContextualFollowUpReply,
+      },
     });
 
     let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
