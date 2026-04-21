@@ -90,14 +90,14 @@ function buildContextualShippingReply(context = {}, inbound = {}) {
   return `Enviamos sim amore 💜 ${uspsCopy}`;
 }
 
-function inferComparisonFamily(text = '') {
+function inferComparisonFamily(text = '', product = null) {
   const normalized = String(text || '').toLowerCase();
   if (/libido|desejo|vontade|tes[aã]o|excit|xana loka|sedenta|stimulus mulher/.test(normalized)) return 'libido';
   if (/apertad|sempre virgem|adstring|lacradinha/.test(normalized)) return 'apertar';
   if (/durar mais|retard|ere[cç][aã]o|volum[aã]o|berinjelo|pinto loko|stimulus homem/.test(normalized)) return 'masculino';
   if (/oral|blow girl|xupa xana|beij[aá]vel|garganta profunda/.test(normalized)) return 'oral';
   if (/lubrific|mylub|deslizante|sedenta molhada/.test(normalized)) return 'lubrificacao';
-  return 'geral';
+  return inferFamilyGroup(inferCommercialFamily(product || {}));
 }
 
 function inferProductAngle(product = {}, family = 'geral') {
@@ -152,7 +152,7 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
   if (!first) return '';
 
   if (/qual (é|e) melhor|qual (é|e) mais forte|qual a diferen[cç]a|qual muda mais|qual compensa mais/.test(text)) {
-    const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`);
+    const family = inferComparisonFamily(`${text} ${first?.name || ''} ${second?.name || ''}`, first);
     const intro = pickComparisonIntro(text);
 
     if (family === 'libido' && second) {
@@ -185,14 +185,7 @@ function buildContextualComparisonReply(context = {}, inbound = {}) {
 }
 
 function inferCrossSellFamily(product = {}) {
-  const text = `${product?.name || ''} ${product?.description || ''}`.toLowerCase();
-  if (/xana loka|stimulus mulher|sedenta|libido|tes[aã]o/.test(text)) return 'libido';
-  if (/sempre virgem|lacradinha|adstring/.test(text)) return 'apertar';
-  if (/volum[aã]o|berinjelo|pinto loko|stimulus homem|retard|ere[cç][aã]o/.test(text)) return 'masculino';
-  if (/oral|blow girl|xupa xana|beij[aá]vel/.test(text)) return 'oral';
-  if (/lubrificante|mylub|deslizante|gel/.test(text)) return 'lubrificacao';
-  if (/lingerie|camisola|body|fantasia|conjunto/.test(text)) return 'visual';
-  return 'geral';
+  return inferCrossSellGroup(inferCommercialFamily(product || {}));
 }
 
 function pickSoftCloseIntro(text = '') {
@@ -532,6 +525,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 }
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
+const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup } = require('../services/cleo-taxonomy');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
