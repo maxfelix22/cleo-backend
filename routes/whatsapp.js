@@ -973,15 +973,24 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     let conversationSnapshot = conversationResult?.conversation || null;
     let conversationUpdateDebug = null;
     try {
+      const primaryCartItem = Array.isArray(savedContext.cart?.items) && savedContext.cart.items.length > 0
+        ? savedContext.cart.items[0]
+        : null;
+      const cartBackedLastProduct = primaryCartItem?.label || savedContext.lastProduct;
+      const cartBackedLastProductPayload = {
+        ...(savedContext.lastProductPayload || {}),
+        name: savedContext.lastProductPayload?.name || primaryCartItem?.label || '',
+        ontologyFamily: savedContext.lastProductPayload?.ontologyFamily || primaryCartItem?.ontologyFamily || '',
+        ontologySubfamilies: savedContext.lastProductPayload?.ontologySubfamilies || primaryCartItem?.ontologySubfamilies || [],
+        cart: savedContext.cart || { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] },
+      };
+
       const conversationUpdate = await updateConversationState({
         conversationId: savedContext.conversationId,
         summary: savedContext.summary,
         currentStage: savedContext.currentStage,
-        lastProduct: savedContext.lastProduct,
-        lastProductPayload: {
-          ...(savedContext.lastProductPayload || {}),
-          cart: savedContext.cart || { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] },
-        },
+        lastProduct: cartBackedLastProduct,
+        lastProductPayload: cartBackedLastProductPayload,
       });
       conversationUpdateDebug = {
         ok: true,
