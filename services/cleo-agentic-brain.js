@@ -260,7 +260,14 @@ function buildShippingReplyAgentic({ context = {}, inbound = {} } = {}) {
   return 'Eu te passo certinho o frete 💜 Me diz só se você quer *pickup*, *entrega em Marlborough* ou *USPS*.';
 }
 
-function buildGeneralReply({ context = {} } = {}) {
+function buildGeneralReply({ context = {}, inbound = {} } = {}) {
+  const text = String(inbound.text || '').trim();
+  if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
+    return 'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.';
+  }
+  if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
+    return 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
+  }
   return buildFollowUpReplyAgentic({ context });
 }
 
@@ -320,7 +327,7 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   } else if (mode === 'checkout') {
     replyText = buildCheckoutReplyAgentic({ context });
   } else {
-    replyText = buildGeneralReply({ context });
+    replyText = buildGeneralReply({ context, inbound });
   }
 
   return {
