@@ -897,6 +897,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     }
 
     let replyText = replyText || brainResult.replyText || buildCheckoutReply(checkoutContext);
+
     if (!replyText && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
@@ -958,9 +959,6 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     }
     if (!replyText && followUpSignals.asksUsShipping) {
       replyText = buildUsOnlyShippingReply();
-    }
-    if (!replyText) {
-      replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
 
     const anchoredProduct = followUpSignals.multiItemPurchase
