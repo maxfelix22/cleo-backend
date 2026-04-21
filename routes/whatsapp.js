@@ -717,8 +717,11 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       });
     }
 
+    const textNow = String(inbound.text || '').trim().toLowerCase();
+    const messageOverridesContext = /foto|fotos|imagem|imagens|v[ií]deo|video|me manda|me envia|endere[cç]o|onde fica|onde vocês ficam|tem loja f[ií]sica|hor[aá]rio|funcionamento|site|linktree|grupo vip|whatsapp oficial|entrega em|entregam em|envia pra|manda pra|frete|usps|pickup|retirada|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(textNow);
+
     let products = [];
-    const shouldLookupCatalog = /tem\s+|você tem|vc tem|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa|xana loka|blow girl|sempre virgem|berinjelo|volum[aã]o|libido|oral|lubrificante|vibrador|fantasia|camisola|lingerie|conjunto|calcinha|suti[aã]|body/i.test(inbound.text || '');
+    const shouldLookupCatalog = !messageOverridesContext && /tem\s+|você tem|vc tem|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa|xana loka|blow girl|sempre virgem|berinjelo|volum[aã]o|libido|oral|lubrificante|vibrador|fantasia|camisola|lingerie|conjunto|calcinha|suti[aã]|body/i.test(inbound.text || '');
     if (shouldLookupCatalog) {
       try {
         products = await searchProducts(inbound.text, 3);
@@ -786,19 +789,19 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     }
 
     const resolvedSummary = existingContext.summary || recoveredContextFromConversation?.summary || '';
-    const resolvedLastProduct = existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '';
-    const resolvedLastProductPayload = existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null;
+    const resolvedLastProduct = messageOverridesContext ? '' : (existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '');
+    const resolvedLastProductPayload = messageOverridesContext ? null : (existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null);
     const contextForState = {
       ...existingContext,
       summary: resolvedSummary,
-      currentStage: currentStageForState,
-      checkout: mergedCheckout,
-      cart: mergedCart,
+      currentStage: messageOverridesContext ? '' : currentStageForState,
+      checkout: messageOverridesContext ? {} : mergedCheckout,
+      cart: messageOverridesContext ? { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] } : mergedCart,
       lastProduct: resolvedLastProduct,
       lastProductPayload: resolvedLastProductPayload,
-      lastProducts: effectiveProducts.length > 0
-        ? effectiveProducts
-        : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []),
+      lastProducts: messageOverridesContext
+        ? []
+        : (effectiveProducts.length > 0 ? effectiveProducts : (recoveredLastProductPayload ? [recoveredLastProductPayload] : [])),
     };
 
     let checkoutContext = applyCheckoutState(contextForState, inbound);
@@ -908,14 +911,14 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
     }
 
-    let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
+    let replyText = brainResult.replyText || (messageOverridesContext ? '' : buildCheckoutReply(checkoutContext));
 
     if (!replyText && brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1) {
       const itemsLine = checkoutContext.cart.items.map((item) => `${item.quantity}x ${item.label}`).join(', ');
       replyText = `Perfeito 💜 Então até aqui ficou *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
     }
 
-    if (!replyText && followUpSignals.multiItemPurchase) {
+    if (!replyText && !messageOverridesContext && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
       checkoutContext = {
@@ -937,7 +940,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         },
       };
     }
-    if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
+    if (!replyText && !messageOverridesContext && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
       const purchaseAnchor = getAnchoredProduct(checkoutContext) || effectiveProducts[0] || checkoutContext.lastProductPayload;
       const variationDetails = Array.isArray(purchaseAnchor?.variationDetails) ? purchaseAnchor.variationDetails : [];
       const requestedColorMatch = String(inbound.text || '').match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
@@ -974,7 +977,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         },
       };
     }
-    if (!replyText && followUpSignals.asksUsShipping) {
+    if (!replyText && !messageOverridesContext && followUpSignals.asksUsShipping) {
       replyText = buildUsOnlyShippingReply();
     }
 
@@ -1000,10 +1003,10 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
       lastProducts: anchoredProducts,
-      lastProduct: followUpSignals.multiItemPurchase
+      lastProduct: (messageOverridesContext || followUpSignals.multiItemPurchase)
         ? ''
         : (getAnchoredProductName({ ...checkoutContext, cart: checkoutContext.cart || existingContext.cart }) || anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || ''),
-      lastProductPayload: followUpSignals.multiItemPurchase
+      lastProductPayload: (messageOverridesContext || followUpSignals.multiItemPurchase)
         ? null
         : (anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null),
       lastReplyText: replyText,
