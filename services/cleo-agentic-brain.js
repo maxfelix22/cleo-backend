@@ -59,6 +59,10 @@ function detectConversationMode(text = '', context = {}, inbound = {}) {
     return 'cross_sell';
   }
 
+  if (/desconto|descontinho|faz mais barato|faz um valor melhor|tem como melhorar|consegue melhorar|precinho|pre[cç]o melhor|t[aá] caro|vou pensar|tenho vergonha|t[oô] com vergonha|discreto|discreta/.test(lower)) {
+    return 'objection';
+  }
+
   if (/quero esse|vou querer esse|vou levar esse|esse não|qual você acha melhor pra mim|quero dois|vou levar dois|leva dois|separa dois|me indica um|não sei qual escolher|quero algo mais forte/.test(lower)) {
     return 'intent_short';
   }
@@ -71,7 +75,7 @@ function detectConversationMode(text = '', context = {}, inbound = {}) {
     return 'discovery';
   }
 
-  if (/endere[cç]o|onde vocês ficam|onde fica a loja|tem loja f[ií]sica|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(lower)) {
+  if (/endere[cç]o|onde vocês ficam|onde fica a loja|tem loja f[ií]sica|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square|roubado|roubaram|entregue e sumiu|sumiu depois de entregue/.test(lower)) {
     return 'institutional';
   }
 
@@ -208,6 +212,31 @@ function buildFollowUpReplyAgentic({ context = {} } = {}) {
   return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
 }
 
+function buildObjectionReplyAgentic({ context = {}, inbound = {} } = {}) {
+  const text = String(inbound.text || '').trim().toLowerCase();
+  const productName = getPrimaryItemName(context);
+
+  if (/desconto|descontinho|faz mais barato|faz um valor melhor|tem como melhorar|consegue melhorar|precinho/.test(text)) {
+    return 'Amore, no preço eu não consigo mexer 💜 Mas se você quiser, eu posso te ajudar a montar da melhor forma e ainda incluir um brindezinho especial 🎁';
+  }
+
+  if (/t[aá] caro/.test(text)) {
+    return 'Entendo mulher 💜 Mas posso te ajudar a montar da forma que faça mais sentido pra você, e se fechar eu ainda vejo um brindezinho especial 🎁';
+  }
+
+  if (/vou pensar/.test(text)) {
+    return productName
+      ? `Claro amore, sem pressão nenhuma 💜 Se quiser, eu posso deixar *${productName}* separado pra você por enquanto.`
+      : 'Claro amore, sem pressão nenhuma 💜 Se quiser, eu posso deixar isso encaminhado pra você e você me chama quando decidir.';
+  }
+
+  if (/tenho vergonha|t[oô] com vergonha|discreto|discreta/.test(text)) {
+    return 'Fica tranquila 💜 É tudo bem discreto e eu te conduzo com jeitinho, sem te deixar desconfortável.';
+  }
+
+  return '';
+}
+
 function buildIntentShortReplyAgentic({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').trim().toLowerCase();
   const productName = getPrimaryItemName(context);
@@ -301,6 +330,10 @@ function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
 
   if (/troca|devolu[cç][aã]o/.test(text)) {
     return 'Nossa troca funciona assim 💜 são *7 dias após o recebimento*, com a peça *sem uso e com etiqueta*. Não fazemos devolução em dinheiro e peça de promoção não tem troca.';
+  }
+
+  if (/roubado|roubaram|entregue e sumiu|sumiu depois de entregue/.test(text)) {
+    return 'Amore, lamento muito essa situação 💜 Quando a USPS confirma a entrega no endereço informado, a responsabilidade passa a ser do destinatário. Se quiser, eu te explico como seguir com claim na USPS.';
   }
 
   if (/pagamento|zelle|venmo|afterpay|square/.test(text)) {
@@ -409,6 +442,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildAlternativesReplyAgentic({ context });
   } else if (mode === 'nudge') {
     replyText = buildNudgeReplyAgentic({ context });
+  } else if (mode === 'objection') {
+    replyText = buildObjectionReplyAgentic({ context, inbound });
   } else if (mode === 'intent_short') {
     replyText = buildIntentShortReplyAgentic({ context, inbound });
   } else if (mode === 'recover' && /não é isso|não era isso/.test(text.toLowerCase())) {
