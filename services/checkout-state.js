@@ -25,10 +25,27 @@ function extractAddressBlock(text = '') {
   };
 }
 
+function getPrimaryCartItem(context = {}) {
+  return Array.isArray(context.cart?.items) && context.cart.items.length > 0
+    ? context.cart.items[0]
+    : null;
+}
+
+function getAnchoredProduct(context = {}) {
+  return getPrimaryCartItem(context)
+    || context.lastProducts?.[0]
+    || context.lastProductPayload
+    || null;
+}
+
+function getAnchoredProductName(context = {}) {
+  return getPrimaryCartItem(context)?.label || context.lastProducts?.[0]?.name || context.lastProduct || context.lastProductPayload?.name || '';
+}
+
 function buildShippingCopy(context = {}) {
-  const product = context.lastProducts?.[0] || null;
+  const product = getAnchoredProduct(context) || null;
   const priceNumber = Number(product?.priceNumber || 0);
-  const quantity = Number(context.checkout?.quantity || 1) || 1;
+  const quantity = Number(context.checkout?.quantity || getPrimaryCartItem(context)?.quantity || 1) || 1;
   const orderTotal = priceNumber * quantity;
 
   const localDeliveryFee = 5;
@@ -94,15 +111,16 @@ function applyCheckoutState(context = {}, inbound = {}) {
   const addressBlock = extractAddressBlock(text);
 
   if (/quero esse|quero essa|vou querer|gostei desse|gostei dessa/.test(lower)) {
-    const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+    const anchoredProduct = getAnchoredProduct(context);
+    const anchoredProductName = getAnchoredProductName(context);
     next.currentStage = 'checkout_choose_delivery';
     next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-    next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+    next.lastProduct = anchoredProductName || context.lastProduct || '';
     next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
     next.checkout = {
       ...(context.checkout || {}),
       stage: 'checkout_choose_delivery',
-      interestedProduct: anchoredProduct?.name || context.lastProducts?.[0]?.name || '',
+      interestedProduct: anchoredProductName || '',
       nextRequiredField: 'delivery_mode',
     };
     return next;
@@ -115,10 +133,11 @@ function applyCheckoutState(context = {}, inbound = {}) {
     if (deliveryMode) {
       const nextRequiredField = deliveryMode === 'pickup' ? 'full_name' : 'address';
       const nextStage = deliveryMode === 'pickup' ? 'checkout_collect_name' : 'checkout_collect_address';
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = nextStage;
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -132,8 +151,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
           nextRequiredField,
         },
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout iniciado para ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout iniciado para ${anchoredProductName}`
         : 'checkout iniciado';
       return next;
     }
@@ -141,10 +160,11 @@ function applyCheckoutState(context = {}, inbound = {}) {
 
   if (stageNow === 'checkout_collect_address') {
     if (addressBlock) {
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = 'checkout_review';
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -155,18 +175,19 @@ function applyCheckoutState(context = {}, inbound = {}) {
         email: addressBlock.email || context.checkout?.email || '',
         nextRequiredField: 'review_order',
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout em revisão para ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout em revisão para ${anchoredProductName}`
         : 'checkout em revisão';
       return next;
     }
 
     const address = extractAddress(text);
     if (address) {
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = 'checkout_collect_name';
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -174,8 +195,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
         address,
         nextRequiredField: 'full_name',
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout iniciado para ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout iniciado para ${anchoredProductName}`
         : 'checkout iniciado';
       return next;
     }
@@ -184,10 +205,11 @@ function applyCheckoutState(context = {}, inbound = {}) {
   if (stageNow === 'checkout_collect_name') {
     const fullName = extractFullName(text);
     if (fullName) {
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = 'checkout_collect_contact';
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -195,8 +217,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
         fullName,
         nextRequiredField: 'phone_or_email',
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout iniciado para ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout iniciado para ${anchoredProductName}`
         : 'checkout iniciado';
       return next;
     }
@@ -205,10 +227,11 @@ function applyCheckoutState(context = {}, inbound = {}) {
   if (stageNow === 'checkout_collect_contact') {
     const { phone, email } = extractPhoneOrEmail(text);
     if (phone || email) {
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = 'checkout_review';
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -218,8 +241,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
         email: email || context.checkout?.email || '',
         nextRequiredField: 'review_order',
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout em revisão para ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout em revisão para ${anchoredProductName}`
         : 'checkout em revisão';
       return next;
     }
@@ -227,10 +250,11 @@ function applyCheckoutState(context = {}, inbound = {}) {
 
   if (stageNow === 'checkout_review') {
     if (/^(ok|okay|okey|sim|pode seguir|pode|certo|isso|fechado)$/i.test(text)) {
-      const anchoredProduct = context.lastProducts?.[0] || context.lastProductPayload || null;
+      const anchoredProduct = getAnchoredProduct(context);
+      const anchoredProductName = getAnchoredProductName(context);
       next.currentStage = 'handoff_ready';
       next.lastProducts = anchoredProduct ? [anchoredProduct] : (context.lastProducts || []);
-      next.lastProduct = anchoredProduct?.name || context.lastProduct || '';
+      next.lastProduct = anchoredProductName || context.lastProduct || '';
       next.lastProductPayload = anchoredProduct || context.lastProductPayload || null;
       next.checkout = {
         ...(context.checkout || {}),
@@ -239,8 +263,8 @@ function applyCheckoutState(context = {}, inbound = {}) {
         nextRequiredField: 'handoff_ready',
         reviewConfirmed: true,
       };
-      next.summary = context.lastProducts?.[0]?.name
-        ? `checkout pronto para handoff: ${context.lastProducts[0].name}`
+      next.summary = anchoredProductName
+        ? `checkout pronto para handoff: ${anchoredProductName}`
         : 'checkout pronto para handoff';
       return next;
     }
@@ -296,7 +320,7 @@ Se quiser agilizar, pode mandar tudo de uma vez:
   }
 
   if (stageNow === 'checkout_collect_name') {
-    const productName = context.lastProducts?.[0]?.name || 'a peça';
+    const productName = getAnchoredProductName(context) || 'a peça';
     return `Perfeito amore 💜 Vamos seguir com a *${productName}*. Essa peça está saindo super bem por aqui ✨ Me manda seu *nome completo* que eu já separo seu pedido por aqui.`;
   }
 
