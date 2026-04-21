@@ -770,14 +770,18 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       replyText = buildInitialReply(inbound, { products: effectiveProducts, context: checkoutContext, matchingVariation });
     }
 
-    const anchoredProduct = checkoutContext.lastProducts?.[0]
-      || effectiveProducts[0]
-      || existingContext.lastProducts?.[0]
-      || checkoutContext.lastProductPayload
-      || existingContext.lastProductPayload
-      || null;
+    const anchoredProduct = followUpSignals.multiItemPurchase
+      ? null
+      : (checkoutContext.lastProducts?.[0]
+        || effectiveProducts[0]
+        || existingContext.lastProducts?.[0]
+        || checkoutContext.lastProductPayload
+        || existingContext.lastProductPayload
+        || null);
 
-    const anchoredProducts = anchoredProduct ? [anchoredProduct] : (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || []));
+    const anchoredProducts = followUpSignals.multiItemPurchase
+      ? (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || []))
+      : (anchoredProduct ? [anchoredProduct] : (effectiveProducts.length > 0 ? effectiveProducts : (existingContext.lastProducts || [])));
 
     const savedContext = saveContext(contextKey, {
       ...checkoutContext,
@@ -786,8 +790,12 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
       lastProducts: anchoredProducts,
-      lastProduct: anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || '',
-      lastProductPayload: anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null,
+      lastProduct: followUpSignals.multiItemPurchase
+        ? ''
+        : (anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || ''),
+      lastProductPayload: followUpSignals.multiItemPurchase
+        ? null
+        : (anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null),
       lastReplyText: replyText,
       lastChannel: inbound.channel,
       lastProvider: inbound.provider,
