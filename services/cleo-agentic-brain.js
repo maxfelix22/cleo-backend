@@ -24,6 +24,8 @@ function buildContextBlock(context = {}) {
   };
 }
 
+const { getStoreFacts } = require('./cleo-store-facts');
+
 function detectConversationMode(text = '', context = {}) {
   const lower = String(text || '').trim().toLowerCase();
   const stage = String(context.currentStage || context.checkout?.stage || '');
@@ -58,6 +60,10 @@ function detectConversationMode(text = '', context = {}) {
 
   if (/tem\s+|você tem|vc tem|algo pra|me indica|me mostra|o que você tem/.test(lower)) {
     return 'discovery';
+  }
+
+  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial/.test(lower)) {
+    return 'institutional';
   }
 
   if (/frete|envio|usps|pickup|retirada|entrega local|marlboro|marlborough/.test(lower)) {
@@ -248,6 +254,37 @@ function buildCheckoutReplyAgentic({ context = {} } = {}) {
   return '';
 }
 
+function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
+  const text = String(inbound.text || '').toLowerCase();
+  const facts = getStoreFacts();
+
+  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o/.test(text)) {
+    return `Estamos em *${facts.address}* 💜 Se quiser atendimento presencial, é só com horário marcado.`;
+  }
+
+  if (/hor[aá]rio|funcionamento/.test(text)) {
+    return `Nosso atendimento é de *segunda a sábado, 10am às 8pm*, e *domingo, 2pm às 9pm* 💜 O site fica disponível 24h.`;
+  }
+
+  if (/site/.test(text)) {
+    return `Nosso site é: ${facts.site} 💜`;
+  }
+
+  if (/linktree/.test(text)) {
+    return `Aqui está nossa central de links 💜 ${facts.linktree}`;
+  }
+
+  if (/grupo vip/.test(text)) {
+    return `Se quiser entrar no nosso Grupo VIP do WhatsApp, é por aqui 💜 ${facts.vipGroup}`;
+  }
+
+  if (/whatsapp oficial/.test(text)) {
+    return `Nosso WhatsApp oficial é esse aqui 💜 ${facts.whatsapp}`;
+  }
+
+  return '';
+}
+
 function buildShippingReplyAgentic({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').toLowerCase();
   const productName = getPrimaryItemName(context);
@@ -322,6 +359,8 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildCrossSellReplyAgentic({ context });
   } else if (mode === 'close') {
     replyText = buildCloseReply({ context });
+  } else if (mode === 'institutional') {
+    replyText = buildInstitutionalReplyAgentic({ inbound });
   } else if (mode === 'shipping') {
     replyText = buildShippingReplyAgentic({ context, inbound });
   } else if (mode === 'checkout') {
