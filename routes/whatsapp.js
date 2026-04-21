@@ -223,11 +223,16 @@ function buildCrossSellReply(context = {}, inbound = {}) {
   const intro = pickCrossSellIntro(text);
   const commercialFamily = inferCommercialFamily(anchoredProduct || {});
   const hint = buildCrossSellHint(commercialFamily);
-  const ontologyComplements = findComplementaryRepresentatives(productName);
-  const complementName = ontologyComplements[0]?.properties?.name || '';
-  if (complementName) {
-    return `${intro} Junto com *${productName}*, eu te mostraria ${hint}, como *${complementName}*.`;
+  const ontologyComplements = findComplementaryRepresentatives(productName, 2);
+  const complementsLine = ontologyComplements
+    .map((entity) => entity?.properties?.name || '')
+    .filter(Boolean)
+    .join('* e *');
+
+  if (complementsLine) {
+    return `${intro} Junto com *${productName}*, eu te mostraria ${hint}, como *${complementsLine}*.`;
   }
+
   return `${intro} Junto com *${productName}*, eu te mostraria ${hint}.`;
 }
 
@@ -439,6 +444,10 @@ function pickIntroVariant(intent = 'geral', text = '') {
   return 'Tenho sim 💜';
 }
 
+function normalizeListName(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
 function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
   const text = String(inbound?.text || '').trim().toLowerCase();
   const ranked = (Array.isArray(products) ? products : []).filter(Boolean);
@@ -519,9 +528,16 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
     return `Pra entrega local em *Marlborough*, fica *${shippingLocal}* 💜`;
   }
 
-  const moreOptions = available.slice(1, 3);
-  const moreLine = moreOptions.length > 0
-    ? ` Se quiser, eu também te mostro outras nessa linha, como *${moreOptions.map((product) => product.name).join('* e *')}*.`
+  const ontologyAlternatives = buildAlternativeOntologyHints(top || {}, 2);
+  const ontologyFamily = inferRepresentativeFamily(ontologyHint || { properties: { name: top?.name || '' } });
+  const ontologyAlternativeNames = ontologyAlternatives
+    .filter((item) => !ontologyFamily || item.family === ontologyFamily)
+    .map((item) => item.name)
+    .filter(Boolean);
+  const fallbackOptions = available.slice(1, 3).map((product) => product.name).filter(Boolean);
+  const mergedOptions = Array.from(new Set([...ontologyAlternativeNames, ...fallbackOptions])).filter((name) => normalizeListName(name) !== normalizeListName(top?.name || '')).slice(0, 2);
+  const moreLine = mergedOptions.length > 0
+    ? ` Se quiser, eu também te mostro outras nessa linha, como *${mergedOptions.join('* e *')}*.`
     : '';
 
   if (intent === 'apertar') {
@@ -553,7 +569,7 @@ function buildAgenticDiscoveryReply(inbound = {}, products = [], context = {}) {
 const { searchProducts, findMatchingVariation } = require('../services/catalog-service');
 const { buildFallbackProductsFromText } = require('../services/catalog-fallback');
 const { inferCommercialFamily, inferFamilyGroup, inferCrossSellGroup, buildCrossSellHint } = require('../services/cleo-taxonomy');
-const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints } = require('../services/cleo-ontology');
+const { buildOntologyHint, findComparableRepresentatives, findComplementaryRepresentatives, buildAlternativeOntologyHints, inferRepresentativeFamily } = require('../services/cleo-ontology');
 const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
