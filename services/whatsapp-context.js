@@ -154,7 +154,9 @@ function buildInitialReply(inbound, options = {}) {
   const products = Array.isArray(options.products) ? options.products : [];
   const desiredEffect = inferDesiredEffect(text);
   const context = options.context || {};
-  const lastProduct = getAnchoredProduct(context);
+  const forceInstitutional = Boolean(options.forceInstitutional);
+  const forceShipping = Boolean(options.forceShipping);
+  const lastProduct = (forceInstitutional || forceShipping) ? null : getAnchoredProduct(context);
   const requestedSize = extractRequestedSize(text);
   const matchingVariation = options.matchingVariation || null;
   const availableSizes = listAvailableSizes(lastProduct);
@@ -174,8 +176,32 @@ function buildInitialReply(inbound, options = {}) {
     return 'Perfeito amore 💜 Me diz o que você quer ou me manda a foto/nome da peça que eu já sigo com você.';
   }
 
+  if (/quero duas|quero dois|2 lingeries|duas lingeries|dois conjuntos|duas peças/.test(lower)) {
+    return 'Perfeito 💜 Me diz quais duas peças você quer ou me manda foto/nome delas que eu organizo certinho pra você.';
+  }
+
+  if (/endere[cç]o|onde fica|onde vocês ficam|loja f[ií]sica|qual o endere[cç]o/.test(lower)) {
+    return 'Estamos em *79 Phelps St, Apt B, Marlborough, MA* 💜 Se quiser atendimento presencial, é só com horário marcado.';
+  }
+
+  if (/hor[aá]rio|funcionamento/.test(lower)) {
+    return 'Nosso atendimento é de *segunda a sábado, 10am às 8pm*, e *domingo, 2pm às 9pm* 💜';
+  }
+
+  if (/entrega na fl[oó]rida|fl[oó]rida|outro estado|envia pra|enviam pra|usps/.test(lower)) {
+    return 'Enviamos por USPS para todo os EUA 💜 O frete é *$10 fixo* e acima de *$99* sai grátis.';
+  }
+
+  if (/pickup|retirada/.test(lower)) {
+    return 'Tem pickup sim 💜 É grátis, mas funciona só com horário marcado.';
+  }
+
   const looksLikeProductDiscovery = /tem\s+|você tem|vc tem|trabalha com|tem aí|tem desse|tem dessa/.test(lower);
   if (looksLikeProductDiscovery) {
+    if (!/lingerie|conjunto|calcinha|suti[aã]|body|camisola|baby.?doll|fantasia/.test(lower) && !desiredEffect) {
+      return 'Tem sim 💜 Me fala só qual tipo de peça você quer ver que eu te mostro melhor.';
+    }
+
     if (products.length > 0) {
       const firstInStock = products.find((product) => product?.inventory_in_stock !== false) || products[0];
       const top = firstInStock;
