@@ -8,8 +8,13 @@ function loadStoreFactsText() {
   return fs.readFileSync(FACTS_PATH, 'utf8');
 }
 
+function escapeRegExp(value = '') {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function matchLine(text, label) {
-  const regex = new RegExp(`- \*\*${label}:\*\*\\s*(.+)`, 'i');
+  const safeLabel = escapeRegExp(label);
+  const regex = new RegExp(`- \*\*${safeLabel}:\*\*\\s*(.+)`, 'i');
   const match = text.match(regex);
   return match ? String(match[1] || '').trim() : '';
 }
