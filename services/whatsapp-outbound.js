@@ -30,6 +30,13 @@ async function sendViaTwilio({ to, body, mediaUrls = [] }) {
   try { parsed = JSON.parse(text); } catch (err) { parsed = { raw: text }; }
 
   if (!response.ok) {
+    console.error('[twilio/outbound] request failed', {
+      status: response.status,
+      to,
+      from: TWILIO_WHATSAPP_FROM,
+      bodyPreview: String(body || '').slice(0, 160),
+      payload: parsed,
+    });
     const error = new Error(`Twilio outbound failed with status ${response.status}`);
     error.status = response.status;
     error.payload = parsed;

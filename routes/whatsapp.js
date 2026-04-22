@@ -1264,6 +1264,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       transportMode: hasRealTwilioConfig() ? 'twilio' : 'stub',
     });
   } catch (err) {
+    console.error('[whatsapp/inbound] fatal error:', err.message, err.status || '', err.payload || '');
     return next(err);
   }
 });
