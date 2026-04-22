@@ -148,13 +148,10 @@ function getAnchoredProduct(context = {}) {
     || null;
 }
 
-const { getStoreFacts } = require('./cleo-store-facts');
-
 function buildInitialReply(inbound, options = {}) {
   const text = String(inbound?.text || '').trim();
   const lower = text.toLowerCase();
   const products = Array.isArray(options.products) ? options.products : [];
-  const facts = getStoreFacts();
   const desiredEffect = inferDesiredEffect(text);
   const context = options.context || {};
   const lastProduct = getAnchoredProduct(context);
@@ -175,58 +172,6 @@ function buildInitialReply(inbound, options = {}) {
 
   if (/quero comprar|quero pedir|quero fazer pedido/i.test(lower)) {
     return 'Perfeito amore 💜 Me diz o que você quer ou me manda a foto/nome da peça que eu já sigo com você.';
-  }
-
-  if (/foto|fotos|imagem|imagens|v[ií]deo|video|me manda|me envia/.test(lower)) {
-    return 'Claro 💜 Me fala qual peça ou linha você quer ver que eu sigo por aí.';
-  }
-
-  if (/endere[cç]o|onde fica|onde vocês ficam|tem loja f[ií]sica|localiza[cç][aã]o/.test(lower)) {
-    return `Estamos em *${facts.address}* 💜 Se quiser atendimento presencial, é só com horário marcado.`;
-  }
-
-  if (/hor[aá]rio|funcionamento/.test(lower)) {
-    return `Nosso atendimento é de *segunda a sábado, 10am às 8pm*, e *domingo, 2pm às 9pm* 💜 O site fica disponível 24h.`;
-  }
-
-  if (/site/.test(lower)) {
-    return `Nosso site é: ${facts.site} 💜`;
-  }
-
-  if (/linktree/.test(lower)) {
-    return `Aqui está nossa central de links 💜 ${facts.linktree}`;
-  }
-
-  if (/grupo vip/.test(lower)) {
-    return `Se quiser entrar no nosso Grupo VIP do WhatsApp, é por aqui 💜 ${facts.vipGroup}`;
-  }
-
-  if (/whatsapp oficial/.test(lower)) {
-    return `Nosso WhatsApp oficial é esse aqui 💜 ${facts.whatsapp}`;
-  }
-
-  if (/entrega na fl[oó]rida|entrega em miami|envia pra|enviam pra|manda pra|outro estado|dentro dos estados unidos|usa/.test(lower)) {
-    return 'Enviamos por USPS para todo os EUA 💜 O frete é *$10 fixo* e acima de *$99* sai grátis.';
-  }
-
-  if (/pickup|retirada/.test(lower)) {
-    return 'Tem pickup sim 💜 É grátis, mas funciona só com horário marcado.';
-  }
-
-  if (/entrega.*marlboro|entrega.*marlborough|marlboro|marlborough/.test(lower)) {
-    return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
-  }
-
-  if (/hudson/.test(lower)) {
-    return 'Pra entrega local em *Hudson*, fica *$8* 💜';
-  }
-
-  if (/troca|devolu[cç][aã]o/.test(lower)) {
-    return 'Nossa troca funciona assim 💜 são *7 dias após o recebimento*, com a peça *sem uso e com etiqueta*. Não fazemos devolução em dinheiro e peça de promoção não tem troca.';
-  }
-
-  if (/pagamento|zelle|venmo|afterpay|square/.test(lower)) {
-    return 'Aceitamos *Zelle, Venmo, AfterPay e Square* 💜 Se quiser, eu já te passo a melhor opção pra fechar seu pedido.';
   }
 
   const looksLikeProductDiscovery = /tem\s+|você tem|vc tem|trabalha com|tem aí|tem desse|tem dessa/.test(lower);

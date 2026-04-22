@@ -1,40 +1,3 @@
-function inferCustomerProfile(context = {}) {
-  const customer = context.customer || {};
-  const totalOrders = Number(customer.total_orders || customer.totalOrders || 0);
-  const tags = Array.isArray(customer.tags) ? customer.tags.map((tag) => String(tag).toLowerCase()) : [];
-  const isVip = Boolean(customer.is_vip || customer.isVip || tags.includes('vip') || totalOrders >= 5);
-  const lastInteraction = customer.last_interaction || customer.lastInteraction || '';
-  const inactive = lastInteraction
-    ? (Date.now() - new Date(lastInteraction).getTime()) > (60 * 24 * 60 * 60 * 1000)
-    : false;
-  const isRecurring = totalOrders >= 2;
-  const gender = String(customer.gender || '').toLowerCase();
-  const isMale = gender === 'male' || gender === 'masculino' || tags.includes('male') || tags.includes('masculino');
-  const isShy = tags.includes('shy') || tags.includes('timida') || tags.includes('tímida');
-
-  return {
-    name: customer.name || context.profileName || '',
-    totalOrders,
-    isVip,
-    isRecurring,
-    inactive,
-    isMale,
-    isShy,
-  };
-}
-
-function pickVariant(list = [], seed = '') {
-  if (!Array.isArray(list) || list.length === 0) return '';
-  const base = String(seed || 'cleo');
-  let hash = 0;
-  for (let i = 0; i < base.length; i += 1) {
-    hash = ((hash << 5) - hash) + base.charCodeAt(i);
-    hash |= 0;
-  }
-  const index = Math.abs(hash) % list.length;
-  return list[index];
-}
-
 function buildContextBlock(context = {}) {
   const cartItems = Array.isArray(context.cart?.items) ? context.cart.items : [];
   const checkout = context.checkout || {};
@@ -58,24 +21,12 @@ function buildContextBlock(context = {}) {
       email: checkout.email || '',
       address: checkout.address || '',
     },
-    customerProfile: inferCustomerProfile(context),
   };
 }
 
-const { getStoreFacts } = require('./cleo-store-facts');
-
-function detectConversationMode(text = '', context = {}, inbound = {}) {
+function detectConversationMode(text = '', context = {}) {
   const lower = String(text || '').trim().toLowerCase();
   const stage = String(context.currentStage || context.checkout?.stage || '');
-  const hasMedia = Array.isArray(inbound.media) && inbound.media.length > 0;
-
-  if (/áudio|audio|voice/i.test(String(inbound.media?.[0]?.contentType || '')) || /transcri/i.test(lower)) {
-    return 'audio_recovery';
-  }
-
-  if (hasMedia && !lower) {
-    return 'media_recovery';
-  }
 
   if (/não entendi|ficou confus|nossa conversa.*confus|pera|calma|explica melhor|me perdi|não é isso|não era isso/.test(lower)) {
     return 'recover';
@@ -97,10 +48,6 @@ function detectConversationMode(text = '', context = {}, inbound = {}) {
     return 'cross_sell';
   }
 
-  if (/desconto|descontinho|faz mais barato|faz um valor melhor|tem como melhorar|consegue melhorar|precinho|pre[cç]o melhor|t[aá] caro|vou pensar|tenho vergonha|t[oô] com vergonha|discreto|discreta/.test(lower)) {
-    return 'objection';
-  }
-
   if (/quero esse|vou querer esse|vou levar esse|esse não|qual você acha melhor pra mim|quero dois|vou levar dois|leva dois|separa dois|me indica um|não sei qual escolher|quero algo mais forte/.test(lower)) {
     return 'intent_short';
   }
@@ -113,15 +60,7 @@ function detectConversationMode(text = '', context = {}, inbound = {}) {
     return 'discovery';
   }
 
-  if (/endere[cç]o|onde vocês ficam|onde fica a loja|tem loja f[ií]sica|localiza[cç][aã]o|hor[aá]rio|funcionamento|site|instagram|linktree|grupo vip|whatsapp oficial|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square|roubado|roubaram|entregue e sumiu|sumiu depois de entregue/.test(lower)) {
-    return 'institutional';
-  }
-
-  if (/foto|fotos|imagem|imagens|v[ií]deo|video|me manda|me envia|quero ver foto|quero ver v[ií]deo/.test(lower)) {
-    return 'media_request';
-  }
-
-  if (/frete|envio|usps|pickup|retirada|entrega local|entrega em|voc[eê]s entregam|manda pra|marlboro|marlborough|hudson|framingham/.test(lower)) {
+  if (/frete|envio|usps|pickup|retirada|entrega local|marlboro|marlborough/.test(lower)) {
     return 'shipping';
   }
 
@@ -166,46 +105,16 @@ function inferDiscoveryMood(text = '') {
   return 'geral';
 }
 
-function hasWeakIntentSignal(text = '') {
-  const lower = String(text || '').trim().toLowerCase();
-  if (!lower) return true;
-  if (lower.length <= 3) return true;
-  if (/^(oi+|ol[áa]|boa noite|boa tarde|bom dia|hum|hmm|quero|tem|me ajuda|me indica)$/.test(lower)) return true;
-  return false;
-}
-
-function buildClarifyingQuestion({ context = {}, inbound = {} } = {}) {
-  const text = String(inbound.text || '').toLowerCase();
-  const customerProfile = inferCustomerProfile(context);
-
-  if (/presente|namorado|marido|esposa|mulher/.test(text) || customerProfile.isMale) {
-    return 'Me fala só se é pra presente ou pra você, que eu já te indico no caminho certo 💜';
-  }
-
-  if (/lingerie|conjunto|camisola|body/.test(text)) {
-    return 'Você quer algo mais pra dia a dia, mais sensual, ou pra uma ocasião especial? 💜';
-  }
-
-  if (/libido|tes[aã]o|excita|desejo|apertad|oral|boquete|lubrific|seca|molhar|masculino/.test(text)) {
-    return 'Você quer algo mais leve ou algo mais direto mesmo? 💜';
-  }
-
-  return 'Me fala rapidinho o que você quer: lingerie, sex shop, presente ou algo pra uma ocasião especial? 💜';
-}
-
-function buildDiscoveryReply({ inbound = {}, products = [], context = {} } = {}) {
+function buildDiscoveryReply({ inbound = {}, products = [] } = {}) {
   const available = Array.isArray(products) ? products.filter(Boolean) : [];
-  const weakIntent = hasWeakIntentSignal(inbound.text || '');
   const top = available.find((item) => item?.inventory_in_stock !== false) || available[0] || null;
-  if (weakIntent && available.length > 3) return buildClarifyingQuestion({ context, inbound });
-  if (!top?.name) return buildClarifyingQuestion({ context, inbound });
+  if (!top?.name) return '';
   const text = String(inbound.text || '').trim();
   const mood = inferDiscoveryMood(text);
-  const customerProfile = inferCustomerProfile(context);
   const priceLine = top.price ? ` por ${top.price}` : '';
   const second = available.find((item) => item?.name && item.name !== top.name);
   const secondLine = second?.name ? ` Se quiser, eu também te mostro *${second.name}* para você sentir melhor a diferença.` : '';
-  let base = mood === 'libido'
+  const base = mood === 'libido'
     ? `Tenho sim 💜 Pra libido, eu começaria por *${top.name}*${priceLine}.`
     : mood === 'apertar'
       ? `Tenho sim 💜 Pra essa linha mais apertadinha, eu iria primeiro em *${top.name}*${priceLine}.`
@@ -216,65 +125,22 @@ function buildDiscoveryReply({ inbound = {}, products = [], context = {} } = {})
           : mood === 'lubrificacao'
             ? `Tenho sim 💜 Pra lubrificação, eu te mostraria primeiro *${top.name}*${priceLine}.`
             : `Tenho sim 💜 O que eu mais te indicaria aí é *${top.name}*${priceLine}.`;
-
-  if (customerProfile.isVip) {
-    base = `Separei uma opção linda pra você 💜 Eu começaria por *${top.name}*${priceLine}.`;
-  } else if (customerProfile.inactive) {
-    base = `Tenho novidade boa pra você 💜 Eu começaria por *${top.name}*${priceLine}.`;
-  } else if (customerProfile.isMale) {
-    base = `Tenho sim 💜 Se for presente ou pra facilitar sua escolha, eu começaria por *${top.name}*${priceLine}.`;
-  } else if (customerProfile.isShy) {
-    base = `Tenho sim 💜 Vou te mostrar de um jeito bem leve e discreto: eu começaria por *${top.name}*${priceLine}.`;
-  }
-
   return `${base}${secondLine}`;
 }
 
-function buildInitialHelpReplyAgentic({ inbound = {}, products = [], context = {} } = {}) {
+function buildInitialHelpReplyAgentic({ inbound = {}, products = [] } = {}) {
   const text = String(inbound.text || '').trim();
-  const customerProfile = inferCustomerProfile(context);
-  const firstName = String(customerProfile.name || '').trim().split(/\s+/)[0] || '';
-
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
-    if (customerProfile.isVip && firstName) {
-      return pickVariant([
-        `Oiiee ${firstName} 💜 Minha cliente querida, que bom te ver de volta. Quer que eu te mostre o que tem de mais lindo hoje?`,
-        `Oi ${firstName} 💜 Que bom te ver por aqui de novo. Quer ver o que eu separei de mais bonito hoje?`,
-        `${firstName}, coisa boa te ver de volta 💜 Quer que eu te mostre umas opções lindas primeiro?`,
-      ], `${firstName}:vip:greeting`);
-    }
-    if (customerProfile.inactive && firstName) {
-      return pickVariant([
-        `Oiiee ${firstName} 💜 Quanto tempo! Me fala o que você tá procurando que eu já te mostro as novidades.`,
-        `Oii ${firstName} 💜 Faz tempo mesmo, hein? Me fala o que você quer que eu já te atualizo nas novidades.`,
-        `${firstName} 💜 Que bom te ver de novo. Quer me dizer o que você tá procurando hoje?`,
-      ], `${firstName}:inactive:greeting`);
-    }
-    if (customerProfile.isRecurring && firstName) {
-      return pickVariant([
-        `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer hoje que eu sigo com você.`,
-        `Oii ${firstName} 💜 Bom te ver de novo por aqui. Me fala o que você quer que eu já te ajudo.`,
-        `${firstName} 💜 Que bom que você voltou. Me conta o que você tá procurando hoje.`,
-      ], `${firstName}:recurring:greeting`);
-    }
-    return pickVariant([
-      'Oi amore 💜 Me fala o que você quer que eu já te ajudo.',
-      'Oii mulher 💜 Me conta o que você tá procurando que eu sigo com você.',
-      'Oi linda 💜 Me diz o que você quer ver hoje que eu já te ajudo.',
-    ], `${text}:new:greeting`);
+    return 'Oi amore 💜 Me fala o que você quer que eu já te ajudo.';
   }
-  return buildDiscoveryReply({ inbound, products, context });
+  return buildDiscoveryReply({ inbound, products });
 }
 
-function buildComparisonReply({ context = {}, inbound = {} } = {}) {
+function buildComparisonReply({ context = {} } = {}) {
   const first = context.lastProducts?.[0] || null;
   const second = context.lastProducts?.[1] || null;
   if (first?.name && second?.name) {
     return `Entre *${first.name}* e *${second.name}*, eu te falaria assim: se você quer algo mais direto para uma proposta, eu iria mais em um; se quer puxar mais para outra sensação, eu iria no outro. Se quiser, eu já te digo qual faz mais sentido pro que você quer 💜`;
-  }
-
-  if (hasWeakIntentSignal(inbound.text || '')) {
-    return buildClarifyingQuestion({ context, inbound });
   }
   if (first?.name) {
     return `Se você quiser, eu comparo *${first.name}* com outra opção parecida e te explico a diferença sem enrolação 💜`;
@@ -284,21 +150,7 @@ function buildComparisonReply({ context = {}, inbound = {} } = {}) {
 
 function buildCrossSellReplyAgentic({ context = {} } = {}) {
   const productName = getPrimaryItemName(context);
-  const customerProfile = inferCustomerProfile(context);
   if (!productName) return '';
-
-  if (customerProfile.isVip) {
-    return `Tenho sim 💜 Junto com *${productName}*, eu também posso te mostrar um complemento mais especial pra fechar redondinho.`;
-  }
-
-  if (customerProfile.isMale) {
-    return `Tenho sim 💜 Junto com *${productName}*, eu posso te mostrar mais um item que combine e facilite seu presente.`;
-  }
-
-  if (customerProfile.isShy) {
-    return `Tenho sim 💜 Junto com *${productName}*, eu posso te sugerir um complemento bem discreto e fácil de encaixar.`;
-  }
-
   return `Tenho sim 💜 Junto com *${productName}*, eu também te mostraria algo que complete melhor essa proposta e faça mais sentido no conjunto.`;
 }
 
@@ -335,43 +187,6 @@ function buildFollowUpReplyAgentic({ context = {} } = {}) {
     return `Tô com você 💜 Se quiser, eu continuo por *${productName}* e te digo o próximo passo sem complicar.`;
   }
   return 'Me fala o que você quer sentir, o tipo de produto que você quer, ou se já tem algum nome em mente que eu sigo com você 💜';
-}
-
-function buildObjectionReplyAgentic({ context = {}, inbound = {} } = {}) {
-  const text = String(inbound.text || '').trim().toLowerCase();
-  const productName = getPrimaryItemName(context);
-
-  if (/desconto|descontinho|faz mais barato|faz um valor melhor|tem como melhorar|consegue melhorar|precinho/.test(text)) {
-    return pickVariant([
-      'Amore, no preço eu não consigo mexer 💜 Mas se você quiser, eu posso te ajudar a montar da melhor forma e ainda incluir um brindezinho especial 🎁',
-      'No valor eu não consigo mexer, amore 💜 Mas posso te montar da forma mais vantajosa e colocar um brindezinho junto 🎁',
-      'Preço eu não consigo baixar, mulher 💜 Mas posso te ajudar a fechar do melhor jeito e ainda te mandar um brinde especial 🎁',
-    ], `${text}:discount`);
-  }
-
-  if (/t[aá] caro/.test(text)) {
-    return pickVariant([
-      'Entendo mulher 💜 Mas posso te ajudar a montar da forma que faça mais sentido pra você, e se fechar eu ainda vejo um brindezinho especial 🎁',
-      'Te entendo, amore 💜 Vamos montar isso do jeito que fique melhor pra você, e eu ainda coloco um brindezinho especial 🎁',
-      'Eu te entendo 💜 Se quiser, eu penso com você numa opção que faça mais sentido e ainda incluo um brindezinho 🎁',
-    ], `${text}:expensive`);
-  }
-
-  if (/vou pensar/.test(text)) {
-    return productName
-      ? `Claro amore, sem pressão nenhuma 💜 Se quiser, eu posso deixar *${productName}* separado pra você por enquanto.`
-      : 'Claro amore, sem pressão nenhuma 💜 Se quiser, eu posso deixar isso encaminhado pra você e você me chama quando decidir.';
-  }
-
-  if (/tenho vergonha|t[oô] com vergonha|discreto|discreta/.test(text)) {
-    return pickVariant([
-      'Fica tranquila 💜 É tudo bem discreto e eu te conduzo com jeitinho, sem te deixar desconfortável.',
-      'Relaxa, amore 💜 É tudo bem discreto e eu vou te guiando com calma.',
-      'Pode ficar tranquila 💜 Aqui eu te ajudo com jeitinho e tudo fica bem discreto.',
-    ], `${text}:shy`);
-  }
-
-  return '';
 }
 
 function buildIntentShortReplyAgentic({ context = {}, inbound = {} } = {}) {
@@ -433,161 +248,27 @@ function buildCheckoutReplyAgentic({ context = {} } = {}) {
   return '';
 }
 
-function buildInstitutionalReplyAgentic({ inbound = {} } = {}) {
-  const text = String(inbound.text || '').toLowerCase();
-  const facts = getStoreFacts();
-
-  if (/endere[cç]o|onde vocês ficam|onde fica a loja|localiza[cç][aã]o/.test(text)) {
-    return `Estamos em *${facts.address}* 💜 Se quiser atendimento presencial, é só com horário marcado.`;
-  }
-
-  if (/hor[aá]rio|funcionamento/.test(text)) {
-    return `Nosso atendimento é de *segunda a sábado, 10am às 8pm*, e *domingo, 2pm às 9pm* 💜 O site fica disponível 24h.`;
-  }
-
-  if (/site/.test(text)) {
-    return `Nosso site é: ${facts.site} 💜`;
-  }
-
-  if (/linktree/.test(text)) {
-    return `Aqui está nossa central de links 💜 ${facts.linktree}`;
-  }
-
-  if (/grupo vip/.test(text)) {
-    return `Se quiser entrar no nosso Grupo VIP do WhatsApp, é por aqui 💜 ${facts.vipGroup}`;
-  }
-
-  if (/whatsapp oficial/.test(text)) {
-    return `Nosso WhatsApp oficial é esse aqui 💜 ${facts.whatsapp}`;
-  }
-
-  if (/tem loja f[ií]sica/.test(text)) {
-    return `Temos atendimento presencial sim 💜 Ficamos em *${facts.address}* e atendemos só com horário marcado.`;
-  }
-
-  if (/troca|devolu[cç][aã]o/.test(text)) {
-    return 'Nossa troca funciona assim 💜 são *7 dias após o recebimento*, com a peça *sem uso e com etiqueta*. Não fazemos devolução em dinheiro e peça de promoção não tem troca.';
-  }
-
-  if (/roubado|roubaram|entregue e sumiu|sumiu depois de entregue/.test(text)) {
-    return 'Amore, lamento muito essa situação 💜 Quando a USPS confirma a entrega no endereço informado, a responsabilidade passa a ser do destinatário. Se quiser, eu te explico como seguir com claim na USPS.';
-  }
-
-  if (/pagamento|zelle|venmo|afterpay|square/.test(text)) {
-    return 'Aceitamos *Zelle, Venmo, AfterPay e Square* 💜 Se quiser, eu já te passo a melhor opção pra fechar seu pedido.';
-  }
-
-  return '';
-}
-
 function buildShippingReplyAgentic({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').toLowerCase();
   const productName = getPrimaryItemName(context);
-
-  if (/framingham/.test(text)) {
-    return 'Entregamos na região sim 💜 Me confirma só o endereço certinho ou ZIP code que eu te digo a melhor forma de entrega pra você.';
-  }
-
-  if (/hudson/.test(text)) {
-    return 'Pra entrega local em *Hudson*, fica *$8* 💜';
-  }
-
   if (/marlboro|marlborough/.test(text)) {
     return 'Pra entrega local em *Marlborough*, fica *$5* 💜';
   }
-
-  if (/pickup|retirada/.test(text)) {
-    return 'Tem pickup sim 💜 É grátis, mas funciona só com horário marcado.';
-  }
-
-  if (/usps|frete|envio/.test(text)) {
-    return 'Enviamos por USPS para todo os EUA 💜 O frete é *$10 fixo* e acima de *$99* sai grátis.';
-  }
-
   if (productName) {
-    return `Se for *${productName}*, eu te digo certinho a melhor entrega pra você 💜 Se quiser, me fala sua cidade ou ZIP code.`;
+    return `Se for *${productName}*, eu te digo certinho o frete assim que você me falar se prefere *pickup*, *entrega em Marlborough* ou *USPS* 💜`;
   }
-
-  return 'Eu te passo certinho a melhor entrega 💜 Me fala só sua cidade ou se você prefere *pickup*, *entrega local* ou *USPS*.';
-}
-
-function buildMediaRequestReplyAgentic({ context = {} } = {}) {
-  const productName = getPrimaryItemName(context);
-  if (productName) {
-    return `Claro 💜 Se quiser, eu te mostro mais de *${productName}* e também posso te mandar outra opção parecida.`;
-  }
-  return 'Claro 💜 Me fala qual produto ou linha você quer ver que eu sigo por aí.';
-}
-
-function buildAudioRecoveryReplyAgentic() {
-  return 'Tô te ouvindo sim 💜 Se quiser, me manda em texto rapidinho o principal ponto ou repete o que você precisa que eu sigo certinho com você.';
-}
-
-function buildMediaRecoveryReplyAgentic() {
-  return 'Recebi aqui 💜 Se quiser, me diz rapidinho o que você quer ver ou confirmar nessa imagem que eu sigo com você.';
-}
-
-function buildProfileAwareFollowUp(context = {}) {
-  const customerProfile = inferCustomerProfile(context);
-  const productName = getPrimaryItemName(context);
-
-  if (customerProfile.isVip && productName) {
-    return `Pra você, eu seguiria por *${productName}* e se quiser também separo uma opção mais especial junto 💜`;
-  }
-
-  if (customerProfile.inactive && productName) {
-    return `Se quiser, eu retomo por *${productName}* e também te mostro o que chegou de novidade nessa linha 💜`;
-  }
-
-  if (customerProfile.isMale && productName) {
-    return `Se quiser, eu sigo por *${productName}* e te ajudo a fechar isso de um jeito fácil, sem complicar 💜`;
-  }
-
-  if (customerProfile.isShy && productName) {
-    return `Se quiser, eu sigo por *${productName}* com calma e de um jeito bem discreto 💜`;
-  }
-
-  return '';
+  return 'Eu te passo certinho o frete 💜 Me diz só se você quer *pickup*, *entrega em Marlborough* ou *USPS*.';
 }
 
 function buildGeneralReply({ context = {}, inbound = {} } = {}) {
   const text = String(inbound.text || '').trim();
-  const customerProfile = inferCustomerProfile(context);
-  const firstName = String(customerProfile.name || '').trim().split(/\s+/)[0] || '';
   if (/^oi+|ol[áa]|boa (tarde|noite|dia)/i.test(text)) {
-    if (customerProfile.isVip && firstName) {
-      return pickVariant([
-      `Oiiee ${firstName} 💜 Minha cliente querida, quer ver novidade ou você já tá procurando algo específico?`,
-      `Oii ${firstName} 💜 Quer que eu te mostre novidade primeiro ou você já sabe o que quer?`,
-      `${firstName} 💜 Quer ver as novidades ou você já veio atrás de algo certo?`,
-    ], `${firstName}:vip:general`);
-    }
-    if (customerProfile.inactive && firstName) {
-      return pickVariant([
-        `Oiiee ${firstName} 💜 Saudade de você por aqui. Quer que eu te mostre novidade ou você já tem algo em mente?`,
-        `Oii ${firstName} 💜 Quanto tempo. Quer ver o que chegou ou você já sabe o que procura?`,
-        `${firstName} 💜 Que bom te ver por aqui de novo. Quer que eu te mostre novidade?`,
-      ], `${firstName}:inactive:general`);
-    }
-    if (customerProfile.isRecurring && firstName) {
-      return pickVariant([
-        `Oiiee ${firstName} 💜 Que bom te ver de volta. Me fala o que você quer que eu sigo com você.`,
-        `Oii ${firstName} 💜 Bom te ver por aqui de novo. Me fala o que você quer hoje.`,
-        `${firstName} 💜 Me conta o que você quer ver hoje que eu sigo com você.`,
-      ], `${firstName}:recurring:general`);
-    }
-    return pickVariant([
-      'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.',
-      'Oii mulher 💜 Me conta o que você quer ver que eu sigo com você.',
-      'Oi linda 💜 Me fala o que você tá procurando hoje que eu já te ajudo.',
-    ], `${text}:general:greeting`);
+    return 'Oi amore 💜 Me fala o que você quer ou o que você está procurando que eu sigo com você.';
   }
   if (/tem algo|algo pra|algo para|me indica|me mostra/.test(text.toLowerCase())) {
-    return hasWeakIntentSignal(text)
-      ? buildClarifyingQuestion({ context, inbound })
-      : 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
+    return 'Tenho sim 💜 Me fala só o que você quer sentir ou a linha que você quer que eu já te indico melhor.';
   }
-  return buildProfileAwareFollowUp(context) || buildFollowUpReplyAgentic({ context }) || buildClarifyingQuestion({ context, inbound });
+  return buildFollowUpReplyAgentic({ context });
 }
 
 function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
@@ -619,7 +300,7 @@ function buildActions({ mode = 'general', context = {}, inbound = {} } = {}) {
 
 function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
   const text = String(inbound.text || '').trim();
-  const mode = detectConversationMode(text, context, inbound);
+  const mode = detectConversationMode(text, context);
   const contextBlock = buildContextBlock(context);
 
   let replyText = '';
@@ -631,26 +312,16 @@ function buildAgenticReply({ inbound = {}, context = {}, products = [] } = {}) {
     replyText = buildAlternativesReplyAgentic({ context });
   } else if (mode === 'nudge') {
     replyText = buildNudgeReplyAgentic({ context });
-  } else if (mode === 'objection') {
-    replyText = buildObjectionReplyAgentic({ context, inbound });
   } else if (mode === 'intent_short') {
     replyText = buildIntentShortReplyAgentic({ context, inbound });
   } else if (mode === 'recover' && /não é isso|não era isso/.test(text.toLowerCase())) {
     replyText = buildClarifyReplyAgentic({ context });
   } else if (mode === 'compare') {
-    replyText = buildComparisonReply({ context, inbound });
+    replyText = buildComparisonReply({ context });
   } else if (mode === 'cross_sell') {
     replyText = buildCrossSellReplyAgentic({ context });
   } else if (mode === 'close') {
     replyText = buildCloseReply({ context });
-  } else if (mode === 'institutional') {
-    replyText = buildInstitutionalReplyAgentic({ inbound });
-  } else if (mode === 'media_request') {
-    replyText = buildMediaRequestReplyAgentic({ context, inbound });
-  } else if (mode === 'audio_recovery') {
-    replyText = buildAudioRecoveryReplyAgentic({ inbound });
-  } else if (mode === 'media_recovery') {
-    replyText = buildMediaRecoveryReplyAgentic({ inbound });
   } else if (mode === 'shipping') {
     replyText = buildShippingReplyAgentic({ context, inbound });
   } else if (mode === 'checkout') {

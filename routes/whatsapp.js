@@ -717,11 +717,8 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       });
     }
 
-    const textNow = String(inbound.text || '').trim().toLowerCase();
-    const messageOverridesContext = /foto|fotos|imagem|imagens|v[ií]deo|video|me manda|me envia|endere[cç]o|onde fica|onde vocês ficam|tem loja f[ií]sica|hor[aá]rio|funcionamento|site|linktree|grupo vip|whatsapp oficial|entrega em|entregam em|envia pra|manda pra|frete|usps|pickup|retirada|troca|devolu[cç][aã]o|pagamento|zelle|venmo|afterpay|square/.test(textNow);
-
     let products = [];
-    const shouldLookupCatalog = !messageOverridesContext && /tem\s+|você tem|vc tem|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa|xana loka|blow girl|sempre virgem|berinjelo|volum[aã]o|libido|oral|lubrificante|vibrador|fantasia|camisola|lingerie|conjunto|calcinha|suti[aã]|body/i.test(inbound.text || '');
+    const shouldLookupCatalog = /tem\s+|você tem|vc tem|quanto custa|preço|preco|valor|quero esse|quero essa|vou querer|gostei desse|gostei dessa|xana loka|blow girl|sempre virgem|berinjelo|volum[aã]o|libido|oral|lubrificante|vibrador|fantasia|camisola|lingerie|conjunto|calcinha|suti[aã]|body/i.test(inbound.text || '');
     if (shouldLookupCatalog) {
       try {
         products = await searchProducts(inbound.text, 3);
@@ -789,19 +786,19 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
     }
 
     const resolvedSummary = existingContext.summary || recoveredContextFromConversation?.summary || '';
-    const resolvedLastProduct = messageOverridesContext ? '' : (existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '');
-    const resolvedLastProductPayload = messageOverridesContext ? null : (existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null);
+    const resolvedLastProduct = existingContext.lastProduct || recoveredContextFromConversation?.lastProduct || '';
+    const resolvedLastProductPayload = existingContext.lastProductPayload || recoveredContextFromConversation?.lastProductPayload || null;
     const contextForState = {
       ...existingContext,
       summary: resolvedSummary,
-      currentStage: messageOverridesContext ? '' : currentStageForState,
-      checkout: messageOverridesContext ? {} : mergedCheckout,
-      cart: messageOverridesContext ? { items: [], itemsCount: 0, semanticFamilies: [], semanticSubfamilies: [] } : mergedCart,
+      currentStage: currentStageForState,
+      checkout: mergedCheckout,
+      cart: mergedCart,
       lastProduct: resolvedLastProduct,
       lastProductPayload: resolvedLastProductPayload,
-      lastProducts: messageOverridesContext
-        ? []
-        : (effectiveProducts.length > 0 ? effectiveProducts : (recoveredLastProductPayload ? [recoveredLastProductPayload] : [])),
+      lastProducts: effectiveProducts.length > 0
+        ? effectiveProducts
+        : (recoveredLastProductPayload ? [recoveredLastProductPayload] : []),
     };
 
     let checkoutContext = applyCheckoutState(contextForState, inbound);
@@ -855,28 +852,11 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     const matchingVariation = findMatchingVariation(effectiveProducts[0] || {}, followUpSignals.requestedSize);
 
-    const agenticDisabled = String(process.env.CLEO_AGENTIC_DISABLED || '').toLowerCase() === 'true';
-
-    const brainResult = agenticDisabled
-      ? {
-          mode: 'disabled',
-          replyText: '',
-          contextBlock: {},
-          actions: {
-            shouldFallback: true,
-            updateCart: false,
-            updateCheckout: false,
-            triggerHandoff: false,
-            needsHumanRecoveryStyle: false,
-            preferredNextStage: '',
-            shouldSummarizeCart: false,
-          },
-        }
-      : buildAgenticReply({
-          inbound,
-          context: checkoutContext,
-          products: effectiveProducts,
-        });
+    const brainResult = buildAgenticReply({
+      inbound,
+      context: checkoutContext,
+      products: effectiveProducts,
+    });
 
     if (brainResult.actions?.preferredNextStage && (!checkoutContext.currentStage || brainResult.actions.updateCheckout)) {
       checkoutContext.currentStage = brainResult.actions.preferredNextStage;
@@ -911,22 +891,14 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       }
     }
 
-    let replyText = brainResult.replyText || (messageOverridesContext ? '' : buildCheckoutReply(checkoutContext));
-
-    if (!replyText) {
-      replyText = buildInitialReply(inbound, {
-        products: effectiveProducts,
-        context: checkoutContext,
-        matchingVariation,
-      });
-    }
+    let replyText = brainResult.replyText || buildCheckoutReply(checkoutContext);
 
     if (!replyText && brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1) {
       const itemsLine = checkoutContext.cart.items.map((item) => `${item.quantity}x ${item.label}`).join(', ');
       replyText = `Perfeito 💜 Então até aqui ficou *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
     }
 
-    if (!replyText && !messageOverridesContext && followUpSignals.multiItemPurchase) {
+    if (!replyText && followUpSignals.multiItemPurchase) {
       const multiItems = parseMultiItemText(inbound.text || '');
       replyText = buildMultiItemReply(inbound);
       checkoutContext = {
@@ -948,7 +920,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         },
       };
     }
-    if (!replyText && !messageOverridesContext && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
+    if (!replyText && followUpSignals.directPurchase && (checkoutContext.lastProducts?.[0] || effectiveProducts[0] || checkoutContext.lastProductPayload)) {
       const purchaseAnchor = getAnchoredProduct(checkoutContext) || effectiveProducts[0] || checkoutContext.lastProductPayload;
       const variationDetails = Array.isArray(purchaseAnchor?.variationDetails) ? purchaseAnchor.variationDetails : [];
       const requestedColorMatch = String(inbound.text || '').match(/preta|preto|branca|branco|vermelha|vermelho|rosa|azul|verde|bege|nude|dourada|dourado|prata|roxa|roxo/i);
@@ -985,7 +957,7 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
         },
       };
     }
-    if (!replyText && !messageOverridesContext && followUpSignals.asksUsShipping) {
+    if (!replyText && followUpSignals.asksUsShipping) {
       replyText = buildUsOnlyShippingReply();
     }
 
@@ -1007,14 +979,13 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       cart: checkoutContext.cart || existingContext.cart || { items: [], itemsCount: 0 },
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
-      customer: customerResult?.customer || existingContext.customer || null,
       conversationId: conversationResult?.conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
       lastProducts: anchoredProducts,
-      lastProduct: (messageOverridesContext || followUpSignals.multiItemPurchase)
+      lastProduct: followUpSignals.multiItemPurchase
         ? ''
         : (getAnchoredProductName({ ...checkoutContext, cart: checkoutContext.cart || existingContext.cart }) || anchoredProduct?.name || checkoutContext.lastProduct || existingContext.lastProduct || ''),
-      lastProductPayload: (messageOverridesContext || followUpSignals.multiItemPurchase)
+      lastProductPayload: followUpSignals.multiItemPurchase
         ? null
         : (anchoredProduct || checkoutContext.lastProductPayload || existingContext.lastProductPayload || null),
       lastReplyText: replyText,
@@ -1272,7 +1243,6 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
       transportMode: hasRealTwilioConfig() ? 'twilio' : 'stub',
     });
   } catch (err) {
-    console.error('[whatsapp/inbound] fatal error:', err.message, err.status || '', err.payload || '');
     return next(err);
   }
 });

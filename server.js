@@ -12,16 +12,6 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
 });
 
-app.get('/ops/runtime-mode', (req, res) => {
-  const agenticDisabled = String(process.env.CLEO_AGENTIC_DISABLED || '').toLowerCase() === 'true';
-  res.json({
-    ok: true,
-    agenticDisabled,
-    mode: agenticDisabled ? 'legacy-guarded' : 'agentic',
-    timestamp: new Date().toISOString(),
-  });
-});
-
 const cleoRoutes = require('./new_items');
 const whatsappRoutes = require('./routes/whatsapp');
 app.use('/', cleoRoutes);
