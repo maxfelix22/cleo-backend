@@ -913,6 +913,14 @@ router.post('/whatsapp/inbound', async (req, res, next) => {
 
     let replyText = brainResult.replyText || (messageOverridesContext ? '' : buildCheckoutReply(checkoutContext));
 
+    if (!replyText) {
+      replyText = buildInitialReply(inbound, {
+        products: effectiveProducts,
+        context: checkoutContext,
+        matchingVariation,
+      });
+    }
+
     if (!replyText && brainResult.actions?.shouldSummarizeCart && Array.isArray(checkoutContext.cart?.items) && checkoutContext.cart.items.length > 1) {
       const itemsLine = checkoutContext.cart.items.map((item) => `${item.quantity}x ${item.label}`).join(', ');
       replyText = `Perfeito 💜 Então até aqui ficou *${itemsLine}*. Agora me diz só se você prefere *pickup*, *entrega em Marlborough* ou *USPS*.`;
