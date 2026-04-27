@@ -132,7 +132,8 @@ async function transcribeAudio({ audioData, mimeType = 'audio/ogg' }) {
   const buffer = Buffer.from(base64, 'base64');
   const ext = mimeType.includes('mpeg') ? 'mp3' : (mimeType.includes('wav') ? 'wav' : (mimeType.includes('mp4') ? 'm4a' : 'ogg'));
   const form = new FormData();
-  form.append('file', new File([buffer], `audio.${ext}`, { type: mimeType }));
+  const audioBlob = new Blob([buffer], { type: mimeType });
+  form.append('file', audioBlob, `audio.${ext}`);
   form.append('model', 'whisper-1');
   form.append('response_format', 'verbose_json');
   form.append('language', 'pt');
