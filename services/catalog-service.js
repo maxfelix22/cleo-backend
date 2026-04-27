@@ -8,7 +8,7 @@ const client = new Client({
 const SQUARE_LOCATION_ID = (process.env.SQUARE_LOCATION_ID || '').trim();
 
 const SEMANTIC_MAP = [
-  { regex: /excita|tesao|tesão|apimenta|vontade de transar|molha|fica molhada|libido|desejo|afrodisiaco|afrodisíaco|mais prazer|xana loka|goze|goze\+|sedenta|siri ryka/i, terms: ['xana loka', 'goze excitante', 'excitante feminino', 'sedenta'] },
+  { regex: /excita|tesao|tesão|apimenta|vontade de transar|molha|fica molhada|libido|desejo|afrodisiaco|afrodisíaco|mais prazer|xana loka|goze|goze\+|sedenta|siri ryka|sem vontade|est[ií]mulos|estimulos|stimulus/i, terms: ['xana loka', 'goze excitante', 'excitante feminino', 'sedenta', 'estímulos mulher', 'estimulos mulher', 'stimulus', 'stimulus mulher', 'stimulus feminino', 'suplemento feminino', 'vitamínico feminino'] },
   { regex: /ereção|erecao|ficar duro|levantar|volumao|volumão|berinjelo|pinto loko|retardante|durar mais|demora gozar|resistencia|resistência|excitante masculino/i, terms: ['volumão', 'berinjelo', 'pinto loko', 'excitante masculino'] },
   { regex: /oral|boquete|fela[cç][aã]o|chupar|lamber|sexo oral|garganta profunda|xupa xana|blow girl|sabor|afrodisiaco oral/i, terms: ['xupa xana', 'blow girl', 'oral', 'garganta profunda', 'gel beijável'] },
   { regex: /vibrador|vibra|bullet|sugador|wearable|rabbit|ponto g|ponto-g|dildo|masturbador feminin|prazer sozinha/i, terms: ['vibrador', 'bullet', 'sugador', 'rabbit'] },
