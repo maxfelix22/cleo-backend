@@ -97,10 +97,16 @@ async function describeProductImage({ imageUrl, customerText = '', conversationC
     return { raw: payload, parsed: null };
   }
 
+  const cleanedOutputText = String(outputText || '')
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim();
+
   try {
-    return { raw: payload, parsed: JSON.parse(outputText) };
+    return { raw: payload, parsed: JSON.parse(cleanedOutputText) };
   } catch (err) {
-    return { raw: payload, parsed: null, outputText };
+    return { raw: payload, parsed: null, outputText, cleanedOutputText };
   }
 }
 
