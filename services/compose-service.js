@@ -62,7 +62,7 @@ async function composeCustomerReply(input) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'openai/gpt-5.4',
+      model: 'gpt-4.1-mini',
       input: [
         {
           role: 'user',
