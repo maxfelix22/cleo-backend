@@ -114,4 +114,50 @@ async function describeProductImage({ imageUrl, imageData, customerText = '', co
   }
 }
 
-module.exports = { describeProductImage };
+async function transcribeAudio({ audioData, mimeType = 'audio/ogg' }) {
+  ensureVisionEnv();
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  if (!audioData) {
+    throw new Error('audioData is required');
+  }
+
+  const base64 = String(audioData || '').replace(/^data:[^;]+;base64,/i, '').trim();
+  if (!base64) {
+    throw new Error('audioData base64 is empty');
+  }
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: (() => {
+      const form = new FormData();
+      const buffer = Buffer.from(base64, 'base64');
+      const ext = mimeType.includes('mpeg') ? 'mp3' : (mimeType.includes('wav') ? 'wav' : (mimeType.includes('mp4') ? 'm4a' : 'ogg'));
+      form.append('file', new Blob([buffer], { type: mimeType }), `audio.${ext}`);
+      form.append('model', 'gpt-4o-mini-transcribe');
+      form.append('response_format', 'json');
+      return form;
+    })()
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`audio upstream ${response.status}: ${text.slice(0, 500)}`);
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`audio non-json response: ${text.slice(0, 500)}`);
+  }
+
+  return { raw: payload, text: String(payload.text || '').trim() };
+}
+
+module.exports = { describeProductImage, transcribeAudio };

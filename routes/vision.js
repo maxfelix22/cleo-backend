@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { describeProductImage } = require('../services/vision-service');
+const { describeProductImage, transcribeAudio } = require('../services/vision-service');
 
 router.post('/vision/describe-product-image', async (req, res, next) => {
   try {
@@ -14,6 +14,22 @@ router.post('/vision/describe-product-image', async (req, res, next) => {
     }
 
     const result = await describeProductImage({ imageUrl, imageData, customerText, conversationContext });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/vision/transcribe-audio', async (req, res, next) => {
+  try {
+    const audioData = String(req.body.audio_data || req.body.audioData || '').trim();
+    const mimeType = String(req.body.mime_type || req.body.mimeType || 'audio/ogg').trim();
+
+    if (!audioData) {
+      return res.status(400).json({ ok: false, error: 'audio_data is required' });
+    }
+
+    const result = await transcribeAudio({ audioData, mimeType });
     return res.json({ ok: true, ...result });
   } catch (err) {
     return next(err);
