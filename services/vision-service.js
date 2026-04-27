@@ -129,20 +129,21 @@ async function transcribeAudio({ audioData, mimeType = 'audio/ogg' }) {
     throw new Error('audioData base64 is empty');
   }
 
+  const buffer = Buffer.from(base64, 'base64');
+  const ext = mimeType.includes('mpeg') ? 'mp3' : (mimeType.includes('wav') ? 'wav' : (mimeType.includes('mp4') ? 'm4a' : 'ogg'));
+  const form = new FormData();
+  form.append('file', new File([buffer], `audio.${ext}`, { type: mimeType }));
+  form.append('model', 'whisper-1');
+  form.append('response_format', 'verbose_json');
+  form.append('language', 'pt');
+  form.append('temperature', '0');
+
   const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`
     },
-    body: (() => {
-      const form = new FormData();
-      const buffer = Buffer.from(base64, 'base64');
-      const ext = mimeType.includes('mpeg') ? 'mp3' : (mimeType.includes('wav') ? 'wav' : (mimeType.includes('mp4') ? 'm4a' : 'ogg'));
-      form.append('file', new Blob([buffer], { type: mimeType }), `audio.${ext}`);
-      form.append('model', 'gpt-4o-mini-transcribe');
-      form.append('response_format', 'json');
-      return form;
-    })()
+    body: form
   });
 
   const text = await response.text();
