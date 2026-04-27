@@ -1,8 +1,8 @@
 const express = require('express');
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.get('/', (req, res) => {
   res.json({ status: 'online', service: 'Cleo Backend', timestamp: new Date().toISOString() });
