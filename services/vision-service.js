@@ -28,14 +28,14 @@ function ensureVisionEnv() {
   loadEnvFile(path.join(process.env.HOME || '', '.config/cleo/env.d/openai.env'));
 }
 
-async function describeProductImage({ imageUrl, customerText = '', conversationContext = '' }) {
+async function describeProductImage({ imageUrl, imageData, customerText = '', conversationContext = '' }) {
   ensureVisionEnv();
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY not configured');
   }
-  if (!imageUrl) {
-    throw new Error('imageUrl is required');
+  if (!imageUrl && !imageData) {
+    throw new Error('imageUrl or imageData is required');
   }
 
   const prompt = [
@@ -57,6 +57,10 @@ async function describeProductImage({ imageUrl, customerText = '', conversationC
     conversationContext ? `Contexto da conversa: ${conversationContext}` : 'Contexto da conversa: (vazio)'
   ].join('\n');
 
+  const imageContent = imageData
+    ? { type: 'input_image', image_url: imageData }
+    : { type: 'input_image', image_url: imageUrl };
+
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -70,7 +74,7 @@ async function describeProductImage({ imageUrl, customerText = '', conversationC
           role: 'user',
           content: [
             { type: 'input_text', text: prompt },
-            { type: 'input_image', image_url: imageUrl }
+            imageContent
           ]
         }
       ]

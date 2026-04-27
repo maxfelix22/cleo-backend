@@ -5,14 +5,15 @@ const { describeProductImage } = require('../services/vision-service');
 router.post('/vision/describe-product-image', async (req, res, next) => {
   try {
     const imageUrl = String(req.body.image_url || req.body.imageUrl || '').trim();
+    const imageData = String(req.body.image_data || req.body.imageData || '').trim();
     const customerText = String(req.body.customer_text || req.body.customerText || '').trim();
     const conversationContext = String(req.body.conversation_context || req.body.conversationContext || '').trim();
 
-    if (!imageUrl) {
-      return res.status(400).json({ ok: false, error: 'image_url is required' });
+    if (!imageUrl && !imageData) {
+      return res.status(400).json({ ok: false, error: 'image_url or image_data is required' });
     }
 
-    const result = await describeProductImage({ imageUrl, customerText, conversationContext });
+    const result = await describeProductImage({ imageUrl, imageData, customerText, conversationContext });
     return res.json({ ok: true, ...result });
   } catch (err) {
     return next(err);
