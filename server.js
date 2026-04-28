@@ -16,10 +16,12 @@ const cleoRoutes = require('./new_items');
 const whatsappRoutes = require('./routes/whatsapp');
 const visionRoutes = require('./routes/vision');
 const composeRoutes = require('./routes/compose');
+const openAIFirstRoutes = require('./routes/openai-first');
 app.use('/', cleoRoutes);
 app.use('/', whatsappRoutes);
 app.use('/', visionRoutes);
 app.use('/', composeRoutes);
+app.use('/', openAIFirstRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err.message);
