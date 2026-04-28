@@ -4,6 +4,7 @@ const router = express.Router();
 const { getStoreFacts } = require('../services/cleo-store-facts');
 const { searchProducts } = require('../services/catalog-service');
 const { buildSemanticContext } = require('../services/semantic-store');
+const { buildSemanticContextSupabase } = require('../services/semantic-supabase-store');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
@@ -325,7 +326,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       || mode === 'image'
     );
 
-    const semantic = buildSemanticContext(inbound.text || '');
+    const semantic = await buildSemanticContextSupabase(inbound.text || '', 5).catch(() => buildSemanticContext(inbound.text || ''));
     const bootstrapProducts = shouldLookupCatalog
       ? await searchProducts(inferCatalogQuery(inbound.text, existingContext), 5).catch(() => [])
       : [];
