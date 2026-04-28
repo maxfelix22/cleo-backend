@@ -130,9 +130,10 @@ function calculateCartSubtotal(items = [], anchorProducts = []) {
 
 function ensureCartShape(cart = {}, anchorProducts = []) {
   const items = Array.isArray(cart.items) ? cart.items : [];
+  const computedItemsCount = items.reduce((sum, item) => sum + (Number(item.qty || item.quantity || 1) || 1), 0);
   return {
     items,
-    itemsCount: Number(cart.itemsCount || items.length || 0),
+    itemsCount: Number(cart.itemsCount || computedItemsCount || items.length || 0),
     subtotal: Number(cart.subtotal || calculateCartSubtotal(items, anchorProducts) || 0),
     currency: String(cart.currency || 'USD').trim() || 'USD'
   };
@@ -266,10 +267,11 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
   const selectedPrice = selectedProduct?.price || '';
 
   if (compose.should_update_cart && selectedProduct) {
+    const requestedQty = updates.quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
     const item = {
       product_id: updates.selected_product_id || selectedProduct.id || '',
       label: updates.selected_product_name || selectedProduct.name || '',
-      qty: updates.quantity || 1,
+      qty: requestedQty,
       variation: updates.variation || '',
       unit_price: selectedPrice
     };
@@ -277,12 +279,22 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
     if (updates.action === 'set_selection') {
       cart.items = [item];
     } else if (updates.action === 'add_item') {
-      cart.items = [...cartItems, item];
+      const targetId = updates.selected_product_id || selectedProduct.id || '';
+      const existingIndex = cartItems.findIndex((existing) => (existing.product_id || existing.id || '') === targetId);
+      if (existingIndex >= 0) {
+        cart.items = cartItems.map((existing, index) => (
+          index === existingIndex
+            ? { ...existing, qty: requestedQty, variation: updates.variation || existing.variation || '', unit_price: existing.unit_price || selectedPrice }
+            : existing
+        ));
+      } else {
+        cart.items = [...cartItems, item];
+      }
     } else if (updates.action === 'update_quantity') {
       const targetId = updates.selected_product_id || selectedProduct.id || '';
       const updatedItems = cartItems.map((existing) => (
         (existing.product_id || existing.id || '') === targetId
-          ? { ...existing, qty: updates.quantity || existing.qty || 1, variation: updates.variation || existing.variation || '', unit_price: existing.unit_price || selectedPrice }
+          ? { ...existing, qty: requestedQty, variation: updates.variation || existing.variation || '', unit_price: existing.unit_price || selectedPrice }
           : existing
       ));
       cart.items = updatedItems.length > 0 ? updatedItems : [item];
@@ -300,6 +312,9 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
       unit_price: selectedPrice
     }];
   }
+
+  cart.subtotal = calculateCartSubtotal(cart.items, nextState.anchor_products);
+  cart.itemsCount = (Array.isArray(cart.items) ? cart.items : []).reduce((sum, item) => sum + (Number(item.qty || item.quantity || 1) || 1), 0);
 
   const normalizedCart = ensureCartShape(cart, nextState.anchor_products);
   const checkout = buildCheckoutSnapshot(existingContext.checkout || {}, normalizedCart, compose, existingContext.lastInboundText || '');
