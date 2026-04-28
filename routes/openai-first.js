@@ -146,7 +146,8 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
     full_name: String(existingCheckout.full_name || '').trim(),
     phone: String(existingCheckout.phone || '').trim(),
     email: String(existingCheckout.email || '').trim(),
-    address: String(existingCheckout.address || '').trim()
+    address: String(existingCheckout.address || '').trim(),
+    pickup_schedule: String(existingCheckout.pickup_schedule || '').trim()
   };
 
   const detectedDeliveryMode = detectDeliveryMode(inboundText);
@@ -174,18 +175,23 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
   if ((Array.isArray(cart.items) ? cart.items.length : 0) > 0 && compose?.conversation_goal === 'checkout') {
     if (!checkout.delivery_mode) {
       checkout.next_required_field = checkout.next_required_field || 'delivery_mode';
+    } else if (checkout.delivery_mode === 'pickup' && !checkout.pickup_schedule) {
+      checkout.next_required_field = 'pickup_schedule';
     } else if (!checkout.full_name) {
       checkout.next_required_field = 'customer_info';
     }
   }
 
-  if (isFinalizeIntent(inboundText) && checkout.delivery_mode && !checkout.full_name) {
+  if (isFinalizeIntent(inboundText) && checkout.delivery_mode === 'pickup' && !checkout.pickup_schedule) {
+    checkout.next_required_field = 'pickup_schedule';
+  } else if (isFinalizeIntent(inboundText) && checkout.delivery_mode && !checkout.full_name) {
     checkout.next_required_field = 'customer_info';
   }
 
-  if (checkout.delivery_mode && checkout.full_name && (checkout.phone || checkout.email)) {
+  const hasOperationalSchedule = checkout.delivery_mode !== 'pickup' || !!checkout.pickup_schedule;
+  if (checkout.delivery_mode && hasOperationalSchedule && checkout.full_name && (checkout.phone || checkout.email)) {
     checkout.review_ready = true;
-    checkout.next_required_field = checkout.address && checkout.delivery_mode !== 'pickup' ? 'review' : 'review';
+    checkout.next_required_field = 'review';
   }
 
   return checkout;
@@ -305,6 +311,7 @@ function deriveCurrentStage(compose = {}, existingContext = {}, checkout = {}) {
   if (compose.conversation_goal === 'checkout' || compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') {
     if (checkout.review_ready) return 'checkout_review';
     if (checkout.next_required_field === 'delivery_mode') return 'checkout_choose_delivery';
+    if (checkout.next_required_field === 'pickup_schedule') return 'checkout_pickup_schedule';
     if (checkout.next_required_field === 'customer_info') return 'checkout_collect_customer_info';
     return 'checkout_in_progress';
   }
@@ -328,11 +335,15 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
     return `${finalText}\n\nVocê prefere *pickup*, *entrega local* ou *USPS*?`;
   }
 
+  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode === 'pickup' && checkout.next_required_field === 'pickup_schedule') {
+    return 'Perfeito 💜 Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.';
+  }
+
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
     if (/pickup/i.test(checkout.delivery_mode)) {
-      return 'Perfeito 💜 Então me manda só seu *nome completo* para eu seguir com o pickup.';
+      return 'Perfeito 💜 Agora me manda só seu *nome completo* para eu seguir com o pickup.';
     }
-    return 'Perfeito 💜 Então me manda seu *nome completo* para eu seguir com a entrega.';
+    return 'Perfeito 💜 Agora me manda seu *nome completo* para eu seguir com a entrega.';
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
