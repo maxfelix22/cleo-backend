@@ -47,6 +47,30 @@ const CART_ACTIONS = new Set([
   'update_quantity'
 ]);
 
+const CONVERSATION_MOVES = new Set([
+  'discover',
+  'disambiguate_product',
+  'confirm_quantity',
+  'choose_delivery',
+  'collect_pickup_schedule',
+  'collect_customer_info',
+  'review_order',
+  'answer_question',
+  'support'
+]);
+
+const MISSING_FIELDS = new Set([
+  'product',
+  'quantity',
+  'delivery_mode',
+  'pickup_schedule',
+  'full_name',
+  'phone',
+  'email',
+  'address',
+  'none'
+]);
+
 function normalizeEnum(value, allowed, fallback) {
   const normalized = String(value || '').trim();
   return allowed.has(normalized) ? normalized : fallback;
@@ -111,7 +135,12 @@ function normalizeCheckout(checkout = {}) {
   return {
     delivery_mode: String(checkout?.delivery_mode || '').trim(),
     next_required_field: String(checkout?.next_required_field || '').trim(),
-    review_ready: Boolean(checkout?.review_ready)
+    review_ready: Boolean(checkout?.review_ready),
+    full_name: String(checkout?.full_name || '').trim(),
+    phone: String(checkout?.phone || '').trim(),
+    email: String(checkout?.email || '').trim(),
+    address: String(checkout?.address || '').trim(),
+    pickup_schedule: String(checkout?.pickup_schedule || '').trim()
   };
 }
 
@@ -246,9 +275,36 @@ function buildPrompt(input) {
     '    "next_required_field": "",',
     '    "review_ready": false',
     '  },',
-    '  "assistant_notes": ""',
+    '  "extracted_state": {',
+    '    "selected_product_id": "",',
+    '    "selected_product_name": "",',
+    '    "selected_quantity": null,',
+    '    "delivery_mode": "",',
+    '    "pickup_schedule": "",',
+    '    "full_name": "",',
+    '    "phone": "",',
+    '    "email": "",',
+    '    "address": "",',
+    '    "conversation_move": "discover|disambiguate_product|confirm_quantity|choose_delivery|collect_pickup_schedule|collect_customer_info|review_order|answer_question|support",',
+    '    "missing_fields": [],',
+    '    "needs_disambiguation": false,',
+    '    "should_review": false,',
+    '    "confidence": 0',
+    '  },',
+    '  "assistant_notes": "",',
     '  "final_text": "..."',
-    '}'
+    '}',
+    '',
+    'Extração operacional:',
+    '- use extracted_state para registrar o que a cliente já definiu no turno atual, mesmo em linguagem natural',
+    '- se a cliente disser "retirada", marcar delivery_mode = "pickup"',
+    '- se a cliente informar nome, preencher full_name',
+    '- se a cliente informar dia/horário de retirada, preencher pickup_schedule',
+    '- se houver múltiplos produtos possíveis e a cliente não deixou claro qual quer, marcar needs_disambiguation = true',
+    '- missing_fields deve listar só os campos realmente faltantes para concluir o próximo passo',
+    '- conversation_move deve refletir a próxima jogada operacional/comercial, não só a intenção geral',
+    '- should_review = true apenas quando o pedido já estiver maduro para revisão/resumo',
+    '- confidence vai de 0 a 1'
   ].join('\n');
 }
 
@@ -345,6 +401,41 @@ async function composeCustomerReply(input) {
           delivery_mode: '',
           next_required_field: '',
           review_ready: false
+        },
+    extracted_state: parsed.extracted_state && typeof parsed.extracted_state === 'object'
+      ? {
+          selected_product_id: String(parsed.extracted_state.selected_product_id || '').trim(),
+          selected_product_name: String(parsed.extracted_state.selected_product_name || '').trim(),
+          selected_quantity: parsed.extracted_state.selected_quantity == null ? null : Number(parsed.extracted_state.selected_quantity),
+          delivery_mode: String(parsed.extracted_state.delivery_mode || '').trim(),
+          pickup_schedule: String(parsed.extracted_state.pickup_schedule || '').trim(),
+          full_name: String(parsed.extracted_state.full_name || '').trim(),
+          phone: String(parsed.extracted_state.phone || '').trim(),
+          email: String(parsed.extracted_state.email || '').trim(),
+          address: String(parsed.extracted_state.address || '').trim(),
+          conversation_move: normalizeEnum(parsed.extracted_state.conversation_move, CONVERSATION_MOVES, 'discover'),
+          missing_fields: (Array.isArray(parsed.extracted_state.missing_fields) ? parsed.extracted_state.missing_fields : [])
+            .map((item) => String(item || '').trim())
+            .filter((item) => MISSING_FIELDS.has(item)),
+          needs_disambiguation: Boolean(parsed.extracted_state.needs_disambiguation),
+          should_review: Boolean(parsed.extracted_state.should_review),
+          confidence: Number(parsed.extracted_state.confidence || 0)
+        }
+      : {
+          selected_product_id: '',
+          selected_product_name: '',
+          selected_quantity: null,
+          delivery_mode: '',
+          pickup_schedule: '',
+          full_name: '',
+          phone: '',
+          email: '',
+          address: '',
+          conversation_move: 'discover',
+          missing_fields: [],
+          needs_disambiguation: false,
+          should_review: false,
+          confidence: 0
         },
     assistant_notes: String(parsed.assistant_notes || '').trim(),
     final_text: String(parsed.final_text || '').trim()

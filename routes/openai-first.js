@@ -143,8 +143,10 @@ function ensureCartShape(cart = {}, anchorProducts = []) {
   };
 }
 
-function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, inboundText = '') {
-  const checkout = {
+function applyExtractedState(existingCheckout = {}, compose = {}) {
+  const extracted = compose?.extracted_state || {};
+  const next = {
+    ...existingCheckout,
     delivery_mode: String(existingCheckout.delivery_mode || '').trim(),
     next_required_field: String(existingCheckout.next_required_field || '').trim(),
     review_ready: Boolean(existingCheckout.review_ready),
@@ -154,6 +156,35 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
     address: String(existingCheckout.address || '').trim(),
     pickup_schedule: String(existingCheckout.pickup_schedule || '').trim()
   };
+
+  if (extracted.delivery_mode) next.delivery_mode = extracted.delivery_mode;
+  if (extracted.pickup_schedule) next.pickup_schedule = extracted.pickup_schedule;
+  if (extracted.full_name) next.full_name = extracted.full_name;
+  if (extracted.phone) next.phone = extracted.phone;
+  if (extracted.email) next.email = extracted.email;
+  if (extracted.address) next.address = extracted.address;
+  if (extracted.should_review) next.review_ready = true;
+
+  const missing = Array.isArray(extracted.missing_fields) ? extracted.missing_fields : [];
+  if (missing.includes('delivery_mode')) next.next_required_field = 'delivery_mode';
+  else if (missing.includes('pickup_schedule')) next.next_required_field = 'pickup_schedule';
+  else if (missing.includes('full_name') || missing.includes('phone') || missing.includes('email') || missing.includes('address')) next.next_required_field = 'customer_info';
+  else if (extracted.should_review) next.next_required_field = 'review';
+
+  return next;
+}
+
+function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, inboundText = '') {
+  const checkout = applyExtractedState({
+    delivery_mode: String(existingCheckout.delivery_mode || '').trim(),
+    next_required_field: String(existingCheckout.next_required_field || '').trim(),
+    review_ready: Boolean(existingCheckout.review_ready),
+    full_name: String(existingCheckout.full_name || '').trim(),
+    phone: String(existingCheckout.phone || '').trim(),
+    email: String(existingCheckout.email || '').trim(),
+    address: String(existingCheckout.address || '').trim(),
+    pickup_schedule: String(existingCheckout.pickup_schedule || '').trim()
+  }, compose);
 
   const detectedDeliveryMode = detectDeliveryMode(inboundText);
   if (compose?.checkout_updates?.delivery_mode) {
@@ -250,6 +281,7 @@ function buildReviewText(context = {}) {
 }
 
 function applyComposeResultToState(existingContext = {}, compose = {}, products = []) {
+  const extracted = compose.extracted_state || {};
   const nextState = {
     conversation_goal: compose.conversation_goal || existingContext.conversation_goal || '',
     pending_offer_type: compose.pending_offer_type || existingContext.pending_offer_type || 'none',
@@ -267,11 +299,14 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
   const cart = ensureCartShape(baseCart, nextState.anchor_products);
   const cartItems = Array.isArray(cart.items) ? [...cart.items] : [];
   const updates = compose.cart_updates || {};
-  const selectedProduct = nextState.anchor_products[0] || products[0] || null;
+  const selectedProduct = nextState.anchor_products.find((product) => (
+    (extracted.selected_product_id && (product.id || '') === extracted.selected_product_id)
+    || (extracted.selected_product_name && (product.name || '').toLowerCase() === extracted.selected_product_name.toLowerCase())
+  )) || nextState.anchor_products[0] || products[0] || null;
   const selectedPrice = selectedProduct?.price || '';
 
   if (compose.should_update_cart && selectedProduct) {
-    const requestedQty = updates.quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
+    const requestedQty = updates.quantity || extracted.selected_quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
     const item = {
       product_id: updates.selected_product_id || selectedProduct.id || '',
       label: updates.selected_product_name || selectedProduct.name || '',
@@ -311,7 +346,7 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
     cart.items = [{
       product_id: selectedProduct.id || '',
       label: selectedProduct.name || '',
-      qty: updates.quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1,
+      qty: updates.quantity || extracted.selected_quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1,
       variation: updates.variation || extractRequestedSize(existingContext.lastInboundText || '') || '',
       unit_price: selectedPrice
     }];
@@ -658,7 +693,9 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
-    const shouldDisambiguateProduct = requiresProductDisambiguation(existingContext, products, effectiveText);
+    const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
+    const composed = mediaFailureReply ? null : await composeCustomerReply(composeInput);
+    const shouldDisambiguateProduct = heuristicDisambiguation || Boolean(composed?.extracted_state?.needs_disambiguation);
     const compose = mediaFailureReply
       ? {
           raw: null,
@@ -709,7 +746,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
             assistant_notes: 'multiple shortlist candidates with generic purchase/quantity signal; force product disambiguation before cart update',
             final_text: buildDisambiguationReply(existingContext, products),
           }
-        : await composeCustomerReply(composeInput);
+        : composed;
     const applied = applyComposeResultToState({ ...existingContext, lastInboundText: effectiveText || '' }, compose, products);
     const draftContext = {
       ...existingContext,
