@@ -154,12 +154,25 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}) {
 }
 
 function buildReviewText(context = {}) {
-  const cart = ensureCartShape(context.cart || {}, context.lastProducts || []);
+  const anchors = Array.isArray(context.lastProducts) ? context.lastProducts : [];
+  const cart = ensureCartShape(context.cart || {}, anchors);
   const checkout = context.checkout || {};
   const items = Array.isArray(cart.items) ? cart.items : [];
-  if (items.length === 0) return '';
+  if (items.length === 0 && anchors.length === 0) return '';
 
-  const itemLines = items.map((item) => {
+  const effectiveItems = items.length > 0
+    ? items.map((item) => ({
+        ...item,
+        label: item.label || item.name || anchors[0]?.name || 'item',
+        unit_price: item.unit_price || anchors.find((anchor) => (anchor.id || '') === (item.product_id || item.id || ''))?.price || anchors[0]?.price || ''
+      }))
+    : [{
+        qty: 1,
+        label: anchors[0]?.name || 'item',
+        unit_price: anchors[0]?.price || ''
+      }];
+
+  const itemLines = effectiveItems.map((item) => {
     const qty = Number(item.qty || item.quantity || 1) || 1;
     const label = item.label || item.name || 'item';
     const unitPrice = item.unit_price || '';
@@ -173,7 +186,14 @@ function buildReviewText(context = {}) {
   if (checkout.delivery_mode === 'local_delivery') shippingLabel = 'Entrega local';
   if (checkout.delivery_mode === 'usps') shippingLabel = cart.subtotal >= 99 ? 'USPS grátis' : 'USPS $10';
 
-  const totalText = cart.subtotal > 0 ? `$${cart.subtotal.toFixed(2)}` : '';
+  const computedSubtotal = cart.subtotal > 0
+    ? cart.subtotal
+    : effectiveItems.reduce((sum, item) => {
+        const qty = Number(item.qty || item.quantity || 1) || 1;
+        const numeric = Number(String(item.unit_price || '').replace(/[^\d.]/g, '')) || 0;
+        return sum + (numeric * qty);
+      }, 0);
+  const totalText = computedSubtotal > 0 ? `$${computedSubtotal.toFixed(2)}` : '';
   const shippingLine = shippingLabel ? `\n• Entrega: ${shippingLabel}` : '';
   const totalLine = totalText ? `\n• Subtotal: ${totalText}` : '';
 

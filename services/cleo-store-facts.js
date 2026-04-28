@@ -14,7 +14,7 @@ function escapeRegExp(value = '') {
 
 function matchLine(text, label) {
   const safeLabel = escapeRegExp(label);
-  const regex = new RegExp(`- \*\*${safeLabel}:\*\*\\s*(.+)`, 'i');
+  const regex = new RegExp(`- \\*\\*${safeLabel}:\\*\\*\\s*(.+)`, 'i');
   const match = text.match(regex);
   return match ? String(match[1] || '').trim() : '';
 }
