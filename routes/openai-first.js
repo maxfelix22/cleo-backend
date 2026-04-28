@@ -5,6 +5,7 @@ const { getStoreFacts } = require('../services/cleo-store-facts');
 const { searchProducts } = require('../services/catalog-service');
 const { buildSemanticContext } = require('../services/semantic-store');
 const { buildSemanticContextSupabase } = require('../services/semantic-supabase-store');
+const { resolveHybridProducts } = require('../services/hybrid-product-resolver');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
@@ -331,14 +332,13 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       ? await searchProducts(inferCatalogQuery(inbound.text, existingContext), 5).catch(() => [])
       : [];
 
-    const mergedProducts = [];
-    const seenProductIds = new Set();
-    for (const product of [...bootstrapProducts, ...(semantic.products || [])]) {
-      const id = String(product?.id || '').trim() || String(product?.name || '').trim();
-      if (!id || seenProductIds.has(id)) continue;
-      seenProductIds.add(id);
-      mergedProducts.push(product);
-    }
+    const mergedProducts = resolveHybridProducts({
+      text: inbound.text || '',
+      intentIds: semantic.intent_ids || [],
+      semanticProducts: semantic.products || [],
+      squareProducts: bootstrapProducts || [],
+      limit: 5,
+    });
 
     const previousState = buildConversationState(existingContext, conversation, mergedProducts);
     const products = mergedProducts.length > 0
@@ -474,7 +474,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       conversationId: nextContext.conversationId || '',
       customerId: nextContext.customerId || '',
       semantic,
-      note: 'OpenAI-first inbound com P0 textual endurecido + base semântica integrada'
+      note: 'OpenAI-first inbound com P0 textual endurecido + base semântica integrada + ranking híbrido Supabase/Square'
     });
   } catch (err) {
     return next(err);
