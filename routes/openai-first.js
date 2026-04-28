@@ -6,7 +6,6 @@ const { searchProducts } = require('../services/catalog-service');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
-const { applyCheckoutState } = require('../services/checkout-state');
 const { composeCustomerReply } = require('../services/compose-service');
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 
@@ -31,6 +30,10 @@ function isShortContinuation(text = '') {
 
 function isPurchaseIntent(text = '') {
   return /(quero comprar|vou querer|quero levar|quero esse|quero essa|gostei desse|gostei dessa|fechar pedido|quero finalizar|finalizar|me manda o total)/i.test(String(text || ''));
+}
+
+function isFinalizeIntent(text = '') {
+  return /(finalizar|fechar pedido|me manda o total|quero finalizar|fechou|pode fechar|vamos fechar)/i.test(String(text || ''));
 }
 
 function inferCatalogQuery(messageText = '', state = {}) {
@@ -65,7 +68,6 @@ function buildBusinessRules() {
 
 function buildConversationState(existingContext = {}, conversation = null, products = []) {
   const payload = existingContext.lastProductPayload || conversation?.last_product_payload || null;
-  const currentCart = existingContext.cart || payload?.cart || { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' };
   const fallbackAnchorProducts = Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0
     ? existingContext.lastProducts
     : (payload ? [payload] : []);
@@ -92,6 +94,92 @@ function buildConversationState(existingContext = {}, conversation = null, produ
   };
 }
 
+function calculateCartSubtotal(items = [], anchorProducts = []) {
+  const anchors = Array.isArray(anchorProducts) ? anchorProducts : [];
+  return (Array.isArray(items) ? items : []).reduce((sum, item) => {
+    const productId = item.product_id || item.id || '';
+    const anchor = anchors.find((product) => (product.id || '') === productId)
+      || anchors.find((product) => (product.name || '') === (item.label || item.name || ''));
+    const priceRaw = item.unit_price || anchor?.price || '';
+    const numeric = Number(String(priceRaw).replace(/[^\d.]/g, '')) || 0;
+    const qty = Number(item.qty || item.quantity || 1) || 1;
+    return sum + (numeric * qty);
+  }, 0);
+}
+
+function ensureCartShape(cart = {}, anchorProducts = []) {
+  const items = Array.isArray(cart.items) ? cart.items : [];
+  return {
+    items,
+    itemsCount: Number(cart.itemsCount || items.length || 0),
+    subtotal: Number(cart.subtotal || calculateCartSubtotal(items, anchorProducts) || 0),
+    currency: String(cart.currency || 'USD').trim() || 'USD'
+  };
+}
+
+function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}) {
+  const checkout = {
+    delivery_mode: String(existingCheckout.delivery_mode || '').trim(),
+    next_required_field: String(existingCheckout.next_required_field || '').trim(),
+    review_ready: Boolean(existingCheckout.review_ready),
+    full_name: String(existingCheckout.full_name || '').trim(),
+    phone: String(existingCheckout.phone || '').trim(),
+    email: String(existingCheckout.email || '').trim(),
+    address: String(existingCheckout.address || '').trim()
+  };
+
+  if (compose?.checkout_updates?.delivery_mode) {
+    checkout.delivery_mode = String(compose.checkout_updates.delivery_mode || '').trim();
+  }
+  if (compose?.checkout_updates?.next_required_field) {
+    checkout.next_required_field = String(compose.checkout_updates.next_required_field || '').trim();
+  }
+  if (typeof compose?.checkout_updates?.review_ready === 'boolean') {
+    checkout.review_ready = Boolean(compose.checkout_updates.review_ready);
+  }
+
+  if (compose?.reply_mode === 'close_sale' && !checkout.next_required_field) {
+    checkout.next_required_field = 'delivery_mode';
+  }
+
+  if (compose?.reply_mode === 'checkout_next' && !checkout.next_required_field) {
+    checkout.next_required_field = 'customer_info';
+  }
+
+  if ((Array.isArray(cart.items) ? cart.items.length : 0) > 0 && !checkout.delivery_mode && compose?.conversation_goal === 'checkout') {
+    checkout.next_required_field = checkout.next_required_field || 'delivery_mode';
+  }
+
+  return checkout;
+}
+
+function buildReviewText(context = {}) {
+  const cart = ensureCartShape(context.cart || {}, context.lastProducts || []);
+  const checkout = context.checkout || {};
+  const items = Array.isArray(cart.items) ? cart.items : [];
+  if (items.length === 0) return '';
+
+  const itemLines = items.map((item) => {
+    const qty = Number(item.qty || item.quantity || 1) || 1;
+    const label = item.label || item.name || 'item';
+    const unitPrice = item.unit_price || '';
+    return unitPrice
+      ? `• ${qty}x ${label} — ${unitPrice}`
+      : `• ${qty}x ${label}`;
+  });
+
+  let shippingLabel = '';
+  if (checkout.delivery_mode === 'pickup') shippingLabel = 'Pickup grátis';
+  if (checkout.delivery_mode === 'local_delivery') shippingLabel = 'Entrega local';
+  if (checkout.delivery_mode === 'usps') shippingLabel = cart.subtotal >= 99 ? 'USPS grátis' : 'USPS $10';
+
+  const totalText = cart.subtotal > 0 ? `$${cart.subtotal.toFixed(2)}` : '';
+  const shippingLine = shippingLabel ? `\n• Entrega: ${shippingLabel}` : '';
+  const totalLine = totalText ? `\n• Subtotal: ${totalText}` : '';
+
+  return `Fechado 💜 Seu pedido está assim até aqui:\n\n${itemLines.join('\n')}${shippingLine}${totalLine}`;
+}
+
 function applyComposeResultToState(existingContext = {}, compose = {}, products = []) {
   const nextState = {
     conversation_goal: compose.conversation_goal || existingContext.conversation_goal || '',
@@ -103,20 +191,23 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
       : (Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0 ? existingContext.lastProducts : products.slice(0, 3))
   };
 
-  const cart = existingContext.cart && typeof existingContext.cart === 'object'
+  const baseCart = existingContext.cart && typeof existingContext.cart === 'object'
     ? { ...existingContext.cart }
     : { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' };
 
+  const cart = ensureCartShape(baseCart, nextState.anchor_products);
   const cartItems = Array.isArray(cart.items) ? [...cart.items] : [];
   const updates = compose.cart_updates || {};
   const selectedProduct = nextState.anchor_products[0] || products[0] || null;
+  const selectedPrice = selectedProduct?.price || '';
 
   if (compose.should_update_cart && selectedProduct) {
     const item = {
       product_id: updates.selected_product_id || selectedProduct.id || '',
       label: updates.selected_product_name || selectedProduct.name || '',
       qty: updates.quantity || 1,
-      variation: updates.variation || ''
+      variation: updates.variation || '',
+      unit_price: selectedPrice
     };
 
     if (updates.action === 'set_selection') {
@@ -125,25 +216,59 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
       cart.items = [...cartItems, item];
     } else if (updates.action === 'update_quantity') {
       const targetId = updates.selected_product_id || selectedProduct.id || '';
-      cart.items = cartItems.map((existing) => (
+      const updatedItems = cartItems.map((existing) => (
         (existing.product_id || existing.id || '') === targetId
-          ? { ...existing, qty: updates.quantity || existing.qty || 1, variation: updates.variation || existing.variation || '' }
+          ? { ...existing, qty: updates.quantity || existing.qty || 1, variation: updates.variation || existing.variation || '', unit_price: existing.unit_price || selectedPrice }
           : existing
       ));
-      if (cart.items.length === 0 && item.label) cart.items = [item];
+      cart.items = updatedItems.length > 0 ? updatedItems : [item];
     } else if (item.label && cartItems.length === 0) {
       cart.items = [item];
     }
   }
 
-  cart.itemsCount = Array.isArray(cart.items) ? cart.items.length : 0;
+  if ((compose.reply_mode === 'close_sale' || compose.reply_mode === 'checkout_next') && selectedProduct && cart.items.length === 0) {
+    cart.items = [{
+      product_id: selectedProduct.id || '',
+      label: selectedProduct.name || '',
+      qty: updates.quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1,
+      variation: updates.variation || extractRequestedSize(existingContext.lastInboundText || '') || '',
+      unit_price: selectedPrice
+    }];
+  }
 
-  const checkout = {
-    ...(existingContext.checkout || {}),
-    ...(compose.checkout_updates || {})
-  };
+  const normalizedCart = ensureCartShape(cart, nextState.anchor_products);
+  const checkout = buildCheckoutSnapshot(existingContext.checkout || {}, normalizedCart, compose);
 
-  return { nextState, cart, checkout };
+  return { nextState, cart: normalizedCart, checkout };
+}
+
+function deriveCurrentStage(compose = {}, existingContext = {}, checkout = {}) {
+  if (compose.conversation_goal === 'checkout' || compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') {
+    if (checkout.review_ready) return 'checkout_review';
+    if (checkout.next_required_field === 'delivery_mode') return 'checkout_choose_delivery';
+    if (checkout.next_required_field === 'customer_info') return 'checkout_collect_customer_info';
+    return 'checkout_in_progress';
+  }
+  return existingContext.currentStage || 'catalog_browse';
+}
+
+function enrichFinalText(compose = {}, contextDraft = {}) {
+  const finalText = String(compose.final_text || '').trim();
+  if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
+
+  if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
+    const review = buildReviewText(contextDraft);
+    if (review) {
+      return `${review}\n\n${finalText}`;
+    }
+  }
+
+  if (compose.reply_mode === 'close_sale' && !/pickup|USPS|entrega/i.test(finalText)) {
+    return `${finalText}\n\nVocê prefere *pickup*, *entrega local* ou *USPS*?`;
+  }
+
+  return finalText;
 }
 
 router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
@@ -163,7 +288,6 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     });
 
     const conversation = conversationResult?.conversation || null;
-    const previousState = buildConversationState(existingContext, conversation, []);
     const mode = inbound.numMedia > 0 && inbound.mediaContentType?.startsWith('image/')
       ? 'image'
       : inbound.numMedia > 0 && inbound.mediaContentType?.startsWith('audio/')
@@ -177,9 +301,14 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       || mode === 'image'
     );
 
-    const products = shouldLookupCatalog
-      ? await searchProducts(inferCatalogQuery(inbound.text, previousState), 5).catch(() => [])
+    const bootstrapProducts = shouldLookupCatalog
+      ? await searchProducts(inferCatalogQuery(inbound.text, existingContext), 5).catch(() => [])
       : [];
+
+    const previousState = buildConversationState(existingContext, conversation, bootstrapProducts);
+    const products = bootstrapProducts.length > 0
+      ? bootstrapProducts
+      : (Array.isArray(previousState.anchor_products) ? previousState.anchor_products : []);
 
     const recentMessages = normalizeRecentMessages([]);
     const storeFacts = getStoreFacts();
@@ -197,14 +326,14 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
         user_request: inbound.text || ''
       } : null,
       summary: conversation?.summary || existingContext.summary || '',
-      intent: '',
-      intent_group: '',
+      intent: isShortContinuation(inbound.text) ? 'short_continuation' : (isPurchaseIntent(inbound.text) ? 'purchase_signal' : ''),
+      intent_group: isFinalizeIntent(inbound.text) ? 'checkout' : '',
       current_stage: conversation?.current_stage || existingContext.currentStage || '',
       customer_signal: inbound.text || '',
       conversation_state: previousState,
       selected_product: previousState.anchor_products?.[0] || products[0] || null,
       products_found: products,
-      cart: existingContext.cart || conversation?.last_product_payload?.cart || { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' },
+      cart: ensureCartShape(existingContext.cart || conversation?.last_product_payload?.cart || { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' }, previousState.anchor_products || products),
       checkout: existingContext.checkout || conversation?.last_product_payload?.checkout || { delivery_mode: '', next_required_field: '', review_ready: false },
       store_facts: storeFacts,
       business_rules: buildBusinessRules(),
@@ -212,32 +341,43 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const compose = await composeCustomerReply(composeInput);
-    const applied = applyComposeResultToState(existingContext, compose, products);
+    const applied = applyComposeResultToState({ ...existingContext, lastInboundText: inbound.text || '' }, compose, products);
+    const draftContext = {
+      ...existingContext,
+      cart: applied.cart,
+      checkout: applied.checkout,
+      lastProducts: applied.nextState.anchor_products,
+      lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
+    };
+    const finalText = enrichFinalText(compose, draftContext);
 
-    let nextContext = saveContext(contextKey, {
+    const nextContext = saveContext(contextKey, {
       ...existingContext,
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
       conversationId: conversation?.id || existingContext.conversationId || '',
       lastInboundText: inbound.text,
-      lastReplyText: compose.final_text,
+      lastReplyText: finalText,
       lastProducts: applied.nextState.anchor_products,
       lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
-      lastProductPayload: applied.nextState.anchor_products?.[0] || null,
+      lastProductPayload: {
+        ...(applied.nextState.anchor_products?.[0] || {}),
+        cart: applied.cart,
+        checkout: applied.checkout,
+        conversation_goal: applied.nextState.conversation_goal,
+        pending_offer_type: applied.nextState.pending_offer_type,
+        expected_next_user_move: applied.nextState.expected_next_user_move,
+        last_seller_question: applied.nextState.last_seller_question,
+      },
       cart: applied.cart,
       checkout: applied.checkout,
       conversation_goal: applied.nextState.conversation_goal,
       pending_offer_type: applied.nextState.pending_offer_type,
       expected_next_user_move: applied.nextState.expected_next_user_move,
       last_seller_question: applied.nextState.last_seller_question,
-      currentStage: compose.conversation_goal === 'checkout' || compose.reply_mode === 'checkout_next'
-        ? 'checkout_in_progress'
-        : (existingContext.currentStage || conversation?.current_stage || 'catalog_browse'),
-      summary: compose.final_text,
+      currentStage: deriveCurrentStage(compose, existingContext, applied.checkout),
+      summary: finalText,
     });
-
-    nextContext = applyCheckoutState(nextContext, { text: inbound.text || '' });
-    nextContext = saveContext(contextKey, nextContext);
 
     await updateConversationState({
       conversationId: nextContext.conversationId,
@@ -271,7 +411,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       customer_id: nextContext.customerId || null,
       channel: inbound.channel,
       direction: 'outbound',
-      message_text: compose.final_text,
+      message_text: finalText,
       payload: {
         reply_mode: compose.reply_mode,
         conversation_goal: compose.conversation_goal,
@@ -285,12 +425,12 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     return res.json({
       ok: true,
       inbound,
-      compose,
+      compose: { ...compose, final_text: finalText },
       products,
       context: nextContext,
       conversationId: nextContext.conversationId || '',
       customerId: nextContext.customerId || '',
-      note: 'OpenAI-first inbound scaffold com estado canônico e compose real'
+      note: 'OpenAI-first inbound com P0 textual endurecido para continuidade, compra e checkout'
     });
   } catch (err) {
     return next(err);

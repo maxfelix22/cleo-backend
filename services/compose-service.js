@@ -178,11 +178,13 @@ function buildPrompt(input) {
     '- soar como vendedora real: curta, direta, viva e natural',
     '- nunca julgar a cliente',
     '- se a cliente disser "sim", "me mostra", "mostra aí", "quero ver", tratar isso como continuação quando houver oferta ou pergunta pendente',
-    '- se a cliente disser "quero comprar", "vou querer 2", "quero finalizar", tratar isso como sinal de conversão e avançar checkout',
+    '- se a cliente disser "quero comprar", "vou querer 2", "quero finalizar", "me manda o total", tratar isso como sinal de conversão e avançar checkout',
     '- se houver produto selecionado ou âncoras fortes, priorizar esses produtos',
     '- se houver 2 ou 3 boas opções, você pode listar 2 ou 3 com preço',
     '- se o item visual estiver fora do catálogo, responder honestamente',
     '- se faltar só um dado operacional obrigatório, pedir apenas o próximo dado necessário',
+    '- se a conversa já estiver em checkout, empurrar para o próximo campo ou revisão em vez de voltar para discovery',
+    '- se a cliente pedir para finalizar ou pedir o total, pensar em modo checkout e não em modo descoberta',
     '',
     'Princípios de decisão:',
     '- discovery -> mostrar opção útil',
@@ -192,6 +194,7 @@ function buildPrompt(input) {
     '- compra -> assumir item/quantidade e puxar entrega ou próximo campo do checkout',
     '- visual -> responder o item/produto da imagem e seguir a venda se possível',
     '- checkout -> empurrar a conversa para o próximo campo obrigatório',
+    '- finalize/total -> revisar carrinho atual, consolidar pedido e levar para entrega/revisão',
     '',
     `canal: ${channel}`,
     `modo: ${mode}`,
@@ -234,6 +237,7 @@ function buildPrompt(input) {
     '    "next_required_field": "",',
     '    "review_ready": false',
     '  },',
+    '  "assistant_notes": ""',
     '  "final_text": "..."',
     '}'
   ].join('\n');
@@ -333,6 +337,7 @@ async function composeCustomerReply(input) {
           next_required_field: '',
           review_ready: false
         },
+    assistant_notes: String(parsed.assistant_notes || '').trim(),
     final_text: String(parsed.final_text || '').trim()
   };
 }
