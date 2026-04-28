@@ -1,10 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const SEMANTIC_JSON_PATH = process.env.CLEO_SEMANTIC_JSON_PATH
-  || '/home/maxwel/.openclaw/media/inbound/Cleo_Base_Semantica_Supabase---0d70b363-7fdf-44a5-a0da-ebd31b1b99d2.json';
+const DEFAULT_SEMANTIC_JSON_PATHS = [
+  process.env.CLEO_SEMANTIC_JSON_PATH,
+  '/home/maxwel/.openclaw/media/inbound/Cleo_Base_Semantica_Supabase---0d70b363-7fdf-44a5-a0da-ebd31b1b99d2.json',
+  '/home/maxwel/.openclaw/media/inbound/Cleo_Base_Semantica_Supabase---fc8820b2-7e8e-4830-b51c-107fa93b4d43.json',
+].filter(Boolean);
 
 let semanticCache = null;
+let resolvedSemanticPath = null;
 
 function normalizeText(text = '') {
   return String(text || '')
@@ -14,9 +18,21 @@ function normalizeText(text = '') {
     .trim();
 }
 
+function resolveSemanticJsonPath() {
+  if (resolvedSemanticPath) return resolvedSemanticPath;
+  const found = DEFAULT_SEMANTIC_JSON_PATHS.find((candidate) => candidate && fs.existsSync(candidate));
+  resolvedSemanticPath = found || null;
+  return resolvedSemanticPath;
+}
+
 function loadSemanticBase() {
   if (semanticCache) return semanticCache;
-  const raw = fs.readFileSync(SEMANTIC_JSON_PATH, 'utf8');
+  const semanticPath = resolveSemanticJsonPath();
+  if (!semanticPath) {
+    semanticCache = { intents: [], products: [], synonyms: [] };
+    return semanticCache;
+  }
+  const raw = fs.readFileSync(semanticPath, 'utf8');
   const parsed = JSON.parse(raw);
   semanticCache = parsed;
   return semanticCache;
@@ -162,7 +178,6 @@ function buildSemanticContext(text = '') {
 }
 
 module.exports = {
-  SEMANTIC_JSON_PATH,
   loadSemanticBase,
   inferIntentsFromText,
   searchSemanticProducts,
