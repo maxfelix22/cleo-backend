@@ -54,6 +54,25 @@ function detectDeliveryMode(text = '') {
   return '';
 }
 
+function extractPhoneNumber(text = '') {
+  const digits = String(text || '').replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
+  return '';
+}
+
+function extractFullName(text = '') {
+  const normalized = String(text || '').trim();
+  if (!normalized) return '';
+  const explicit = normalized.match(/(?:meu nome é|sou|pode colocar no nome de)\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+){1,4})/i);
+  if (explicit) return explicit[1].trim();
+  if (/^([A-Za-zÀ-ÿ]+\s+[A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+){0,3})$/.test(normalized) && !/\d/.test(normalized)) {
+    return normalized;
+  }
+  return '';
+}
+
 function inferCatalogQuery(messageText = '', state = {}, mediaHints = {}) {
   const text = String(messageText || '').trim();
   if (text) return text;
@@ -143,7 +162,7 @@ function ensureCartShape(cart = {}, anchorProducts = []) {
   };
 }
 
-function applyExtractedState(existingCheckout = {}, compose = {}) {
+function applyExtractedState(existingCheckout = {}, compose = {}, inboundText = '') {
   const extracted = compose?.extracted_state || {};
   const next = {
     ...existingCheckout,
@@ -161,6 +180,8 @@ function applyExtractedState(existingCheckout = {}, compose = {}) {
   if (extracted.pickup_schedule) next.pickup_schedule = extracted.pickup_schedule;
   if (extracted.full_name) next.full_name = extracted.full_name;
   if (extracted.phone) next.phone = extracted.phone;
+  if (!next.full_name) next.full_name = extractFullName(inboundText);
+  if (!next.phone) next.phone = extractPhoneNumber(inboundText);
   if (extracted.email) next.email = extracted.email;
   if (extracted.address) next.address = extracted.address;
   if (extracted.should_review) next.review_ready = true;
@@ -184,7 +205,7 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
     email: String(existingCheckout.email || '').trim(),
     address: String(existingCheckout.address || '').trim(),
     pickup_schedule: String(existingCheckout.pickup_schedule || '').trim()
-  }, compose);
+  }, compose, inboundText);
 
   const detectedDeliveryMode = detectDeliveryMode(inboundText);
   if (compose?.checkout_updates?.delivery_mode) {
@@ -448,10 +469,21 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
-    if (/pickup/i.test(checkout.delivery_mode)) {
-      return 'Perfeito 💜 Agora me manda só seu *nome completo* para eu seguir com o pickup.';
+    const review = buildReviewText(contextDraft);
+    const lead = review ? `${review}\n\n` : '';
+    if (!checkout.full_name) {
+      if (/pickup/i.test(checkout.delivery_mode)) {
+        return `${lead}Perfeito 💜 Agora me manda só seu *nome completo* para eu seguir com o pickup.`;
+      }
+      return `${lead}Perfeito 💜 Agora me manda seu *nome completo* para eu seguir com a entrega.`;
     }
-    return 'Perfeito 💜 Agora me manda seu *nome completo* para eu seguir com a entrega.';
+    if (!checkout.phone) {
+      return `${lead}Fechado 💜 Pra eu finalizar certinho, me manda só seu *telefone*.`;
+    }
+    if (!checkout.email && /usps|local_delivery/i.test(checkout.delivery_mode)) {
+      return `${lead}Perfeito 💜 Agora me manda um *telefone ou e-mail* para eu seguir.`;
+    }
+    return `${lead}Perfeito 💜 Me manda só o próximo dado pra eu concluir certinho.`;
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
