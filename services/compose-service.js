@@ -142,6 +142,8 @@ function buildPrompt(input) {
     vision_result = null,
     selected_product = null,
     products_found = [],
+    semantic_candidates = [],
+    semantic_intent_candidates = [],
     cart = {},
     checkout = {},
     store_facts = {},
@@ -151,6 +153,7 @@ function buildPrompt(input) {
   } = input || {};
 
   const topProducts = normalizeProducts(products_found, 5);
+  const topSemanticCandidates = normalizeProducts(semantic_candidates, 5);
   const safeSelectedProduct = selected_product
     ? normalizeProducts([selected_product], 1)[0]
     : null;
@@ -169,6 +172,7 @@ function buildPrompt(input) {
     '- responder de forma curta, humana, natural e vendedora',
     '- quando já houver contexto suficiente, avançar em vez de repetir convite',
     '- quando a cliente já quiser comprar, assumir a venda e empurrar para checkout',
+    '- usar os candidatos semânticos e templates comerciais como repertório principal de venda',
     '',
     'Regras obrigatórias:',
     '- nunca inventar fatos, preço, estoque, política, frete ou disponibilidade',
@@ -180,6 +184,7 @@ function buildPrompt(input) {
     '- se a cliente disser "sim", "me mostra", "mostra aí", "quero ver", tratar isso como continuação quando houver oferta ou pergunta pendente',
     '- se a cliente disser "quero comprar", "vou querer 2", "quero finalizar", "me manda o total", tratar isso como sinal de conversão e avançar checkout',
     '- se houver produto selecionado ou âncoras fortes, priorizar esses produtos',
+    '- se houver candidatos semânticos fortes, usar nome, benefício e template deles para vender com mais precisão',
     '- se houver 2 ou 3 boas opções, você pode listar 2 ou 3 com preço',
     '- se o item visual estiver fora do catálogo, responder honestamente',
     '- se faltar só um dado operacional obrigatório, pedir apenas o próximo dado necessário',
@@ -211,6 +216,8 @@ function buildPrompt(input) {
     `selected_product: ${JSON.stringify(safeSelectedProduct || null)}`,
     `anchor_products: ${JSON.stringify(anchorProducts)}`,
     `products_found: ${JSON.stringify(topProducts)}`,
+    `semantic_candidates: ${JSON.stringify(topSemanticCandidates)}`,
+    `semantic_intent_candidates: ${JSON.stringify(Array.isArray(semantic_intent_candidates) ? semantic_intent_candidates.slice(0, 8) : [])}`,
     `cart: ${JSON.stringify(safeCart)}`,
     `checkout: ${JSON.stringify(safeCheckout)}`,
     `store_facts: ${JSON.stringify(store_facts || {})}`,

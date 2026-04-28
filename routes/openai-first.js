@@ -3,6 +3,7 @@ const router = express.Router();
 
 const { getStoreFacts } = require('../services/cleo-store-facts');
 const { searchProducts } = require('../services/catalog-service');
+const { buildSemanticContext } = require('../services/semantic-store');
 const { getConversationKey, getContext, saveContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
@@ -57,12 +58,15 @@ function normalizeRecentMessages(events = []) {
 function buildBusinessRules() {
   return {
     tone: ['curto', 'direto', 'vivo', 'natural', 'vendedor'],
+    persona: ['amiga safadinha', 'carinhosa', 'picante sem ser vulgar'],
     avoid_opening: ['Olá!'],
     preferred_openings: ['Tenho sim 💜', 'Perfeito 💜', 'Te mostro sim 💜', 'Fechado 💜', 'Separei algumas opções pra você 💜'],
     cart_policy: 'Cart-first sempre que houver intenção de compra real.',
     continuity_policy: 'Quando houver pending offer, tratar sim/me mostra/quero ver como continuação.',
     checkout_policy: 'Pedir só o próximo dado operacional necessário.',
-    visual_policy: 'Visual precisa ter contrato único até o send.'
+    visual_policy: 'Visual precisa ter contrato único até o send.',
+    upsell_policy: 'Fazer upsell sutil e relevante quando houver fit claro.',
+    trust_policy: 'Nunca julgar, nunca soar clínica, nunca inventar produto fora da base.'
   };
 }
 
@@ -321,13 +325,23 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       || mode === 'image'
     );
 
+    const semantic = buildSemanticContext(inbound.text || '');
     const bootstrapProducts = shouldLookupCatalog
       ? await searchProducts(inferCatalogQuery(inbound.text, existingContext), 5).catch(() => [])
       : [];
 
-    const previousState = buildConversationState(existingContext, conversation, bootstrapProducts);
-    const products = bootstrapProducts.length > 0
-      ? bootstrapProducts
+    const mergedProducts = [];
+    const seenProductIds = new Set();
+    for (const product of [...bootstrapProducts, ...(semantic.products || [])]) {
+      const id = String(product?.id || '').trim() || String(product?.name || '').trim();
+      if (!id || seenProductIds.has(id)) continue;
+      seenProductIds.add(id);
+      mergedProducts.push(product);
+    }
+
+    const previousState = buildConversationState(existingContext, conversation, mergedProducts);
+    const products = mergedProducts.length > 0
+      ? mergedProducts
       : (Array.isArray(previousState.anchor_products) ? previousState.anchor_products : []);
 
     const recentMessages = normalizeRecentMessages([]);
@@ -346,13 +360,21 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
         user_request: inbound.text || ''
       } : null,
       summary: conversation?.summary || existingContext.summary || '',
-      intent: isShortContinuation(inbound.text) ? 'short_continuation' : (isPurchaseIntent(inbound.text) ? 'purchase_signal' : ''),
-      intent_group: isFinalizeIntent(inbound.text) ? 'checkout' : '',
+      intent: isShortContinuation(inbound.text)
+        ? 'short_continuation'
+        : (isPurchaseIntent(inbound.text)
+          ? 'purchase_signal'
+          : ((semantic.intent_ids || [])[0] || '')),
+      intent_group: isFinalizeIntent(inbound.text)
+        ? 'checkout'
+        : (((semantic.intent_ids || []).length > 1) ? 'semantic_multi_intent' : ''),
       current_stage: conversation?.current_stage || existingContext.currentStage || '',
       customer_signal: inbound.text || '',
       conversation_state: previousState,
       selected_product: previousState.anchor_products?.[0] || products[0] || null,
       products_found: products,
+      semantic_candidates: semantic.products || [],
+      semantic_intent_candidates: semantic.intent_candidates || [],
       cart: ensureCartShape(existingContext.cart || conversation?.last_product_payload?.cart || { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' }, previousState.anchor_products || products),
       checkout: existingContext.checkout || conversation?.last_product_payload?.checkout || { delivery_mode: '', next_required_field: '', review_ready: false },
       store_facts: storeFacts,
@@ -450,7 +472,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       context: nextContext,
       conversationId: nextContext.conversationId || '',
       customerId: nextContext.customerId || '',
-      note: 'OpenAI-first inbound com P0 textual endurecido para continuidade, compra e checkout'
+      semantic,
+      note: 'OpenAI-first inbound com P0 textual endurecido + base semântica integrada'
     });
   } catch (err) {
     return next(err);
