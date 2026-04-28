@@ -10,6 +10,8 @@ const { getConversationKey, getContext, saveContext } = require('../services/con
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
 const { composeCustomerReply } = require('../services/compose-service');
+const { describeProductImage, transcribeAudio } = require('../services/vision-service');
+const { downloadTwilioMediaAsBase64 } = require('../services/twilio-media');
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
 
 function extractRequestedQuantity(text = '') {
@@ -39,9 +41,13 @@ function isFinalizeIntent(text = '') {
   return /(finalizar|fechar pedido|me manda o total|quero finalizar|fechou|pode fechar|vamos fechar)/i.test(String(text || ''));
 }
 
-function inferCatalogQuery(messageText = '', state = {}) {
+function inferCatalogQuery(messageText = '', state = {}, mediaHints = {}) {
   const text = String(messageText || '').trim();
   if (text) return text;
+  const visualHint = String(mediaHints?.product_type_guess || mediaHints?.category_guess || '').trim();
+  if (visualHint) return visualHint;
+  const audioHint = String(mediaHints?.audio_transcription || '').trim();
+  if (audioHint) return audioHint;
   const anchors = Array.isArray(state.anchor_products) ? state.anchor_products : [];
   return anchors[0]?.name || '';
 }
@@ -297,6 +303,70 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   return finalText;
 }
 
+async function resolveInboundMedia(inbound = {}, conversationSummary = '') {
+  const media = Array.isArray(inbound.media) ? inbound.media : [];
+  const first = media[0] || null;
+  if (!first?.url || !first?.contentType) {
+    return {
+      mode: 'text',
+      audio_transcription: '',
+      vision_result: null,
+      media_download: null,
+    };
+  }
+
+  const contentType = String(first.contentType || '').toLowerCase();
+  const isImage = contentType.startsWith('image/');
+  const isAudio = contentType.startsWith('audio/');
+  if (!isImage && !isAudio) {
+    return {
+      mode: 'text',
+      audio_transcription: '',
+      vision_result: null,
+      media_download: { skipped: true, reason: 'unsupported_media_type', contentType },
+    };
+  }
+
+  const mediaDownload = await downloadTwilioMediaAsBase64(first.url);
+
+  if (isAudio) {
+    const transcription = await transcribeAudio({
+      audioData: mediaDownload.base64,
+      mimeType: contentType,
+    });
+
+    return {
+      mode: 'audio',
+      audio_transcription: String(transcription?.text || '').trim(),
+      vision_result: null,
+      media_download: { ...mediaDownload, kind: 'audio' },
+    };
+  }
+
+  if (isImage) {
+    const imageDataUrl = `data:${contentType};base64,${mediaDownload.base64}`;
+    const described = await describeProductImage({
+      imageData: imageDataUrl,
+      customerText: inbound.text || '',
+      conversationContext: conversationSummary || '',
+    });
+
+    return {
+      mode: 'image',
+      audio_transcription: '',
+      vision_result: described?.parsed || described?.raw || null,
+      media_download: { ...mediaDownload, kind: 'image' },
+    };
+  }
+
+  return {
+    mode: 'text',
+    audio_transcription: '',
+    vision_result: null,
+    media_download: null,
+  };
+}
+
 router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
   try {
     const inbound = normalizeWhatsAppInbound(req.body || {});
@@ -314,26 +384,29 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     });
 
     const conversation = conversationResult?.conversation || null;
-    const mode = inbound.numMedia > 0 && inbound.mediaContentType?.startsWith('image/')
-      ? 'image'
-      : inbound.numMedia > 0 && inbound.mediaContentType?.startsWith('audio/')
-        ? 'audio'
-        : 'text';
+    const mediaResolved = await resolveInboundMedia(inbound, conversation?.summary || existingContext.summary || '').catch((error) => ({
+      mode: 'text',
+      audio_transcription: '',
+      vision_result: null,
+      media_download: { failed: true, reason: error.message },
+    }));
+    const effectiveText = String(inbound.text || mediaResolved.audio_transcription || '').trim();
+    const mode = mediaResolved.mode || 'text';
 
     const shouldLookupCatalog = Boolean(
-      inbound.text
-      || isShortContinuation(inbound.text)
-      || isPurchaseIntent(inbound.text)
+      effectiveText
+      || isShortContinuation(effectiveText)
+      || isPurchaseIntent(effectiveText)
       || mode === 'image'
     );
 
-    const semantic = await buildSemanticContextSupabase(inbound.text || '', 5).catch(() => buildSemanticContext(inbound.text || ''));
+    const semantic = await buildSemanticContextSupabase(effectiveText || '', 5).catch(() => buildSemanticContext(effectiveText || ''));
     const bootstrapProducts = shouldLookupCatalog
-      ? await searchProducts(inferCatalogQuery(inbound.text, existingContext), 5).catch(() => [])
+      ? await searchProducts(inferCatalogQuery(effectiveText, existingContext, { ...mediaResolved.vision_result, audio_transcription: mediaResolved.audio_transcription }), 5).catch(() => [])
       : [];
 
     const mergedProducts = resolveHybridProducts({
-      text: inbound.text || '',
+      text: effectiveText || '',
       intentIds: semantic.intent_ids || [],
       semanticProducts: semantic.products || [],
       squareProducts: bootstrapProducts || [],
@@ -352,25 +425,21 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       mode,
       customer_phone: inbound.from,
       profile_name: inbound.profileName,
-      message_id: inbound.messageId || '',
-      message_text: inbound.text || '',
-      audio_transcription: '',
-      vision_result: mode === 'image' ? {
-        detected: true,
-        status: 'pending_real_vision_wiring',
-        user_request: inbound.text || ''
-      } : null,
+      message_id: inbound.messageSid || inbound.messageId || '',
+      message_text: effectiveText || '',
+      audio_transcription: mediaResolved.audio_transcription || '',
+      vision_result: mediaResolved.vision_result || null,
       summary: conversation?.summary || existingContext.summary || '',
-      intent: isShortContinuation(inbound.text)
+      intent: isShortContinuation(effectiveText)
         ? 'short_continuation'
-        : (isPurchaseIntent(inbound.text)
+        : (isPurchaseIntent(effectiveText)
           ? 'purchase_signal'
           : ((semantic.intent_ids || [])[0] || '')),
-      intent_group: isFinalizeIntent(inbound.text)
+      intent_group: isFinalizeIntent(effectiveText)
         ? 'checkout'
         : (((semantic.intent_ids || []).length > 1) ? 'semantic_multi_intent' : ''),
       current_stage: conversation?.current_stage || existingContext.currentStage || '',
-      customer_signal: inbound.text || '',
+      customer_signal: effectiveText || '',
       conversation_state: previousState,
       selected_product: previousState.anchor_products?.[0] || products[0] || null,
       products_found: products,
@@ -384,7 +453,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const compose = await composeCustomerReply(composeInput);
-    const applied = applyComposeResultToState({ ...existingContext, lastInboundText: inbound.text || '' }, compose, products);
+    const applied = applyComposeResultToState({ ...existingContext, lastInboundText: effectiveText || '' }, compose, products);
     const draftContext = {
       ...existingContext,
       cart: applied.cart,
@@ -399,7 +468,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       profileName: inbound.profileName,
       customerId: customerResult?.customer?.id || existingContext.customerId || '',
       conversationId: conversation?.id || existingContext.conversationId || '',
-      lastInboundText: inbound.text,
+      lastInboundText: effectiveText,
       lastReplyText: finalText,
       lastProducts: applied.nextState.anchor_products,
       lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
@@ -444,8 +513,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       customer_id: nextContext.customerId || null,
       channel: inbound.channel,
       direction: 'inbound',
-      message_text: inbound.text,
-      payload: { compose_input_mode: mode }
+      message_text: effectiveText,
+      payload: { compose_input_mode: mode, media_download: mediaResolved.media_download || null, vision_result: mediaResolved.vision_result || null }
     }).catch(() => null);
 
     await appendEvent({
@@ -468,6 +537,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     return res.json({
       ok: true,
       inbound,
+      mediaResolved,
       compose: { ...compose, final_text: finalText },
       products,
       context: nextContext,
