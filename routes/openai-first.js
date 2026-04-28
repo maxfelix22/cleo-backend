@@ -41,6 +41,15 @@ function isFinalizeIntent(text = '') {
   return /(finalizar|fechar pedido|me manda o total|quero finalizar|fechou|pode fechar|vamos fechar)/i.test(String(text || ''));
 }
 
+function detectDeliveryMode(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return '';
+  if (/\bpickup\b|retirada|retirar|vou retirar|quero retirar|pegar ai|buscar ai|ir buscar/.test(normalized)) return 'pickup';
+  if (/usps|correio|envio/.test(normalized)) return 'usps';
+  if (/entrega|delivery/.test(normalized)) return 'local_delivery';
+  return '';
+}
+
 function inferCatalogQuery(messageText = '', state = {}, mediaHints = {}) {
   const text = String(messageText || '').trim();
   if (text) return text;
@@ -129,7 +138,7 @@ function ensureCartShape(cart = {}, anchorProducts = []) {
   };
 }
 
-function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}) {
+function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, inboundText = '') {
   const checkout = {
     delivery_mode: String(existingCheckout.delivery_mode || '').trim(),
     next_required_field: String(existingCheckout.next_required_field || '').trim(),
@@ -140,8 +149,12 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}) {
     address: String(existingCheckout.address || '').trim()
   };
 
+  const detectedDeliveryMode = detectDeliveryMode(inboundText);
   if (compose?.checkout_updates?.delivery_mode) {
     checkout.delivery_mode = String(compose.checkout_updates.delivery_mode || '').trim();
+  }
+  if (!checkout.delivery_mode && detectedDeliveryMode) {
+    checkout.delivery_mode = detectedDeliveryMode;
   }
   if (compose?.checkout_updates?.next_required_field) {
     checkout.next_required_field = String(compose.checkout_updates.next_required_field || '').trim();
@@ -151,15 +164,28 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}) {
   }
 
   if (compose?.reply_mode === 'close_sale' && !checkout.next_required_field) {
-    checkout.next_required_field = 'delivery_mode';
+    checkout.next_required_field = checkout.delivery_mode ? 'customer_info' : 'delivery_mode';
   }
 
   if (compose?.reply_mode === 'checkout_next' && !checkout.next_required_field) {
+    checkout.next_required_field = checkout.delivery_mode ? 'customer_info' : 'delivery_mode';
+  }
+
+  if ((Array.isArray(cart.items) ? cart.items.length : 0) > 0 && compose?.conversation_goal === 'checkout') {
+    if (!checkout.delivery_mode) {
+      checkout.next_required_field = checkout.next_required_field || 'delivery_mode';
+    } else if (!checkout.full_name) {
+      checkout.next_required_field = 'customer_info';
+    }
+  }
+
+  if (isFinalizeIntent(inboundText) && checkout.delivery_mode && !checkout.full_name) {
     checkout.next_required_field = 'customer_info';
   }
 
-  if ((Array.isArray(cart.items) ? cart.items.length : 0) > 0 && !checkout.delivery_mode && compose?.conversation_goal === 'checkout') {
-    checkout.next_required_field = checkout.next_required_field || 'delivery_mode';
+  if (checkout.delivery_mode && checkout.full_name && (checkout.phone || checkout.email)) {
+    checkout.review_ready = true;
+    checkout.next_required_field = checkout.address && checkout.delivery_mode !== 'pickup' ? 'review' : 'review';
   }
 
   return checkout;
@@ -270,7 +296,7 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
   }
 
   const normalizedCart = ensureCartShape(cart, nextState.anchor_products);
-  const checkout = buildCheckoutSnapshot(existingContext.checkout || {}, normalizedCart, compose);
+  const checkout = buildCheckoutSnapshot(existingContext.checkout || {}, normalizedCart, compose, existingContext.lastInboundText || '');
 
   return { nextState, cart: normalizedCart, checkout };
 }
@@ -289,6 +315,8 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   const finalText = String(compose.final_text || '').trim();
   if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
 
+  const checkout = contextDraft?.checkout || {};
+
   if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
     const review = buildReviewText(contextDraft);
     if (review) {
@@ -296,8 +324,22 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
     }
   }
 
-  if (compose.reply_mode === 'close_sale' && !/pickup|USPS|entrega/i.test(finalText)) {
+  if ((compose.reply_mode === 'close_sale' || compose.reply_mode === 'checkout_next') && !checkout.delivery_mode && !/pickup|USPS|entrega/i.test(finalText)) {
     return `${finalText}\n\nVocê prefere *pickup*, *entrega local* ou *USPS*?`;
+  }
+
+  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
+    if (/pickup/i.test(checkout.delivery_mode)) {
+      return 'Perfeito 💜 Então me manda só seu *nome completo* para eu seguir com o pickup.';
+    }
+    return 'Perfeito 💜 Então me manda seu *nome completo* para eu seguir com a entrega.';
+  }
+
+  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
+    const review = buildReviewText(contextDraft);
+    if (review) {
+      return `${review}\n\nSe estiver tudo certo, me manda só um *ok* que eu sigo 💜`;
+    }
   }
 
   return finalText;
