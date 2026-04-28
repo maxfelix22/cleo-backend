@@ -6,7 +6,7 @@ const { searchProducts } = require('../services/catalog-service');
 const { buildSemanticContext } = require('../services/semantic-store');
 const { buildSemanticContextSupabase } = require('../services/semantic-supabase-store');
 const { resolveHybridProducts } = require('../services/hybrid-product-resolver');
-const { getConversationKey, getContext, saveContext } = require('../services/context-store');
+const { getConversationKey, getContext, saveContext, clearContext } = require('../services/context-store');
 const { getOrCreateCustomerByPhone, getOrCreateOpenConversation, updateConversationState } = require('../services/customer-conversation-store');
 const { appendEvent } = require('../services/event-store');
 const { composeCustomerReply } = require('../services/compose-service');
@@ -39,6 +39,10 @@ function isPurchaseIntent(text = '') {
 
 function isFinalizeIntent(text = '') {
   return /(finalizar|fechar pedido|me manda o total|quero finalizar|fechou|pode fechar|vamos fechar)/i.test(String(text || ''));
+}
+
+function isResetIntent(text = '') {
+  return /^(\/)?reset( chat| conversa| session| sessão)?$/i.test(String(text || '').trim());
 }
 
 function detectDeliveryMode(text = '') {
@@ -494,15 +498,21 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const inbound = normalizeWhatsAppInbound(req.body || {});
     const contextKey = getConversationKey(inbound);
     const existingContext = getContext(contextKey) || {};
+    const inboundTextRaw = String(inbound.text || '').trim();
+    const resetRequested = isResetIntent(inboundTextRaw);
+
+    if (resetRequested) {
+      clearContext(contextKey);
+    }
 
     const customerResult = await getOrCreateCustomerByPhone(inbound.from, inbound.profileName);
     const conversationResult = await getOrCreateOpenConversation({
       customerId: customerResult?.customer?.id,
-      existingConversationId: existingContext.conversationId || '',
+      existingConversationId: resetRequested ? '' : (existingContext.conversationId || ''),
       channel: inbound.channel,
       phone: inbound.from,
       profileName: inbound.profileName,
-      forceNew: false,
+      forceNew: resetRequested,
     });
 
     const conversation = conversationResult?.conversation || null;
@@ -514,6 +524,79 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     }));
     const effectiveText = String(inbound.text || mediaResolved.audio_transcription || '').trim();
     const mode = mediaResolved.mode || 'text';
+
+    if (resetRequested) {
+      const resetReply = 'Pronto 💜 Zerei o contexto dessa conversa. Pode me falar de novo o que você quer que eu te ajudo do zero.';
+      const nextContext = saveContext(contextKey, {
+        profileName: inbound.profileName,
+        customerId: customerResult?.customer?.id || '',
+        conversationId: conversation?.id || '',
+        lastInboundText: effectiveText,
+        lastReplyText: resetReply,
+        lastProducts: [],
+        lastProduct: '',
+        lastProductPayload: null,
+        cart: { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' },
+        checkout: { delivery_mode: '', next_required_field: '', review_ready: false },
+        conversation_goal: '',
+        pending_offer_type: 'none',
+        expected_next_user_move: 'none',
+        last_seller_question: '',
+        currentStage: 'catalog_browse',
+        summary: resetReply,
+      });
+
+      await updateConversationState({
+        conversationId: nextContext.conversationId,
+        summary: nextContext.summary,
+        currentStage: nextContext.currentStage,
+        lastProduct: '',
+        lastProductPayload: {
+          cart: nextContext.cart,
+          checkout: nextContext.checkout,
+          conversation_goal: '',
+          pending_offer_type: 'none',
+          expected_next_user_move: 'none',
+          last_seller_question: ''
+        }
+      }).catch(() => null);
+
+      await appendEvent({
+        kind: 'openai_first_reset',
+        conversation_id: nextContext.conversationId || null,
+        customer_id: nextContext.customerId || null,
+        channel: inbound.channel,
+        direction: 'inbound',
+        message_text: effectiveText,
+        payload: { reset: true }
+      }).catch(() => null);
+
+      return res.json({
+        ok: true,
+        inbound,
+        mediaResolved,
+        compose: {
+          raw: null,
+          reply_mode: 'answer',
+          conversation_goal: 'discover',
+          pending_offer_type: 'none',
+          expected_next_user_move: 'inform',
+          last_seller_question: '',
+          anchor_products: [],
+          should_update_cart: false,
+          cart_updates: { action: 'none', quantity: null, selected_product_id: '', selected_product_name: '', variation: '' },
+          checkout_updates: { delivery_mode: '', next_required_field: '', review_ready: false },
+          assistant_notes: 'reset conversation state explicitly requested by user',
+          final_text: resetReply,
+        },
+        products: [],
+        context: nextContext,
+        conversationId: nextContext.conversationId || '',
+        customerId: nextContext.customerId || '',
+        semantic: { source: 'reset', products: [], intent_ids: [], intent_candidates: [] },
+        note: 'OpenAI-first inbound reset applied'
+      });
+    }
 
     const shouldLookupCatalog = Boolean(
       effectiveText
