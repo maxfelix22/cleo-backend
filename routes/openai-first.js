@@ -318,6 +318,24 @@ function deriveCurrentStage(compose = {}, existingContext = {}, checkout = {}) {
   return existingContext.currentStage || 'catalog_browse';
 }
 
+function buildMediaFailureReply(mediaResolved = {}, inbound = {}) {
+  const reason = String(mediaResolved?.media_download?.reason || '').toLowerCase();
+  const isImage = Array.isArray(inbound?.media) && String(inbound.media[0]?.contentType || '').toLowerCase().startsWith('image/');
+  const isAudio = Array.isArray(inbound?.media) && String(inbound.media[0]?.contentType || '').toLowerCase().startsWith('audio/');
+
+  if (isImage) {
+    return 'Não consegui abrir essa imagem direito daqui 💜 Me manda outra foto mais nítida ou, se quiser, me fala o nome do produto que eu te ajudo rapidinho.';
+  }
+
+  if (isAudio) {
+    return reason
+      ? 'Não consegui entender esse áudio daqui 💜 Se puder, me manda de novo ou escreve rapidinho que eu sigo com você.'
+      : '';
+  }
+
+  return '';
+}
+
 function enrichFinalText(compose = {}, contextDraft = {}) {
   const finalText = String(compose.final_text || '').trim();
   if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
@@ -507,7 +525,33 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       recent_messages: recentMessages
     };
 
-    const compose = await composeCustomerReply(composeInput);
+    const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
+    const compose = mediaFailureReply
+      ? {
+          raw: null,
+          reply_mode: 'clarify',
+          conversation_goal: 'discover',
+          pending_offer_type: 'none',
+          expected_next_user_move: 'inform',
+          last_seller_question: 'Me manda outra foto mais nítida ou o nome do produto?',
+          anchor_products: previousState.anchor_products || [],
+          should_update_cart: false,
+          cart_updates: {
+            action: 'none',
+            quantity: null,
+            selected_product_id: '',
+            selected_product_name: '',
+            variation: ''
+          },
+          checkout_updates: {
+            delivery_mode: '',
+            next_required_field: '',
+            review_ready: false
+          },
+          assistant_notes: 'media download/analysis failed; ask for clearer resend instead of hallucinating product suggestion',
+          final_text: mediaFailureReply,
+        }
+      : await composeCustomerReply(composeInput);
     const applied = applyComposeResultToState({ ...existingContext, lastInboundText: effectiveText || '' }, compose, products);
     const draftContext = {
       ...existingContext,
