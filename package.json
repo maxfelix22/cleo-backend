@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test:openai-first": "node scripts/test-openai-first-route.js"
+    "test:openai-first": "node scripts/test-openai-first-route.js",
+    "test:openai-first-media": "node scripts/test-openai-first-media.js"
   },
   "engines": {
     "node": ">=18.0.0"
