@@ -333,6 +333,40 @@ function deriveCurrentStage(compose = {}, existingContext = {}, checkout = {}) {
   return existingContext.currentStage || 'catalog_browse';
 }
 
+function requiresProductDisambiguation(existingContext = {}, products = [], effectiveText = '') {
+  const quantityRequested = extractRequestedQuantity(effectiveText || '');
+  const purchaseSignal = isPurchaseIntent(effectiveText || '');
+  const anchors = Array.isArray(existingContext.lastProducts) ? existingContext.lastProducts : [];
+  const candidates = anchors.length > 0 ? anchors : (Array.isArray(products) ? products : []);
+  const currentCartItems = Array.isArray(existingContext?.cart?.items) ? existingContext.cart.items : [];
+
+  if (!purchaseSignal && quantityRequested <= 0) return false;
+  if (currentCartItems.length > 0) return false;
+  if (candidates.length <= 1) return false;
+
+  const normalized = String(effectiveText || '').toLowerCase();
+  const mentionsCandidate = candidates.some((product) => {
+    const name = String(product?.name || '').toLowerCase();
+    if (!name) return false;
+    return normalized.includes(name) || name.split(/\s+/).some((part) => part.length >= 4 && normalized.includes(part));
+  });
+
+  return !mentionsCandidate;
+}
+
+function buildDisambiguationReply(existingContext = {}, products = []) {
+  const anchors = Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0
+    ? existingContext.lastProducts
+    : (Array.isArray(products) ? products : []);
+  const shortlist = anchors.slice(0, 3);
+  if (shortlist.length === 0) {
+    return 'Perfeito 💜 Você quer 2 de qual produto exatamente?';
+  }
+
+  const lines = shortlist.map((product, index) => `${index + 1}. ${product.name}${product.price ? ` — ${product.price}` : ''}`);
+  return `Perfeito 💜 Você quer 2 de qual deles?\n${lines.join('\n')}`;
+}
+
 function buildMediaFailureReply(mediaResolved = {}, inbound = {}) {
   const reason = String(mediaResolved?.media_download?.reason || '').toLowerCase();
   const isImage = Array.isArray(inbound?.media) && String(inbound.media[0]?.contentType || '').toLowerCase().startsWith('image/');
@@ -541,6 +575,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
+    const shouldDisambiguateProduct = requiresProductDisambiguation(existingContext, products, effectiveText);
     const compose = mediaFailureReply
       ? {
           raw: null,
@@ -566,7 +601,32 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
           assistant_notes: 'media download/analysis failed; ask for clearer resend instead of hallucinating product suggestion',
           final_text: mediaFailureReply,
         }
-      : await composeCustomerReply(composeInput);
+      : shouldDisambiguateProduct
+        ? {
+            raw: null,
+            reply_mode: 'clarify',
+            conversation_goal: 'sell',
+            pending_offer_type: 'confirm_item',
+            expected_next_user_move: 'choose',
+            last_seller_question: 'Você quer 2 de qual deles?',
+            anchor_products: previousState.anchor_products || products.slice(0, 3),
+            should_update_cart: false,
+            cart_updates: {
+              action: 'none',
+              quantity: null,
+              selected_product_id: '',
+              selected_product_name: '',
+              variation: ''
+            },
+            checkout_updates: {
+              delivery_mode: '',
+              next_required_field: '',
+              review_ready: false
+            },
+            assistant_notes: 'multiple shortlist candidates with generic purchase/quantity signal; force product disambiguation before cart update',
+            final_text: buildDisambiguationReply(existingContext, products),
+          }
+        : await composeCustomerReply(composeInput);
     const applied = applyComposeResultToState({ ...existingContext, lastInboundText: effectiveText || '' }, compose, products);
     const draftContext = {
       ...existingContext,
