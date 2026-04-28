@@ -323,6 +323,7 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
 
   const checkout = contextDraft?.checkout || {};
+  const cart = ensureCartShape(contextDraft?.cart || {}, contextDraft?.lastProducts || []);
 
   if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
     const review = buildReviewText(contextDraft);
@@ -336,7 +337,8 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode === 'pickup' && checkout.next_required_field === 'pickup_schedule') {
-    return 'Perfeito 💜 Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.';
+    const subtotalText = cart.subtotal > 0 ? `Seu total até aqui ficou *$${cart.subtotal.toFixed(2)}* 💜\n\n` : '';
+    return `${subtotalText}Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.`;
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
