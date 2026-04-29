@@ -71,11 +71,19 @@ function extractPhoneNumber(text = '') {
   return '';
 }
 
-function extractFullName(text = '') {
+function extractFullName(text = '', options = {}) {
   const normalized = String(text || '').trim();
   if (!normalized) return '';
+
   const explicit = normalized.match(/(?:meu nome é|sou|pode colocar no nome de)\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+){1,4})/i);
   if (explicit) return explicit[1].trim();
+
+  const allowLooseName = Boolean(options.allowLooseName);
+  if (!allowLooseName) return '';
+
+  const looksLikeCommand = /quanto custa|tem no tamanho|tem no p\b|tem no m\b|tem no g\b|tem no gg\b|tem em outra cor|quero esse|quero essa|quero ver|me mostra|mostra ai|mostra aí|manda|sim\b|ok\b|okay\b|pickup|retirada|retirar|usps|entrega|delivery|finalizar|fechar pedido|me manda o total/i.test(normalized);
+  if (looksLikeCommand) return '';
+
   if (/^([A-Za-zÀ-ÿ]+\s+[A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+){0,3})$/.test(normalized) && !/\d/.test(normalized)) {
     return normalized;
   }
@@ -189,8 +197,10 @@ function applyExtractedState(existingCheckout = {}, compose = {}, inboundText = 
   if (extracted.pickup_schedule) next.pickup_schedule = extracted.pickup_schedule;
   if (extracted.full_name) next.full_name = extracted.full_name;
   if (extracted.phone) next.phone = extracted.phone;
-  if (!next.full_name) next.full_name = extractFullName(inboundText);
-  if (!next.phone) next.phone = extractPhoneNumber(inboundText);
+
+  const shouldCollectCustomerInfo = String(existingCheckout.next_required_field || '').trim() === 'customer_info';
+  if (!next.full_name) next.full_name = extractFullName(inboundText, { allowLooseName: shouldCollectCustomerInfo });
+  if (!next.phone && shouldCollectCustomerInfo) next.phone = extractPhoneNumber(inboundText);
   if (extracted.email) next.email = extracted.email;
   if (extracted.address) next.address = extracted.address;
   if (extracted.should_review) next.review_ready = true;
