@@ -297,6 +297,23 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
   return checkout;
 }
 
+function buildCustomerInfoPrompt(checkout = {}) {
+  const mode = String(checkout?.delivery_mode || '').trim();
+  if (mode === 'pickup') {
+    return 'Perfeito 💜 Agora me manda tudo junto assim:\n\n*Nome Completo*:\n*Telefone*:\n*E-mail*:';
+  }
+
+  if (mode === 'usps') {
+    return 'Perfeito 💜 Agora me manda tudo junto assim:\n\n*Nome Completo*:\n*Telefone*:\n*E-mail*:\n*Endereço*:\n*Apt / Unit*:\n*Cidade*:\n*Estado*:\n*Zip Code*:\n\n🚨 *IMPORTANTE:* Se o endereço estiver incompleto, a USPS retorna a encomenda para a loja e o novo frete fica por conta do cliente.';
+  }
+
+  if (mode === 'local_delivery') {
+    return 'Perfeito 💜 Agora me manda tudo junto assim:\n\n*Nome Completo*:\n*Telefone*:\n*E-mail*:\n*Endereço*:\n*Apt / Unit*:\n*Cidade*:\n*Estado*:\n*Zip Code*:';
+  }
+
+  return 'Perfeito 💜 Agora me manda seus dados para eu seguir com o pedido.';
+}
+
 function buildReviewText(context = {}) {
   const anchors = Array.isArray(context.lastProducts) ? context.lastProducts : [];
   const cart = ensureCartShape(context.cart || {}, anchors);
@@ -563,26 +580,11 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode === 'pickup' && checkout.next_required_field === 'pickup_schedule') {
-    const subtotalText = cart.subtotal > 0 ? `Seu total até aqui ficou *$${cart.subtotal.toFixed(2)}* 💜\n\n` : '';
-    return `${subtotalText}Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.`;
+    return 'Perfeito 💜 Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.';
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
-    const review = buildReviewText(contextDraft);
-    const lead = review ? `${review}\n\n` : '';
-    if (!checkout.full_name) {
-      if (/pickup/i.test(checkout.delivery_mode)) {
-        return `${lead}Perfeito 💜 Agora me manda só seu *nome completo* para eu seguir com o pickup.`;
-      }
-      return `${lead}Perfeito 💜 Agora me manda seu *nome completo* para eu seguir com a entrega.`;
-    }
-    if (!checkout.phone) {
-      return `${lead}Fechado 💜 Pra eu finalizar certinho, me manda só seu *telefone*.`;
-    }
-    if (!checkout.email && /usps|local_delivery/i.test(checkout.delivery_mode)) {
-      return `${lead}Perfeito 💜 Agora me manda um *telefone ou e-mail* para eu seguir.`;
-    }
-    return `${lead}Perfeito 💜 Me manda só o próximo dado pra eu concluir certinho.`;
+    return buildCustomerInfoPrompt(checkout);
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
