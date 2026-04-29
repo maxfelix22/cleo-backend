@@ -13,6 +13,13 @@ const { composeCustomerReply } = require('../services/compose-service');
 const { describeProductImage, transcribeAudio } = require('../services/vision-service');
 const { downloadTwilioMediaAsBase64 } = require('../services/twilio-media');
 const { normalizeWhatsAppInbound } = require('../lib/whatsapp-normalize');
+const {
+  sendOperationalTelegramMessage,
+  buildSalesEscortMessage,
+  buildMemoryEscortMessage,
+  buildCatalogEscortMessage,
+  buildSystemEscortMessage,
+} = require('../services/telegram-ops');
 
 function extractRequestedQuantity(text = '') {
   const normalized = String(text || '').toLowerCase();
@@ -445,6 +452,26 @@ function buildMediaFailureReply(mediaResolved = {}, inbound = {}) {
   return '';
 }
 
+async function dispatchTelegramOps(context = {}, meta = {}) {
+  const messages = [
+    { topicKey: 'atendimento_vendas', text: buildSalesEscortMessage(context) },
+    { topicKey: 'memoria_clientes', text: buildMemoryEscortMessage(context) },
+    { topicKey: 'produtos_estoque', text: buildCatalogEscortMessage(context) },
+    { topicKey: 'sistema_automacao', text: buildSystemEscortMessage(context, meta) },
+  ].filter((entry) => entry.text && String(entry.text).trim());
+
+  const results = [];
+  for (const entry of messages) {
+    try {
+      const sent = await sendOperationalTelegramMessage(entry.text, { topicKey: entry.topicKey });
+      results.push({ topicKey: entry.topicKey, mode: sent.mode || 'unknown', ok: true });
+    } catch (error) {
+      results.push({ topicKey: entry.topicKey, ok: false, error: error.message || 'telegram dispatch failed' });
+    }
+  }
+  return results;
+}
+
 function enrichFinalText(compose = {}, contextDraft = {}) {
   const finalText = String(compose.final_text || '').trim();
   if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
@@ -860,6 +887,13 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       }
     }).catch(() => null);
 
+    const opsDispatch = await dispatchTelegramOps(nextContext, {
+      transportMode: 'twilio',
+      persistenceMode: nextContext.customerId && nextContext.conversationId ? 'supabase' : 'memory-fallback',
+      eventMode: nextContext.conversationId ? 'supabase' : 'memory-fallback',
+      opsDispatchMode: 'telegram'
+    }).catch(() => []);
+
     return res.json({
       ok: true,
       inbound,
@@ -870,6 +904,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       conversationId: nextContext.conversationId || '',
       customerId: nextContext.customerId || '',
       semantic,
+      opsDispatch,
       note: 'OpenAI-first inbound com P0 textual endurecido + base semântica integrada + ranking híbrido Supabase/Square'
     });
   } catch (err) {
