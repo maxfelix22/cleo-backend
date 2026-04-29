@@ -297,6 +297,13 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
   return checkout;
 }
 
+function looksLikePaymentConfirmation(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /^(ok|okay|okey|sim|certo|fechado|pode ser|zelle|pix|venmo|cash app|apple pay|obrigada|obrigado)$/.test(normalized)
+    || /manda.*zelle|me manda.*zelle|passa.*zelle|envia.*zelle|pode mandar.*zelle/.test(normalized);
+}
+
 function buildPaymentPrompt(context = {}) {
   const checkout = context?.checkout || {};
   const cart = ensureCartShape(context?.cart || {}, context?.lastProducts || []);
@@ -578,6 +585,10 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   const cart = ensureCartShape(contextDraft?.cart || {}, contextDraft?.lastProducts || []);
 
   if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
+    if (contextDraft?.checkout?.review_ready && looksLikePaymentConfirmation(contextDraft?.lastInboundText || '')) {
+      return buildPaymentPrompt(contextDraft);
+    }
+
     const review = buildReviewText(contextDraft);
     if (review) {
       return `${review}\n\n${finalText}`;
@@ -597,8 +608,7 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
-    const looksLikeConfirmation = /^(ok|okay|okey|sim|certo|fechado|pode ser|zelle|pix|venmo|cash app|apple pay)$/i.test(String(contextDraft?.lastInboundText || '').trim());
-    if (looksLikeConfirmation) {
+    if (looksLikePaymentConfirmation(contextDraft?.lastInboundText || '')) {
       return buildPaymentPrompt(contextDraft);
     }
 
