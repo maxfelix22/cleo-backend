@@ -370,7 +370,15 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
   const selectedPrice = selectedProduct?.price || '';
   const rememberedRequestedQty = Number(existingContext.requested_quantity || existingContext.lastProductPayload?.requested_quantity || 0) || 0;
 
-  if (compose.should_update_cart && selectedProduct) {
+  if (isEachSelectionIntent(existingContext.lastInboundText || '') && nextState.anchor_products.length > 1) {
+    cart.items = nextState.anchor_products.map((product) => ({
+      product_id: product.id || '',
+      label: product.name || '',
+      qty: 1,
+      variation: '',
+      unit_price: product.price || ''
+    }));
+  } else if (compose.should_update_cart && selectedProduct) {
     const requestedQty = updates.quantity || extracted.selected_quantity || rememberedRequestedQty || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
     const item = {
       product_id: updates.selected_product_id || selectedProduct.id || '',
@@ -870,7 +878,48 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
             assistant_notes: 'pure greeting detected; bypass product shortlist and answer with neutral greeting',
             final_text: 'Oi 💜 como posso te ajudar?'
           }
-        : await composeCustomerReply(composeInput));
+        : (eachSelectionIntent && Array.isArray(previousState.anchor_products) && previousState.anchor_products.length > 1)
+          ? {
+              raw: null,
+              reply_mode: 'checkout_next',
+              conversation_goal: 'checkout',
+              pending_offer_type: 'choose_delivery',
+              expected_next_user_move: 'inform',
+              last_seller_question: '',
+              anchor_products: previousState.anchor_products,
+              should_update_cart: false,
+              cart_updates: {
+                action: 'none',
+                quantity: null,
+                selected_product_id: '',
+                selected_product_name: '',
+                variation: ''
+              },
+              checkout_updates: {
+                delivery_mode: '',
+                next_required_field: 'delivery_mode',
+                review_ready: false
+              },
+              extracted_state: {
+                selected_product_id: '',
+                selected_product_name: '',
+                selected_quantity: 1,
+                delivery_mode: '',
+                pickup_schedule: '',
+                full_name: '',
+                phone: '',
+                email: '',
+                address: '',
+                conversation_move: 'choose_delivery',
+                missing_fields: ['delivery_mode'],
+                needs_disambiguation: false,
+                should_review: false,
+                confidence: 1
+              },
+              assistant_notes: 'each-selection intent detected; convert active shortlist into multi-item cart with qty 1 each',
+              final_text: 'Fechado 💜 Já coloquei 1 de cada no seu carrinho. Você prefere *pickup*, *entrega local* ou *USPS*?'
+            }
+          : await composeCustomerReply(composeInput));
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
