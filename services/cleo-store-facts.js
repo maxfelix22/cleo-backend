@@ -19,16 +19,22 @@ function matchLine(text, label) {
   return match ? String(match[1] || '').trim() : '';
 }
 
+function extractPaymentFact(text = '', label = '') {
+  const value = matchLine(text, label);
+  return value.replace(/^\*+|\*+$/g, '').trim();
+}
+
 function getStoreFacts() {
   const text = loadStoreFactsText();
   return {
     publicName: matchLine(text, 'Nome público da loja') || 'Bruna Campos Moda Íntima',
     owner: matchLine(text, 'Razão / proprietária') || 'Bruna Campos Samora Felix',
-    address: matchLine(text, 'Endereço físico') || '79 Phelps St, Apt B, Marlborough, MA',
+    address: '79 Phelps St, Apt B, Marlborough, MA',
     site: matchLine(text, 'Site') || 'https://www.brunacamposboutique.com',
     linktree: matchLine(text, 'Linktree') || 'https://linktr.ee/brunacamposmodaintima_',
     whatsapp: matchLine(text, 'WhatsApp oficial') || 'https://tr.ee/mlMK9AfviU',
     vipGroup: matchLine(text, 'Grupo VIP WhatsApp') || 'https://tr.ee/VWqn8cYpHo',
+    zelle: extractPaymentFact(text, 'Zelle') || '508-618-9995 (Bruna Campos Samora Felix)',
     marlboroughFee: '$5',
     hudsonFee: '$8',
     uspsFee: '$10',
