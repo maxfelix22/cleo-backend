@@ -784,7 +784,10 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
     const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
     const composed = mediaFailureReply ? null : await composeCustomerReply(composeInput);
-    const shouldDisambiguateProduct = heuristicDisambiguation || Boolean(composed?.extracted_state?.needs_disambiguation);
+    const purchaseSignal = isPurchaseIntent(effectiveText || '');
+    const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
+    const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
+    const shouldDisambiguateProduct = heuristicDisambiguation || (shouldHonorModelDisambiguation && Boolean(composed?.extracted_state?.needs_disambiguation));
     const compose = mediaFailureReply
       ? {
           raw: null,
