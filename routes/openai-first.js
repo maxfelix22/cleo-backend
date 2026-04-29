@@ -151,6 +151,7 @@ function buildConversationState(existingContext = {}, conversation = null, produ
     pending_offer_type: pendingOfferType,
     expected_next_user_move: expectedNextUserMove,
     last_seller_question: existingContext.last_seller_question || payload?.last_seller_question || '',
+    requested_quantity: Number(existingContext.requested_quantity || payload?.requested_quantity || 0) || 0,
     anchor_products: fallbackAnchorProducts.length > 0 ? fallbackAnchorProducts : products.slice(0, 3)
   };
 }
@@ -344,9 +345,10 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
     || (extracted.selected_product_name && (product.name || '').toLowerCase() === extracted.selected_product_name.toLowerCase())
   )) || nextState.anchor_products[0] || products[0] || null;
   const selectedPrice = selectedProduct?.price || '';
+  const rememberedRequestedQty = Number(existingContext.requested_quantity || existingContext.lastProductPayload?.requested_quantity || 0) || 0;
 
   if (compose.should_update_cart && selectedProduct) {
-    const requestedQty = updates.quantity || extracted.selected_quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
+    const requestedQty = updates.quantity || extracted.selected_quantity || rememberedRequestedQty || extractRequestedQuantity(existingContext.lastInboundText || '') || 1;
     const item = {
       product_id: updates.selected_product_id || selectedProduct.id || '',
       label: updates.selected_product_name || selectedProduct.name || '',
@@ -386,7 +388,7 @@ function applyComposeResultToState(existingContext = {}, compose = {}, products 
     cart.items = [{
       product_id: selectedProduct.id || '',
       label: selectedProduct.name || '',
-      qty: updates.quantity || extracted.selected_quantity || extractRequestedQuantity(existingContext.lastInboundText || '') || 1,
+      qty: updates.quantity || extracted.selected_quantity || rememberedRequestedQty || extractRequestedQuantity(existingContext.lastInboundText || '') || 1,
       variation: updates.variation || extractRequestedSize(existingContext.lastInboundText || '') || '',
       unit_price: selectedPrice
     }];
@@ -845,6 +847,9 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
               next_required_field: '',
               review_ready: false
             },
+            extracted_state: {
+              selected_quantity: extractRequestedQuantity(effectiveText || '') || Number(existingContext.requested_quantity || 0) || null,
+            },
             assistant_notes: 'multiple shortlist candidates with generic purchase/quantity signal; force product disambiguation before cart update',
             final_text: buildDisambiguationReply(existingContext, products),
           }
@@ -876,9 +881,11 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
         pending_offer_type: applied.nextState.pending_offer_type,
         expected_next_user_move: applied.nextState.expected_next_user_move,
         last_seller_question: applied.nextState.last_seller_question,
+        requested_quantity: Number(compose?.cart_updates?.quantity || compose?.extracted_state?.selected_quantity || applied.nextState.requested_quantity || extractRequestedQuantity(effectiveText || '') || 0) || 0,
       },
       cart: applied.cart,
       checkout: applied.checkout,
+      requested_quantity: Number(compose?.cart_updates?.quantity || compose?.extracted_state?.selected_quantity || applied.nextState.requested_quantity || extractRequestedQuantity(effectiveText || '') || 0) || 0,
       conversation_goal: applied.nextState.conversation_goal,
       pending_offer_type: applied.nextState.pending_offer_type,
       expected_next_user_move: applied.nextState.expected_next_user_move,
