@@ -297,6 +297,15 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
   return checkout;
 }
 
+function buildPaymentPrompt(context = {}) {
+  const checkout = context?.checkout || {};
+  const cart = ensureCartShape(context?.cart || {}, context?.lastProducts || []);
+  const totalText = cart.subtotal > 0 ? `$${cart.subtotal.toFixed(2)}` : '';
+  const scheduleText = checkout.pickup_schedule ? ` para retirada ${checkout.pickup_schedule}` : '';
+
+  return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode fazer o pagamento via *Zelle* para:\n*5086189995*\n*Bruna Campos Samora Felix*\n\nAssim que enviar, me manda o comprovante 💜`;
+}
+
 function buildCustomerInfoPrompt(checkout = {}) {
   const mode = String(checkout?.delivery_mode || '').trim();
   if (mode === 'pickup') {
@@ -588,6 +597,11 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
+    const looksLikeConfirmation = /^(ok|okay|okey|sim|certo|fechado|pode ser|zelle|pix|venmo|cash app|apple pay)$/i.test(String(contextDraft?.lastInboundText || '').trim());
+    if (looksLikeConfirmation) {
+      return buildPaymentPrompt(contextDraft);
+    }
+
     const review = buildReviewText(contextDraft);
     if (review) {
       return `${review}\n\nSe estiver tudo certo, me manda só um *ok* que eu sigo 💜`;
