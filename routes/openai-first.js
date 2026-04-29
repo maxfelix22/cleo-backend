@@ -409,7 +409,8 @@ function requiresProductDisambiguation(existingContext = {}, products = [], effe
   const candidates = anchors.length > 0 ? anchors : (Array.isArray(products) ? products : []);
   const currentCartItems = Array.isArray(existingContext?.cart?.items) ? existingContext.cart.items : [];
 
-  if (!purchaseSignal && quantityRequested <= 0) return false;
+  if (!purchaseSignal) return false;
+  if (quantityRequested <= 0) return false;
   if (currentCartItems.length > 0) return false;
   if (candidates.length <= 1) return false;
 
