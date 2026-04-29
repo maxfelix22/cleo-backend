@@ -43,7 +43,24 @@ function isShortContinuation(text = '') {
 }
 
 function isPurchaseIntent(text = '') {
-  return /(quero comprar|vou querer|quero levar|quero esse|quero essa|gostei desse|gostei dessa|fechar pedido|quero finalizar|finalizar|me manda o total)/i.test(String(text || ''));
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+
+  const explicitPurchasePatterns = [
+    /\bquero comprar\b/,
+    /\bvou querer\b/,
+    /\bquero levar\b/,
+    /\bquero esse\b/,
+    /\bquero essa\b/,
+    /\bgostei desse\b/,
+    /\bgostei dessa\b/,
+    /\bfechar pedido\b/,
+    /\bquero finalizar\b/,
+    /\bfinalizar\b/,
+    /\bme manda o total\b/
+  ];
+
+  return explicitPurchasePatterns.some((pattern) => pattern.test(normalized));
 }
 
 function isFinalizeIntent(text = '') {
