@@ -312,6 +312,48 @@ function buildCatalogEscortMessage(context = {}) {
   return lines.join('\n');
 }
 
+function buildHandoffOrderMessage(context = {}) {
+  const checkout = context.checkout || {};
+  const items = Array.isArray(context.cart?.items) ? context.cart.items : [];
+  const itemLines = items.map((item) => {
+    const qty = Number(item.qty || item.quantity || 1) || 1;
+    const label = item.label || item.name || 'item';
+    const unit = item.unit_price || item.price || '';
+    return unit ? `• ${qty}x ${label} — ${unit}` : `• ${qty}x ${label}`;
+  });
+
+  const paymentHints = [];
+  if (/zelle/i.test(context.lastInboundText || '') || /zelle/i.test(context.lastReplyText || '')) paymentHints.push('Zelle');
+  if (/venmo/i.test(context.lastInboundText || '') || /venmo/i.test(context.lastReplyText || '')) paymentHints.push('Venmo');
+  if (/cash app/i.test(context.lastInboundText || '') || /cash app/i.test(context.lastReplyText || '')) paymentHints.push('Cash App');
+  if (/afterpay/i.test(context.lastInboundText || '') || /afterpay/i.test(context.lastReplyText || '')) paymentHints.push('AfterPay');
+  if (/apple pay/i.test(context.lastInboundText || '') || /apple pay/i.test(context.lastReplyText || '')) paymentHints.push('Apple Pay');
+  if (/link/i.test(context.lastInboundText || '') || /link/i.test(context.lastReplyText || '')) paymentHints.push('Link de pagamento');
+
+  const lines = [
+    '🧾 *Handoff & Pedidos*',
+    '',
+    context.profileName ? `• Cliente: ${context.profileName}` : null,
+    context.customerId ? `• Customer ID: ${context.customerId}` : null,
+    context.conversationId ? `• Conversation ID: ${context.conversationId}` : null,
+    itemLines.length > 0 ? '• Itens:' : null,
+    itemLines.length > 0 ? itemLines.join('\n') : null,
+    context.cart?.subtotal ? `• Subtotal: $${Number(context.cart.subtotal).toFixed(2)}` : null,
+    checkout.delivery_mode === 'pickup' ? `• Entrega: retirada (${checkout.pickup_schedule || 'horário pendente'})` : null,
+    checkout.delivery_mode === 'local_delivery' ? '• Entrega: local delivery' : null,
+    checkout.delivery_mode === 'usps' ? '• Entrega: USPS' : null,
+    checkout.full_name ? `• Nome: ${checkout.full_name}` : null,
+    checkout.phone ? `• Telefone: ${checkout.phone}` : null,
+    checkout.email ? `• Email: ${checkout.email}` : null,
+    checkout.address ? `• Endereço: ${checkout.address}` : null,
+    paymentHints.length > 0 ? `• Pagamento em conversa: ${[...new Set(paymentHints)].join(' · ')}` : null,
+    context.summary ? `• Resumo: ${context.summary}` : null,
+    '• Status sugerido: pronto para operação / cobrança final',
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 function buildSystemEscortMessage(context = {}, meta = {}) {
   const maturity = buildConversationMaturity(context);
   const alerts = [];
@@ -356,4 +398,5 @@ module.exports = {
   buildMemoryEscortMessage,
   buildCatalogEscortMessage,
   buildSystemEscortMessage,
+  buildHandoffOrderMessage,
 };

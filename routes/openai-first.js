@@ -19,6 +19,7 @@ const {
   buildMemoryEscortMessage,
   buildCatalogEscortMessage,
   buildSystemEscortMessage,
+  buildHandoffOrderMessage,
 } = require('../services/telegram-ops');
 
 function extractRequestedQuantity(text = '') {
@@ -452,6 +453,15 @@ function buildMediaFailureReply(mediaResolved = {}, inbound = {}) {
   return '';
 }
 
+function shouldSendHandoff(context = {}) {
+  const checkout = context.checkout || {};
+  const hasCart = Array.isArray(context.cart?.items) && context.cart.items.length > 0;
+  const hasDelivery = Boolean(checkout.delivery_mode);
+  const hasScheduleIfPickup = checkout.delivery_mode !== 'pickup' || Boolean(checkout.pickup_schedule);
+  const hasIdentity = Boolean(checkout.full_name) && Boolean(checkout.phone || checkout.email);
+  return hasCart && hasDelivery && hasScheduleIfPickup && hasIdentity;
+}
+
 async function dispatchTelegramOps(context = {}, meta = {}) {
   const messages = [
     { topicKey: 'atendimento_vendas', text: buildSalesEscortMessage(context) },
@@ -469,6 +479,16 @@ async function dispatchTelegramOps(context = {}, meta = {}) {
       results.push({ topicKey: entry.topicKey, ok: false, error: error.message || 'telegram dispatch failed' });
     }
   }
+
+  if (shouldSendHandoff(context)) {
+    try {
+      const sent = await sendOperationalTelegramMessage(buildHandoffOrderMessage(context), { topicKey: 'handoff_pedidos' });
+      results.push({ topicKey: 'handoff_pedidos', mode: sent.mode || 'unknown', ok: true, kind: 'terminal_handoff' });
+    } catch (error) {
+      results.push({ topicKey: 'handoff_pedidos', ok: false, kind: 'terminal_handoff', error: error.message || 'handoff telegram dispatch failed' });
+    }
+  }
+
   return results;
 }
 
