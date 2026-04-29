@@ -63,6 +63,12 @@ function isPurchaseIntent(text = '') {
   return explicitPurchasePatterns.some((pattern) => pattern.test(normalized));
 }
 
+function isPureGreeting(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /^(?:oi+|ol[áa]|opa+|e ai|ei|bom dia|boa tarde|boa noite)(?:[!,. ]+(?:oi+|ol[áa]|opa+|bom dia|boa tarde|boa noite))*[!,. ]*$/.test(normalized);
+}
+
 function isFinalizeIntent(text = '') {
   return /(finalizar|fechar pedido|me manda o total|quero finalizar|fechou|pode fechar|vamos fechar)/i.test(String(text || ''));
 }
@@ -811,8 +817,52 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
+    const pureGreeting = isPureGreeting(effectiveText || '');
     const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
-    const composed = mediaFailureReply ? null : await composeCustomerReply(composeInput);
+    const composed = mediaFailureReply
+      ? null
+      : (pureGreeting
+        ? {
+            raw: null,
+            reply_mode: 'answer',
+            conversation_goal: 'support',
+            pending_offer_type: 'none',
+            expected_next_user_move: 'inform',
+            last_seller_question: '',
+            anchor_products: [],
+            should_update_cart: false,
+            cart_updates: {
+              action: 'none',
+              quantity: null,
+              selected_product_id: '',
+              selected_product_name: '',
+              variation: ''
+            },
+            checkout_updates: {
+              delivery_mode: '',
+              next_required_field: '',
+              review_ready: false
+            },
+            extracted_state: {
+              selected_product_id: '',
+              selected_product_name: '',
+              selected_quantity: null,
+              delivery_mode: '',
+              pickup_schedule: '',
+              full_name: '',
+              phone: '',
+              email: '',
+              address: '',
+              conversation_move: 'answer_question',
+              missing_fields: [],
+              needs_disambiguation: false,
+              should_review: false,
+              confidence: 1
+            },
+            assistant_notes: 'pure greeting detected; bypass product shortlist and answer with neutral greeting',
+            final_text: 'Oi 💜 como posso te ajudar?'
+          }
+        : await composeCustomerReply(composeInput));
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
