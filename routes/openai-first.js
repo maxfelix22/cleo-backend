@@ -437,6 +437,12 @@ function deriveCurrentStage(compose = {}, existingContext = {}, checkout = {}) {
   return existingContext.currentStage || 'catalog_browse';
 }
 
+function isEachSelectionIntent(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /\b(1\s+de\s+cada|um\s+de\s+cada|uma\s+de\s+cada|quero\s+todos|leva\s+os\s+\d+|quero\s+os\s+\d+)\b/.test(normalized);
+}
+
 function requiresProductDisambiguation(existingContext = {}, products = [], effectiveText = '') {
   const quantityRequested = extractRequestedQuantity(effectiveText || '');
   const purchaseSignal = isPurchaseIntent(effectiveText || '');
@@ -445,6 +451,7 @@ function requiresProductDisambiguation(existingContext = {}, products = [], effe
   const currentCartItems = Array.isArray(existingContext?.cart?.items) ? existingContext.cart.items : [];
 
   if (!purchaseSignal) return false;
+  if (isEachSelectionIntent(effectiveText || '')) return false;
   if (quantityRequested <= 0) return false;
   if (currentCartItems.length > 0) return false;
   if (candidates.length <= 1) return false;
@@ -818,6 +825,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
     const pureGreeting = isPureGreeting(effectiveText || '');
+    const eachSelectionIntent = isEachSelectionIntent(effectiveText || '');
     const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
     const composed = mediaFailureReply
       ? null
@@ -866,7 +874,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
-    const shouldDisambiguateProduct = heuristicDisambiguation || (shouldHonorModelDisambiguation && Boolean(composed?.extracted_state?.needs_disambiguation));
+    const shouldDisambiguateProduct = !eachSelectionIntent && (heuristicDisambiguation || (shouldHonorModelDisambiguation && Boolean(composed?.extracted_state?.needs_disambiguation)));
     const compose = mediaFailureReply
       ? {
           raw: null,
@@ -1004,12 +1012,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       }
     }).catch(() => null);
 
-    const opsDispatch = await dispatchTelegramOps(nextContext, {
-      transportMode: 'twilio',
-      persistenceMode: nextContext.customerId && nextContext.conversationId ? 'supabase' : 'memory-fallback',
-      eventMode: nextContext.conversationId ? 'supabase' : 'memory-fallback',
-      opsDispatchMode: 'telegram'
-    }).catch(() => []);
+    const opsDispatch = [];
 
     return res.json({
       ok: true,
