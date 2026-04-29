@@ -178,7 +178,8 @@ function buildPrompt(input) {
     store_facts = {},
     business_rules = {},
     recent_messages = [],
-    customer_signal = ''
+    customer_signal = '',
+    cleo_kb_snippets = []
   } = input || {};
 
   const topProducts = normalizeProducts(products_found, 5);
@@ -201,7 +202,7 @@ function buildPrompt(input) {
     '- responder de forma curta, humana, natural e vendedora',
     '- quando já houver contexto suficiente, avançar em vez de repetir convite',
     '- quando a cliente já quiser comprar, assumir a venda e empurrar para checkout',
-    '- usar os candidatos semânticos e templates comerciais como repertório principal de venda',
+    '- usar os candidatos semânticos, templates comerciais e snippets da cleo_kb como repertório principal de venda',
     '',
     'Regras obrigatórias:',
     '- nunca inventar fatos, preço, estoque, política, frete ou disponibilidade',
@@ -214,6 +215,8 @@ function buildPrompt(input) {
     '- se a cliente disser "quero comprar", "vou querer 2", "quero finalizar", "me manda o total", tratar isso como sinal de conversão e avançar checkout',
     '- se houver produto selecionado ou âncoras fortes, priorizar esses produtos',
     '- se houver candidatos semânticos fortes, usar nome, benefício e template deles para vender com mais precisão',
+    '- se houver snippets da cleo_kb úteis, puxe deles o tom, a estrutura da resposta e a forma humana de lidar com objeção/vergoinha/dúvida, sem copiar mecanicamente',
+    '- nunca trate snippets contaminados como verdade de catálogo; preço/estoque/fato operacional continuam vindo das camadas oficiais',
     '- se houver 2 ou 3 boas opções, você pode listar 2 ou 3 com preço',
     '- se o item visual estiver fora do catálogo, responder honestamente',
     '- se faltar só um dado operacional obrigatório, pedir apenas o próximo dado necessário',
@@ -253,6 +256,7 @@ function buildPrompt(input) {
     `checkout: ${JSON.stringify(safeCheckout)}`,
     `store_facts: ${JSON.stringify(store_facts || {})}`,
     `business_rules: ${JSON.stringify(business_rules || {})}`,
+    `cleo_kb_snippets: ${JSON.stringify(Array.isArray(cleo_kb_snippets) ? cleo_kb_snippets.slice(0, 6) : [])}`,
     '',
     'Responda SOMENTE em JSON com esta forma:',
     '{',

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { getStoreFacts } = require('../services/cleo-store-facts');
+const { searchCleoKb, buildKBSnippets } = require('../services/cleo-kb-store');
 const { searchProducts } = require('../services/catalog-service');
 const { buildSemanticContext } = require('../services/semantic-store');
 const { buildSemanticContextSupabase } = require('../services/semantic-supabase-store');
@@ -739,6 +740,13 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
 
     const recentMessages = normalizeRecentMessages([]);
     const storeFacts = getStoreFacts();
+    const cleoKbChunks = await searchCleoKb({
+      text: effectiveText || '',
+      intentIds: semantic.intent_ids || [],
+      productNames: products.map((item) => item.name).filter(Boolean),
+      limit: 6,
+    }).catch(() => []);
+
     const composeInput = {
       channel: inbound.channel,
       mode,
@@ -768,7 +776,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       checkout: existingContext.checkout || conversation?.last_product_payload?.checkout || { delivery_mode: '', next_required_field: '', review_ready: false },
       store_facts: storeFacts,
       business_rules: buildBusinessRules(),
-      recent_messages: recentMessages
+      recent_messages: recentMessages,
+      cleo_kb_snippets: buildKBSnippets(cleoKbChunks, 6)
     };
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
