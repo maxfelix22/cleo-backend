@@ -866,8 +866,45 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
     const eachSelectionIntent = isEachSelectionIntent(effectiveText || '');
     const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
+    const safeCompose = async (input) => {
+      try {
+        return await composeCustomerReply(input);
+      } catch (error) {
+        return {
+          raw: null,
+          reply_mode: 'answer',
+          conversation_goal: 'support',
+          pending_offer_type: 'none',
+          expected_next_user_move: 'inform',
+          last_seller_question: '',
+          anchor_products: previousState.anchor_products || [],
+          should_update_cart: false,
+          cart_updates: { action: 'none', quantity: null, selected_product_id: '', selected_product_name: '', variation: '' },
+          checkout_updates: { delivery_mode: '', next_required_field: '', review_ready: false },
+          extracted_state: {
+            selected_product_id: '',
+            selected_product_name: '',
+            selected_quantity: null,
+            delivery_mode: '',
+            pickup_schedule: '',
+            full_name: '',
+            phone: '',
+            email: '',
+            address: '',
+            conversation_move: 'answer_question',
+            missing_fields: [],
+            needs_disambiguation: false,
+            should_review: false,
+            confidence: 0
+          },
+          assistant_notes: `compose fallback: ${error.message || 'compose failed'}`,
+          final_text: mediaFailureReply || 'Oi 💜 Tô aqui com você. Me fala de novo o que você quer que eu sigo sem complicar.'
+        };
+      }
+    };
+
     const composed = mediaFailureReply
-      ? await composeCustomerReply({
+      ? await safeCompose({
           ...composeInput,
           message_text: effectiveText || mediaFailureReply,
           customer_signal: effectiveText || mediaFailureReply,
@@ -914,7 +951,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
               assistant_notes: 'each-selection intent detected; convert active shortlist into multi-item cart with qty 1 each',
               final_text: 'Fechado 💜 Já coloquei 1 de cada no seu carrinho. Você prefere *pickup*, *entrega local* ou *USPS*?'
             }
-          : await composeCustomerReply(composeInput));
+          : await safeCompose(composeInput));
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal && quantitySignal;
