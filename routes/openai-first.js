@@ -605,7 +605,6 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   if (!finalText) return 'Me fala rapidinho o que você quer que eu sigo daqui 💜';
 
   const checkout = contextDraft?.checkout || {};
-  const cart = ensureCartShape(contextDraft?.cart || {}, contextDraft?.lastProducts || []);
   const lastReplyText = String(contextDraft?.lastReplyText || '').trim();
   const lastInboundText = String(contextDraft?.lastInboundText || '').trim();
   const waitingProof = /me manda o comprovante/i.test(lastReplyText);
@@ -619,38 +618,8 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
     return buildPostPaymentAck();
   }
 
-  if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
-    if (contextDraft?.checkout?.review_ready && looksLikePaymentConfirmation(contextDraft?.lastInboundText || '')) {
-      return buildPaymentPrompt(contextDraft);
-    }
-
-    const review = buildReviewText(contextDraft);
-    if (review) {
-      return `${review}\n\n${finalText}`;
-    }
-  }
-
-  if ((compose.reply_mode === 'close_sale' || compose.reply_mode === 'checkout_next') && !checkout.delivery_mode && !/pickup|USPS|entrega/i.test(finalText)) {
-    return `${finalText}\n\nVocê prefere *pickup*, *entrega local* ou *USPS*?`;
-  }
-
-  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode === 'pickup' && checkout.next_required_field === 'pickup_schedule') {
-    return 'Perfeito 💜 Me manda o *dia e horário* que você prefere para retirar, porque atendemos só com horário marcado.';
-  }
-
-  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.delivery_mode && checkout.next_required_field === 'customer_info') {
-    return buildCustomerInfoPrompt(checkout);
-  }
-
-  if ((compose.reply_mode === 'checkout_next' || compose.reply_mode === 'close_sale') && checkout.review_ready) {
-    if (looksLikePaymentConfirmation(contextDraft?.lastInboundText || '')) {
-      return buildPaymentPrompt(contextDraft);
-    }
-
-    const review = buildReviewText(contextDraft);
-    if (review) {
-      return `${review}\n\nSe estiver tudo certo, me manda só um *ok* que eu sigo 💜`;
-    }
+  if (checkout.review_ready && looksLikePaymentConfirmation(lastInboundText)) {
+    return buildPaymentPrompt(contextDraft);
   }
 
   return finalText;
