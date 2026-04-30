@@ -324,7 +324,7 @@ function buildPostPaymentAck() {
 }
 
 function buildReceiptConfirmation() {
-  return 'Pagamento recebido 💜 Obrigada pela compra! Seu pedido ficou confirmado e vou ficar te aguardando no horário combinado.';
+  return 'Recebi o comprovante 💜 Vou conferir certinho aqui e já te confirmo. Obrigada pela compra!';
 }
 
 function buildCustomerInfoPrompt(checkout = {}) {
@@ -562,6 +562,15 @@ function shouldSendHandoff(context = {}) {
 }
 
 async function dispatchTelegramOps(context = {}, meta = {}) {
+  if (meta.receiptReviewMode === 'handoff_only') {
+    try {
+      const sent = await sendOperationalTelegramMessage(`${buildHandoffOrderMessage(context)}\n• Ação necessária: conferir comprovante enviado pela cliente antes de confirmar pagamento.`, { topicKey: 'handoff_pedidos' });
+      return [{ topicKey: 'handoff_pedidos', mode: sent.mode || 'unknown', ok: true, kind: 'receipt_review_handoff' }];
+    } catch (error) {
+      return [{ topicKey: 'handoff_pedidos', ok: false, kind: 'receipt_review_handoff', error: error.message || 'receipt review handoff telegram dispatch failed' }];
+    }
+  }
+
   const messages = [
     { topicKey: 'atendimento_vendas', text: buildSalesEscortMessage(context) },
     { topicKey: 'memoria_clientes', text: buildMemoryEscortMessage(context) },
@@ -1116,7 +1125,17 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       }
     }).catch(() => null);
 
-    const opsDispatch = [];
+    const waitingProofForDispatch = /me manda o comprovante/i.test(String(existingContext.lastReplyText || ''));
+    const receiptReviewMode = mode === 'image' && waitingProofForDispatch ? 'handoff_only' : 'disabled';
+    const opsDispatch = receiptReviewMode === 'handoff_only'
+      ? await dispatchTelegramOps(nextContext, {
+          transportMode: 'twilio',
+          persistenceMode: nextContext.customerId && nextContext.conversationId ? 'supabase' : 'memory-fallback',
+          eventMode: nextContext.conversationId ? 'supabase' : 'memory-fallback',
+          opsDispatchMode: 'telegram',
+          receiptReviewMode,
+        }).catch(() => [])
+      : [];
 
     return res.json({
       ok: true,
