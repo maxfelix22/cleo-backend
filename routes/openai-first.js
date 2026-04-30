@@ -304,6 +304,12 @@ function looksLikePaymentConfirmation(text = '') {
     || /manda.*zelle|me manda.*zelle|passa.*zelle|envia.*zelle|pode mandar.*zelle/.test(normalized);
 }
 
+function looksLikePostPaymentAck(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+  return /^(obrigada|obrigado|valeu|perfeito|beleza|show|ok|okay|okey|certo)$/.test(normalized);
+}
+
 function buildPaymentPrompt(context = {}) {
   const checkout = context?.checkout || {};
   const cart = ensureCartShape(context?.cart || {}, context?.lastProducts || []);
@@ -311,6 +317,14 @@ function buildPaymentPrompt(context = {}) {
   const scheduleText = checkout.pickup_schedule ? ` para retirada ${checkout.pickup_schedule}` : '';
 
   return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode fazer o pagamento via *Zelle* para:\n*5086189995*\n*Bruna Campos Samora Felix*\n\nAssim que enviar, me manda o comprovante 💜`;
+}
+
+function buildPostPaymentAck() {
+  return 'Perfeito 💜 Fico aguardando o comprovante.';
+}
+
+function buildReceiptConfirmation() {
+  return 'Pagamento recebido 💜 Obrigada pela compra! Seu pedido ficou confirmado e vou ficar te aguardando no horário combinado.';
 }
 
 function buildCustomerInfoPrompt(checkout = {}) {
@@ -583,6 +597,18 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
 
   const checkout = contextDraft?.checkout || {};
   const cart = ensureCartShape(contextDraft?.cart || {}, contextDraft?.lastProducts || []);
+  const lastReplyText = String(contextDraft?.lastReplyText || '').trim();
+  const lastInboundText = String(contextDraft?.lastInboundText || '').trim();
+  const waitingProof = /me manda o comprovante/i.test(lastReplyText);
+  const inboundLooksLikeReceipt = contextDraft?.mode === 'image' && waitingProof;
+
+  if (inboundLooksLikeReceipt) {
+    return buildReceiptConfirmation();
+  }
+
+  if (waitingProof && looksLikePostPaymentAck(lastInboundText)) {
+    return buildPostPaymentAck();
+  }
 
   if (compose.reply_mode === 'checkout_next' && compose.pending_offer_type === 'review_order') {
     if (contextDraft?.checkout?.review_ready && looksLikePaymentConfirmation(contextDraft?.lastInboundText || '')) {
@@ -1011,6 +1037,9 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       checkout: applied.checkout,
       lastProducts: applied.nextState.anchor_products,
       lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
+      lastReplyText: existingContext.lastReplyText || '',
+      lastInboundText: effectiveText || '',
+      mode,
     };
     const finalText = enrichFinalText(compose, draftContext);
 
