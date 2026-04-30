@@ -393,14 +393,23 @@ function buildReviewText(context = {}) {
 
 function applyComposeResultToState(existingContext = {}, compose = {}, products = []) {
   const extracted = compose.extracted_state || {};
+  const additiveTurn = isAdditiveTurn(existingContext.lastInboundText || '', existingContext);
+  const existingAnchors = Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0 ? existingContext.lastProducts : [];
+  const composedAnchors = Array.isArray(compose.anchor_products) && compose.anchor_products.length > 0 ? compose.anchor_products : [];
+
   const nextState = {
     conversation_goal: compose.conversation_goal || existingContext.conversation_goal || '',
     pending_offer_type: compose.pending_offer_type || existingContext.pending_offer_type || 'none',
     expected_next_user_move: compose.expected_next_user_move || existingContext.expected_next_user_move || 'none',
     last_seller_question: compose.last_seller_question || existingContext.last_seller_question || '',
-    anchor_products: Array.isArray(compose.anchor_products) && compose.anchor_products.length > 0
-      ? compose.anchor_products
-      : (Array.isArray(existingContext.lastProducts) && existingContext.lastProducts.length > 0 ? existingContext.lastProducts : products.slice(0, 3))
+    anchor_products: additiveTurn
+      ? [...existingAnchors, ...composedAnchors].filter((product, index, arr) => {
+          const key = `${product?.id || ''}::${product?.name || ''}`;
+          return key !== '::' && arr.findIndex((p) => `${p?.id || ''}::${p?.name || ''}` === key) === index;
+        }).slice(0, 6)
+      : (composedAnchors.length > 0
+          ? composedAnchors
+          : (existingAnchors.length > 0 ? existingAnchors : products.slice(0, 3)))
   };
 
   const baseCart = existingContext.cart && typeof existingContext.cart === 'object'
@@ -496,6 +505,20 @@ function isEachSelectionIntent(text = '') {
   const normalized = String(text || '').toLowerCase().trim();
   if (!normalized) return false;
   return /\b(1\s+de\s+cada|um\s+de\s+cada|uma\s+de\s+cada|quero\s+todos|leva\s+os\s+\d+|quero\s+os\s+\d+)\b/.test(normalized);
+}
+
+function isAdditiveTurn(text = '', existingContext = {}) {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return false;
+  const hasActiveCommercialContext = Boolean(
+    (Array.isArray(existingContext?.cart?.items) && existingContext.cart.items.length > 0)
+    || (Array.isArray(existingContext?.lastProducts) && existingContext.lastProducts.length > 0)
+    || existingContext?.lastProduct
+    || ['checkout_in_progress', 'checkout_choose_delivery', 'checkout_pickup_schedule', 'checkout_collect_customer_info', 'checkout_review'].includes(String(existingContext?.currentStage || ''))
+  );
+  if (!hasActiveCommercialContext) return false;
+
+  return /(tamb[eé]m|junto|al[eé]m disso|mais uma coisa|mais um item|acrescenta|adiciona|coloca .* junto|inclui .* tamb[eé]m)/i.test(normalized);
 }
 
 function requiresProductDisambiguation(existingContext = {}, products = [], effectiveText = '') {
@@ -830,6 +853,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       limit: 6,
     }).catch(() => []);
 
+    const additiveTurn = isAdditiveTurn(effectiveText || '', existingContext);
+
     const composeInput = {
       channel: inbound.channel,
       mode,
@@ -840,14 +865,18 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       audio_transcription: mediaResolved.audio_transcription || '',
       vision_result: mediaResolved.vision_result || null,
       summary: conversation?.summary || existingContext.summary || '',
-      intent: isShortContinuation(effectiveText)
-        ? 'short_continuation'
-        : (isPurchaseIntent(effectiveText)
-          ? 'purchase_signal'
-          : ((semantic.intent_ids || [])[0] || '')),
-      intent_group: isFinalizeIntent(effectiveText)
-        ? 'checkout'
-        : (((semantic.intent_ids || []).length > 1) ? 'semantic_multi_intent' : ''),
+      intent: additiveTurn
+        ? 'cart_expansion'
+        : (isShortContinuation(effectiveText)
+          ? 'short_continuation'
+          : (isPurchaseIntent(effectiveText)
+            ? 'purchase_signal'
+            : ((semantic.intent_ids || [])[0] || ''))),
+      intent_group: additiveTurn
+        ? 'cart_expansion'
+        : (isFinalizeIntent(effectiveText)
+          ? 'checkout'
+          : (((semantic.intent_ids || []).length > 1) ? 'semantic_multi_intent' : '')),
       current_stage: conversation?.current_stage || existingContext.currentStage || '',
       customer_signal: effectiveText || '',
       conversation_state: previousState,
