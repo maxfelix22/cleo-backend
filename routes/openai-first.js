@@ -504,21 +504,23 @@ function requiresProductDisambiguation(existingContext = {}, products = [], effe
   const anchors = Array.isArray(existingContext.lastProducts) ? existingContext.lastProducts : [];
   const candidates = anchors.length > 0 ? anchors : (Array.isArray(products) ? products : []);
   const currentCartItems = Array.isArray(existingContext?.cart?.items) ? existingContext.cart.items : [];
+  const normalized = String(effectiveText || '').toLowerCase().trim();
 
   if (!purchaseSignal) return false;
   if (isEachSelectionIntent(effectiveText || '')) return false;
   if (quantityRequested <= 0) return false;
   if (currentCartItems.length > 0) return false;
-  if (candidates.length <= 1) return false;
+  if (candidates.length !== 2) return false;
+  if (/qual deles|de qual deles|de qual delas|qual deles você/i.test(normalized)) return false;
 
-  const normalized = String(effectiveText || '').toLowerCase();
   const mentionsCandidate = candidates.some((product) => {
     const name = String(product?.name || '').toLowerCase();
     if (!name) return false;
     return normalized.includes(name) || name.split(/\s+/).some((part) => part.length >= 4 && normalized.includes(part));
   });
 
-  return !mentionsCandidate;
+  const genericQuantityOnly = /^(quero|vou querer|quero levar|leva|separa|manda)\s+\d{1,2}\b[.! ]*$/i.test(String(effectiveText || '').trim());
+  return genericQuantityOnly && !mentionsCandidate;
 }
 
 function buildDisambiguationReply(existingContext = {}, products = []) {
@@ -915,7 +917,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
           : await composeCustomerReply(composeInput));
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
-    const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
+    const shouldHonorModelDisambiguation = purchaseSignal && quantitySignal;
     const shouldDisambiguateProduct = !eachSelectionIntent && (heuristicDisambiguation || (shouldHonorModelDisambiguation && Boolean(composed?.extracted_state?.needs_disambiguation)));
     const compose = shouldDisambiguateProduct
         ? {
