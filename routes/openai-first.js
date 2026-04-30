@@ -893,53 +893,16 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     };
 
     const mediaFailureReply = buildMediaFailureReply(mediaResolved, inbound);
-    const pureGreeting = isPureGreeting(effectiveText || '');
     const eachSelectionIntent = isEachSelectionIntent(effectiveText || '');
     const heuristicDisambiguation = requiresProductDisambiguation(existingContext, products, effectiveText);
     const composed = mediaFailureReply
-      ? null
-      : (pureGreeting
-        ? {
-            raw: null,
-            reply_mode: 'answer',
-            conversation_goal: 'support',
-            pending_offer_type: 'none',
-            expected_next_user_move: 'inform',
-            last_seller_question: '',
-            anchor_products: [],
-            should_update_cart: false,
-            cart_updates: {
-              action: 'none',
-              quantity: null,
-              selected_product_id: '',
-              selected_product_name: '',
-              variation: ''
-            },
-            checkout_updates: {
-              delivery_mode: '',
-              next_required_field: '',
-              review_ready: false
-            },
-            extracted_state: {
-              selected_product_id: '',
-              selected_product_name: '',
-              selected_quantity: null,
-              delivery_mode: '',
-              pickup_schedule: '',
-              full_name: '',
-              phone: '',
-              email: '',
-              address: '',
-              conversation_move: 'answer_question',
-              missing_fields: [],
-              needs_disambiguation: false,
-              should_review: false,
-              confidence: 1
-            },
-            assistant_notes: 'pure greeting detected; bypass product shortlist and answer with neutral greeting',
-            final_text: 'Oi 💜 como posso te ajudar?'
-          }
-        : (eachSelectionIntent && Array.isArray(previousState.anchor_products) && previousState.anchor_products.length > 1)
+      ? await composeCustomerReply({
+          ...composeInput,
+          message_text: effectiveText || mediaFailureReply,
+          customer_signal: effectiveText || mediaFailureReply,
+          assistant_hint: 'media_failed_honest_fallback'
+        })
+      : (eachSelectionIntent && Array.isArray(previousState.anchor_products) && previousState.anchor_products.length > 1)
           ? {
               raw: null,
               reply_mode: 'checkout_next',
@@ -985,32 +948,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal || quantitySignal;
     const shouldDisambiguateProduct = !eachSelectionIntent && (heuristicDisambiguation || (shouldHonorModelDisambiguation && Boolean(composed?.extracted_state?.needs_disambiguation)));
-    const compose = mediaFailureReply
-      ? {
-          raw: null,
-          reply_mode: 'clarify',
-          conversation_goal: 'discover',
-          pending_offer_type: 'none',
-          expected_next_user_move: 'inform',
-          last_seller_question: 'Me manda outra foto mais nítida ou o nome do produto?',
-          anchor_products: previousState.anchor_products || [],
-          should_update_cart: false,
-          cart_updates: {
-            action: 'none',
-            quantity: null,
-            selected_product_id: '',
-            selected_product_name: '',
-            variation: ''
-          },
-          checkout_updates: {
-            delivery_mode: '',
-            next_required_field: '',
-            review_ready: false
-          },
-          assistant_notes: 'media download/analysis failed; ask for clearer resend instead of hallucinating product suggestion',
-          final_text: mediaFailureReply,
-        }
-      : shouldDisambiguateProduct
+    const compose = shouldDisambiguateProduct
         ? {
             raw: null,
             reply_mode: 'clarify',
