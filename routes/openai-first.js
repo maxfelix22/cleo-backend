@@ -951,7 +951,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
               assistant_notes: 'each-selection intent detected; convert active shortlist into multi-item cart with qty 1 each',
               final_text: 'Fechado 💜 Já coloquei 1 de cada no seu carrinho. Você prefere *pickup*, *entrega local* ou *USPS*?'
             }
-          : await safeCompose(composeInput));
+          : await safeCompose(composeInput);
     const purchaseSignal = isPurchaseIntent(effectiveText || '');
     const quantitySignal = extractRequestedQuantity(effectiveText || '') > 0;
     const shouldHonorModelDisambiguation = purchaseSignal && quantitySignal;
