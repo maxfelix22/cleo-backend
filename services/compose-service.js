@@ -71,9 +71,14 @@ const MISSING_FIELDS = new Set([
   'none'
 ]);
 
-function normalizeEnum(value, allowed, fallback) {
+function normalizeEnum(value, allowed, fallback, aliases = {}) {
   const normalized = String(value || '').trim();
-  return allowed.has(normalized) ? normalized : fallback;
+  if (allowed.has(normalized)) return normalized;
+  if (aliases && Object.prototype.hasOwnProperty.call(aliases, normalized)) {
+    const mapped = aliases[normalized];
+    return allowed.has(mapped) ? mapped : fallback;
+  }
+  return fallback;
 }
 
 function normalizeProducts(products = [], max = 5) {
@@ -264,7 +269,7 @@ function buildPrompt(input) {
     `business_rules: ${JSON.stringify(business_rules || {})}`,
     `cleo_kb_snippets: ${JSON.stringify(Array.isArray(cleo_kb_snippets) ? cleo_kb_snippets.slice(0, 6) : [])}`,
     '',
-    'Responda SOMENTE em JSON com esta forma:',
+    'Responda SOMENTE em JSON com esta forma. Não trate isso como prova escolar; use o mínimo de estrutura necessária para preservar estado e deixe a naturalidade viver no final_text:',
     '{',
     '  "reply_mode": "answer|show_options|continue_offer|close_sale|checkout_next|visual_reply|clarify",',
     '  "conversation_goal": "discover|compare|sell|checkout|support",',
@@ -304,6 +309,11 @@ function buildPrompt(input) {
     '  "assistant_notes": "",',
     '  "final_text": "..."',
     '}',
+    '',
+    'Importante:',
+    '- o campo mais importante é final_text: ele deve soar humano, comercial e natural',
+    '- os outros campos existem para preservar estado, não para engessar sua voz',
+    '- se ficar em dúvida entre duas taxonomias internas parecidas, escolha a mais próxima e priorize um final_text excelente',
     '',
     'Extração operacional:',
     '- use extracted_state para registrar o que a cliente já definiu no turno atual, mesmo em linguagem natural',
@@ -379,16 +389,57 @@ async function composeCustomerReply(input) {
 
   return {
     raw: payload,
-    reply_mode: normalizeEnum(parsed.reply_mode, REPLY_MODES, 'answer'),
-    conversation_goal: normalizeEnum(parsed.conversation_goal, CONVERSATION_GOALS, 'discover'),
-    pending_offer_type: normalizeEnum(parsed.pending_offer_type, PENDING_OFFER_TYPES, 'none'),
-    expected_next_user_move: normalizeEnum(parsed.expected_next_user_move, EXPECTED_NEXT_USER_MOVES, 'none'),
+    reply_mode: normalizeEnum(parsed.reply_mode, REPLY_MODES, 'answer', {
+      greet: 'answer',
+      greeting: 'answer',
+      reply: 'answer',
+      respond: 'answer',
+      offer: 'show_options',
+      options: 'show_options',
+      continue: 'continue_offer',
+      close: 'close_sale',
+      checkout: 'checkout_next',
+      visual: 'visual_reply',
+      clarify_product: 'clarify'
+    }),
+    conversation_goal: normalizeEnum(parsed.conversation_goal, CONVERSATION_GOALS, 'discover', {
+      greeting: 'support',
+      general: 'support',
+      sales: 'sell',
+      sale: 'sell',
+      purchase: 'checkout',
+      closing: 'checkout'
+    }),
+    pending_offer_type: normalizeEnum(parsed.pending_offer_type, PENDING_OFFER_TYPES, 'none', {
+      options: 'show_options',
+      shortlist: 'show_options',
+      product_choice: 'confirm_item',
+      quantity_choice: 'confirm_qty',
+      delivery: 'choose_delivery',
+      customer_info: 'get_customer_info',
+      review: 'review_order'
+    }),
+    expected_next_user_move: normalizeEnum(parsed.expected_next_user_move, EXPECTED_NEXT_USER_MOVES, 'none', {
+      reply: 'inform',
+      answer: 'inform',
+      send_info: 'inform',
+      choose_option: 'choose',
+      confirm_payment: 'pay'
+    }),
     last_seller_question: String(parsed.last_seller_question || '').trim(),
     anchor_products: anchorProducts,
     should_update_cart: Boolean(parsed.should_update_cart),
     cart_updates: parsed.cart_updates && typeof parsed.cart_updates === 'object'
       ? {
-          action: normalizeEnum(parsed.cart_updates.action, CART_ACTIONS, 'none'),
+          action: normalizeEnum(parsed.cart_updates.action, CART_ACTIONS, 'none', {
+            select: 'set_selection',
+            select_item: 'set_selection',
+            choose_item: 'set_selection',
+            add: 'add_item',
+            add_to_cart: 'add_item',
+            change_quantity: 'update_quantity',
+            set_quantity: 'update_quantity'
+          }),
           quantity: parsed.cart_updates.quantity == null ? null : Number(parsed.cart_updates.quantity),
           selected_product_id: String(parsed.cart_updates.selected_product_id || '').trim(),
           selected_product_name: String(parsed.cart_updates.selected_product_name || '').trim(),
@@ -423,7 +474,16 @@ async function composeCustomerReply(input) {
           phone: String(parsed.extracted_state.phone || '').trim(),
           email: String(parsed.extracted_state.email || '').trim(),
           address: String(parsed.extracted_state.address || '').trim(),
-          conversation_move: normalizeEnum(parsed.extracted_state.conversation_move, CONVERSATION_MOVES, 'discover'),
+          conversation_move: normalizeEnum(parsed.extracted_state.conversation_move, CONVERSATION_MOVES, 'discover', {
+            greeting: 'answer_question',
+            answer: 'answer_question',
+            sell: 'discover',
+            close: 'review_order',
+            delivery: 'choose_delivery',
+            pickup: 'collect_pickup_schedule',
+            customer_info: 'collect_customer_info',
+            review: 'review_order'
+          }),
           missing_fields: (Array.isArray(parsed.extracted_state.missing_fields) ? parsed.extracted_state.missing_fields : [])
             .map((item) => String(item || '').trim())
             .filter((item) => MISSING_FIELDS.has(item)),
