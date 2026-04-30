@@ -870,6 +870,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       try {
         return await composeCustomerReply(input);
       } catch (error) {
+        console.error('[openai-first] compose failed:', error?.message || error);
         return {
           raw: null,
           reply_mode: 'answer',

@@ -339,7 +339,7 @@ async function composeCustomerReply(input) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: process.env.CLEO_COMPOSE_MODEL || 'openai/gpt-5.4',
+      model: process.env.CLEO_COMPOSE_MODEL || 'gpt-4.1-mini',
       input: [
         {
           role: 'user',
