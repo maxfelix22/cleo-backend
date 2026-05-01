@@ -324,7 +324,7 @@ function buildPostPaymentAck() {
 }
 
 function buildReceiptConfirmation() {
-  return 'Recebi o comprovante 💜 Vou conferir certinho aqui e já te confirmo. Obrigada pela compra!';
+  return 'Recebi o comprovante 💜 Vou conferir se os dados batem certinho com o pedido e já te confirmo. Obrigada pela compra!';
 }
 
 function derivePaymentState(existingContext = {}, inboundText = '', lastReplyText = '') {
