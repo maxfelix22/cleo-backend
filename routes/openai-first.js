@@ -327,6 +327,10 @@ function buildReceiptConfirmation() {
   return 'Recebi o comprovante 💜 Vou conferir se os dados batem certinho com o pedido e já te confirmo. Obrigada pela compra!';
 }
 
+function buildPostReceiptAck() {
+  return 'Perfeito 💜 Assim que eu conferir certinho, já te confirmo.';
+}
+
 function derivePaymentState(existingContext = {}, inboundText = '', lastReplyText = '') {
   const normalizedInbound = String(inboundText || '').toLowerCase().trim();
   const normalizedLastReply = String(lastReplyText || '').toLowerCase().trim();
@@ -665,6 +669,9 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   }
 
   if (paymentState === 'zelle_receipt_received') {
+    if (looksLikePostPaymentAck(lastInboundText)) {
+      return buildPostReceiptAck();
+    }
     return buildReceiptConfirmation();
   }
 
