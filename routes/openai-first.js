@@ -327,6 +327,30 @@ function buildReceiptConfirmation() {
   return 'Recebi o comprovante 💜 Vou conferir certinho aqui e já te confirmo. Obrigada pela compra!';
 }
 
+function derivePaymentState(existingContext = {}, inboundText = '', lastReplyText = '') {
+  const normalizedInbound = String(inboundText || '').toLowerCase().trim();
+  const normalizedLastReply = String(lastReplyText || '').toLowerCase().trim();
+  const existingPaymentState = String(existingContext?.payment_state || '').trim();
+
+  if (/me manda o comprovante/.test(normalizedLastReply) && /^(obrigada|obrigado|valeu|perfeito|beleza|show|ok|okay|okey|certo)$/.test(normalizedInbound)) {
+    return 'zelle_waiting_receipt';
+  }
+
+  if (/me manda o comprovante/.test(normalizedLastReply) && looksLikePaymentConfirmation(normalizedInbound)) {
+    return 'zelle_waiting_receipt';
+  }
+
+  if (/recebi o comprovante/.test(normalizedLastReply)) {
+    return 'zelle_receipt_received';
+  }
+
+  if (/zelle/.test(normalizedInbound) || /pode fazer o pagamento via \*zelle\*/i.test(lastReplyText)) {
+    return 'zelle_waiting_receipt';
+  }
+
+  return existingPaymentState || 'none';
+}
+
 function buildCustomerInfoPrompt(checkout = {}) {
   const mode = String(checkout?.delivery_mode || '').trim();
   if (mode === 'pickup') {
@@ -632,15 +656,25 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   const checkout = contextDraft?.checkout || {};
   const lastReplyText = String(contextDraft?.lastReplyText || '').trim();
   const lastInboundText = String(contextDraft?.lastInboundText || '').trim();
-  const waitingProof = /me manda o comprovante/i.test(lastReplyText);
+  const paymentState = String(contextDraft?.payment_state || '').trim();
+  const waitingProof = /me manda o comprovante/i.test(lastReplyText) || paymentState === 'zelle_waiting_receipt';
   const inboundLooksLikeReceipt = contextDraft?.mode === 'image' && waitingProof;
 
   if (inboundLooksLikeReceipt) {
     return buildReceiptConfirmation();
   }
 
+  if (paymentState === 'zelle_receipt_received') {
+    return buildReceiptConfirmation();
+  }
+
   if (waitingProof && looksLikePostPaymentAck(lastInboundText)) {
     return buildPostPaymentAck();
+  }
+
+  if (paymentState === 'zelle_waiting_receipt') {
+    if (looksLikePostPaymentAck(lastInboundText)) return buildPostPaymentAck();
+    return buildPaymentPrompt(contextDraft);
   }
 
   if (checkout.review_ready && looksLikePaymentConfirmation(lastInboundText)) {
@@ -1024,6 +1058,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
       lastReplyText: existingContext.lastReplyText || '',
       lastInboundText: effectiveText || '',
+      payment_state: derivePaymentState(existingContext, effectiveText || '', existingContext.lastReplyText || ''),
       mode,
     };
     const finalText = enrichFinalText(compose, draftContext);
@@ -1056,6 +1091,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       last_seller_question: applied.nextState.last_seller_question,
       currentStage: deriveCurrentStage(compose, existingContext, applied.checkout),
       summary: finalText,
+      payment_state: derivePaymentState(existingContext, effectiveText || '', finalText),
     });
 
     await updateConversationState({
