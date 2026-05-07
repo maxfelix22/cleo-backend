@@ -787,6 +787,81 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const effectiveText = String(inbound.text || mediaResolved.audio_transcription || '').trim();
     const mode = mediaResolved.mode || 'text';
 
+    if (!resetRequested && isPureGreeting(effectiveText)) {
+      const greetingReply = 'Oi, bom dia 💜 Como posso te ajudar hoje?';
+      const nextContext = saveContext(contextKey, {
+        profileName: inbound.profileName,
+        customerId: customerResult?.customer?.id || '',
+        conversationId: conversation?.id || '',
+        lastInboundText: effectiveText,
+        lastReplyText: greetingReply,
+        lastProducts: [],
+        lastProduct: '',
+        lastProductPayload: null,
+        cart: { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' },
+        checkout: { delivery_mode: '', next_required_field: '', review_ready: false },
+        conversation_goal: 'support',
+        pending_offer_type: 'none',
+        expected_next_user_move: 'inform',
+        last_seller_question: 'Como posso te ajudar hoje?',
+        currentStage: conversation?.current_stage || 'catalog_browse',
+        summary: greetingReply,
+      });
+
+      await updateConversationSummary({
+        conversationId: conversation?.id || '',
+        summary: greetingReply,
+        currentStage: conversation?.current_stage || 'catalog_browse',
+        handoffRequired: false,
+        lastProduct: '',
+        lastProductPayload: {
+          cart: { items: [], itemsCount: 0, subtotal: 0, currency: 'USD' },
+          checkout: { delivery_mode: '', next_required_field: '', review_ready: false },
+          conversation_goal: 'support',
+          pending_offer_type: 'none',
+          expected_next_user_move: 'inform',
+          last_seller_question: 'Como posso te ajudar hoje?',
+          profile_name: inbound.profileName || '',
+        },
+      }).catch((error) => {
+        console.warn('[openai-first] greeting summary update failed:', error?.message || error);
+      });
+
+      await appendConversationEvent({
+        conversationId: conversation?.id || '',
+        customerId: customerResult?.customer?.id || '',
+        kind: 'openai_first_greeting',
+        direction: 'assistant',
+        messageText: greetingReply,
+        payload: {
+          source: 'pure_greeting_guard',
+          reset: false,
+          mode,
+          context_saved: Boolean(nextContext),
+        },
+      }).catch((error) => {
+        console.warn('[openai-first] greeting event failed:', error?.message || error);
+      });
+
+      return res.json({
+        ok: true,
+        note: 'Pure greeting short-circuited before compose',
+        final_text: greetingReply,
+        reply_mode: 'answer',
+        conversation_goal: 'support',
+        pending_offer_type: 'none',
+        expected_next_user_move: 'inform',
+        last_seller_question: 'Como posso te ajudar hoje?',
+        anchor_products: [],
+        semantic: { source: 'greeting', products: [], intent_ids: ['greeting'], intent_candidates: [] },
+        context: nextContext,
+        compose: {
+          assistant_notes: 'pure greeting guard before compose',
+          final_text: greetingReply,
+        },
+      });
+    }
+
     if (resetRequested) {
       const resetReply = 'Pronto 💜 Zerei o contexto dessa conversa. Pode me falar de novo o que você quer que eu te ajudo do zero.';
       const nextContext = saveContext(contextKey, {
