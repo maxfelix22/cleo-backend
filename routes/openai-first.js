@@ -788,7 +788,14 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
     const mode = mediaResolved.mode || 'text';
 
     if (!resetRequested && isPureGreeting(effectiveText)) {
-      const greetingReply = 'Oi, bom dia 💜 Como posso te ajudar hoje?';
+      const normalizedGreeting = String(effectiveText || '').toLowerCase();
+      const greetingReply = /boa tarde/.test(normalizedGreeting)
+        ? 'Oi, boa tarde 💜'
+        : (/boa noite/.test(normalizedGreeting)
+          ? 'Oi, boa noite 💜'
+          : (/bom dia/.test(normalizedGreeting)
+            ? 'Oi, bom dia 💜'
+            : 'Oi 💜'));
       const nextContext = saveContext(contextKey, {
         profileName: inbound.profileName,
         customerId: customerResult?.customer?.id || '',
@@ -803,7 +810,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
         conversation_goal: 'support',
         pending_offer_type: 'none',
         expected_next_user_move: 'inform',
-        last_seller_question: 'Como posso te ajudar hoje?',
+        last_seller_question: '',
         currentStage: conversation?.current_stage || 'catalog_browse',
         summary: greetingReply,
       });
@@ -820,7 +827,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
           conversation_goal: 'support',
           pending_offer_type: 'none',
           expected_next_user_move: 'inform',
-          last_seller_question: 'Como posso te ajudar hoje?',
+          last_seller_question: '',
           profile_name: inbound.profileName || '',
         },
       }).catch((error) => {
@@ -851,7 +858,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
         conversation_goal: 'support',
         pending_offer_type: 'none',
         expected_next_user_move: 'inform',
-        last_seller_question: 'Como posso te ajudar hoje?',
+        last_seller_question: '',
         anchor_products: [],
         semantic: { source: 'greeting', products: [], intent_ids: ['greeting'], intent_candidates: [] },
         context: nextContext,
