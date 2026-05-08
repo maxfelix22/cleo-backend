@@ -297,10 +297,22 @@ function buildCheckoutSnapshot(existingCheckout = {}, cart = {}, compose = {}, i
   return checkout;
 }
 
+function detectPaymentMethod(text = '') {
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return '';
+  if (/afterpay/.test(normalized)) return 'afterpay';
+  if (/zelle/.test(normalized)) return 'zelle';
+  if (/venmo/.test(normalized)) return 'venmo';
+  if (/square/.test(normalized)) return 'square';
+  if (/cash\s*app/.test(normalized)) return 'cash_app';
+  if (/apple\s*pay/.test(normalized)) return 'apple_pay';
+  return '';
+}
+
 function looksLikePaymentConfirmation(text = '') {
   const normalized = String(text || '').toLowerCase().trim();
   if (!normalized) return false;
-  return /^(ok|okay|okey|sim|certo|fechado|pode ser|zelle|pix|venmo|cash app|apple pay|obrigada|obrigado)$/.test(normalized)
+  return /^(ok|okay|okey|sim|certo|fechado|pode ser|obrigada|obrigado)$/.test(normalized)
     || /manda.*zelle|me manda.*zelle|passa.*zelle|envia.*zelle|pode mandar.*zelle/.test(normalized);
 }
 
@@ -315,19 +327,44 @@ function buildPaymentPrompt(context = {}) {
   const cart = ensureCartShape(context?.cart || {}, context?.lastProducts || []);
   const totalText = cart.subtotal > 0 ? `$${cart.subtotal.toFixed(2)}` : '';
   const scheduleText = checkout.pickup_schedule ? ` para retirada ${checkout.pickup_schedule}` : '';
+  const paymentMethod = String(context?.payment_method_selected || '').trim();
+
+  if (paymentMethod === 'afterpay') {
+    return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode finalizar pelo *Afterpay* por aqui que eu sigo com você assim que confirmar 💜`;
+  }
+
+  if (paymentMethod === 'venmo') {
+    return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode me mandar no *Venmo* e, assim que finalizar, me avisa por aqui 💜`;
+  }
+
+  if (paymentMethod === 'square') {
+    return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode seguir pelo *Square* que eu acompanho com você por aqui 💜`;
+  }
 
   return `Perfeito 💜 Seu pedido ficou em *${totalText || 'valor confirmado'}*${scheduleText}.\n\nPode fazer o pagamento via *Zelle* para:\n*5086189995*\n*Bruna Campos Samora Felix*\n\nAssim que enviar, me manda o comprovante 💜`;
 }
 
-function buildPostPaymentAck() {
+function buildPostPaymentAck(context = {}) {
+  const paymentMethod = String(context?.payment_method_selected || '').trim();
+  if (paymentMethod === 'afterpay') return 'Perfeito 💜 Fico acompanhando a confirmação do Afterpay por aqui.';
+  if (paymentMethod === 'venmo') return 'Perfeito 💜 Fico aguardando sua confirmação do Venmo por aqui.';
+  if (paymentMethod === 'square') return 'Perfeito 💜 Fico aguardando a confirmação do Square por aqui.';
   return 'Perfeito 💜 Fico aguardando o comprovante.';
 }
 
-function buildReceiptConfirmation() {
+function buildReceiptConfirmation(context = {}) {
+  const paymentMethod = String(context?.payment_method_selected || '').trim();
+  if (paymentMethod && paymentMethod !== 'zelle') {
+    return 'Perfeito 💜 Recebi sua confirmação. Vou conferir se ficou tudo certo com o pedido e já te confirmo.';
+  }
   return 'Recebi o comprovante 💜 Vou conferir se os dados batem certinho com o pedido e já te confirmo. Obrigada pela compra!';
 }
 
-function buildPostReceiptAck() {
+function buildPostReceiptAck(context = {}) {
+  const paymentMethod = String(context?.payment_method_selected || '').trim();
+  if (paymentMethod && paymentMethod !== 'zelle') {
+    return 'Perfeito 💜 Assim que eu conferir certinho, já te confirmo.';
+  }
   return 'Perfeito 💜 Assim que eu conferir certinho, já te confirmo.';
 }
 
@@ -335,6 +372,16 @@ function derivePaymentState(existingContext = {}, inboundText = '', lastReplyTex
   const normalizedInbound = String(inboundText || '').toLowerCase().trim();
   const normalizedLastReply = String(lastReplyText || '').toLowerCase().trim();
   const existingPaymentState = String(existingContext?.payment_state || '').trim();
+  const paymentMethod = detectPaymentMethod(normalizedInbound) || String(existingContext?.payment_method_selected || '').trim();
+
+  if (paymentMethod && paymentMethod !== 'zelle') {
+    if (/recebi sua confirma[cç][aã]o|vou conferir se ficou tudo certo/i.test(normalizedLastReply)) {
+      return 'payment_confirmation_received';
+    }
+    if (/afterpay|venmo|square/.test(normalizedInbound) || /afterpay|venmo|square/.test(normalizedLastReply)) {
+      return 'payment_method_locked';
+    }
+  }
 
   if (/me manda o comprovante/.test(normalizedLastReply) && /^(obrigada|obrigado|valeu|perfeito|beleza|show|ok|okay|okey|certo)$/.test(normalizedInbound)) {
     return 'zelle_waiting_receipt';
@@ -348,7 +395,7 @@ function derivePaymentState(existingContext = {}, inboundText = '', lastReplyTex
     return 'zelle_receipt_received';
   }
 
-  if (/zelle/.test(normalizedInbound) || /pode fazer o pagamento via \*zelle\*/i.test(lastReplyText)) {
+  if (paymentMethod === 'zelle' || /pode fazer o pagamento via \*zelle\*/i.test(lastReplyText)) {
     return 'zelle_waiting_receipt';
   }
 
@@ -661,30 +708,31 @@ function enrichFinalText(compose = {}, contextDraft = {}) {
   const lastReplyText = String(contextDraft?.lastReplyText || '').trim();
   const lastInboundText = String(contextDraft?.lastInboundText || '').trim();
   const paymentState = String(contextDraft?.payment_state || '').trim();
+  const paymentMethod = String(contextDraft?.payment_method_selected || '').trim();
   const waitingProof = /me manda o comprovante/i.test(lastReplyText) || paymentState === 'zelle_waiting_receipt';
   const inboundLooksLikeReceipt = contextDraft?.mode === 'image' && waitingProof;
 
   if (inboundLooksLikeReceipt) {
-    return buildReceiptConfirmation();
+    return buildReceiptConfirmation(contextDraft);
   }
 
-  if (paymentState === 'zelle_receipt_received') {
+  if (paymentState === 'zelle_receipt_received' || paymentState === 'payment_confirmation_received') {
     if (looksLikePostPaymentAck(lastInboundText)) {
-      return buildPostReceiptAck();
+      return buildPostReceiptAck(contextDraft);
     }
-    return buildReceiptConfirmation();
+    return buildReceiptConfirmation(contextDraft);
   }
 
-  if (waitingProof && looksLikePostPaymentAck(lastInboundText)) {
-    return buildPostPaymentAck();
+  if ((waitingProof || paymentState === 'payment_method_locked') && looksLikePostPaymentAck(lastInboundText)) {
+    return buildPostPaymentAck(contextDraft);
   }
 
-  if (paymentState === 'zelle_waiting_receipt') {
-    if (looksLikePostPaymentAck(lastInboundText)) return buildPostPaymentAck();
+  if (paymentState === 'zelle_waiting_receipt' || paymentState === 'payment_method_locked') {
+    if (looksLikePostPaymentAck(lastInboundText)) return buildPostPaymentAck(contextDraft);
     return buildPaymentPrompt(contextDraft);
   }
 
-  if (checkout.review_ready && looksLikePaymentConfirmation(lastInboundText)) {
+  if (checkout.review_ready && (looksLikePaymentConfirmation(lastInboundText) || (paymentMethod && detectPaymentMethod(lastInboundText) === paymentMethod))) {
     return buildPaymentPrompt(contextDraft);
   }
 
@@ -1139,6 +1187,7 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
           }
         : composed;
     const applied = applyComposeResultToState({ ...existingContext, lastInboundText: effectiveText || '' }, compose, products);
+    const selectedPaymentMethod = detectPaymentMethod(effectiveText || '') || String(existingContext.payment_method_selected || '').trim();
     const draftContext = {
       ...existingContext,
       cart: applied.cart,
@@ -1147,7 +1196,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       lastProduct: applied.nextState.anchor_products?.[0]?.name || '',
       lastReplyText: existingContext.lastReplyText || '',
       lastInboundText: effectiveText || '',
-      payment_state: derivePaymentState(existingContext, effectiveText || '', existingContext.lastReplyText || ''),
+      payment_method_selected: selectedPaymentMethod,
+      payment_state: derivePaymentState({ ...existingContext, payment_method_selected: selectedPaymentMethod }, effectiveText || '', existingContext.lastReplyText || ''),
       mode,
     };
     const finalText = enrichFinalText(compose, draftContext);
@@ -1180,7 +1230,8 @@ router.post('/openai-first/whatsapp/inbound', async (req, res, next) => {
       last_seller_question: applied.nextState.last_seller_question,
       currentStage: deriveCurrentStage(compose, existingContext, applied.checkout),
       summary: finalText,
-      payment_state: derivePaymentState(existingContext, effectiveText || '', finalText),
+      payment_method_selected: selectedPaymentMethod,
+      payment_state: derivePaymentState({ ...existingContext, payment_method_selected: selectedPaymentMethod }, effectiveText || '', finalText),
     });
 
     await updateConversationState({
