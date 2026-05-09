@@ -5,7 +5,7 @@ router.get('/version', (req, res) => {
   res.json({
     ok: true,
     service: 'cleo-backend',
-    version: 'ecab33f',
+    version: 'customers-list-no-sort-814e74e',
     timestamp: new Date().toISOString(),
   });
 });
