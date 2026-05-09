@@ -1,7 +1,11 @@
-const { hasSupabaseConfig, supabaseRequest } = require('./supabase-client');
+const { supabaseRequest } = require('./supabase-client');
+
+function hasSupabaseConfigSafe() {
+  return !!(String(process.env.SUPABASE_URL || '').trim() && String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim());
+}
 
 async function createSquareSyncRun(syncType, metadata = {}) {
-  if (!hasSupabaseConfig()) {
+  if (!hasSupabaseConfigSafe()) {
     return {
       mode: 'memory-fallback',
       run: {
@@ -29,8 +33,8 @@ async function createSquareSyncRun(syncType, metadata = {}) {
 }
 
 async function finishSquareSyncRun(runId, status = 'success', patch = {}) {
-  if (!runId || !hasSupabaseConfig()) {
-    return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', run: null };
+  if (!runId || !hasSupabaseConfigSafe()) {
+    return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', run: null };
   }
 
   const updated = await supabaseRequest(`/rest/v1/square_sync_runs?id=eq.${encodeURIComponent(runId)}`, {
@@ -48,8 +52,8 @@ async function finishSquareSyncRun(runId, status = 'success', patch = {}) {
 
 async function upsertSquareCatalogItems(items = []) {
   const rows = Array.isArray(items) ? items.filter(Boolean) : [];
-  if (rows.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
-  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows, count: rows.length };
+  if (rows.length === 0) return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfigSafe()) return { mode: 'memory-fallback', rows, count: rows.length };
 
   const created = await supabaseRequest('/rest/v1/square_catalog_items?on_conflict=square_catalog_object_id', {
     method: 'POST',
@@ -66,8 +70,8 @@ async function upsertSquareCatalogItems(items = []) {
 
 async function upsertSquareOrders(rows = []) {
   const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
-  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
-  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+  if (payload.length === 0) return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfigSafe()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
 
   const created = await supabaseRequest('/rest/v1/square_orders?on_conflict=square_order_id', {
     method: 'POST',
@@ -84,8 +88,8 @@ async function upsertSquareOrders(rows = []) {
 
 async function upsertSquareOrderItems(rows = []) {
   const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
-  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
-  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+  if (payload.length === 0) return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfigSafe()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
 
   const created = await supabaseRequest('/rest/v1/square_order_items?on_conflict=square_order_id,line_item_uid', {
     method: 'POST',
@@ -102,8 +106,8 @@ async function upsertSquareOrderItems(rows = []) {
 
 async function upsertSquareCustomers(rows = []) {
   const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
-  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
-  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+  if (payload.length === 0) return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfigSafe()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
 
   const created = await supabaseRequest('/rest/v1/square_customers?on_conflict=square_customer_id', {
     method: 'POST',
