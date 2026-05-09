@@ -5,7 +5,7 @@ router.get('/version', (req, res) => {
   res.json({
     ok: true,
     service: 'cleo-backend',
-    version: 'orders-backfill-ready-1000plus',
+    version: 'orders-limit-clamped-1000',
     timestamp: new Date().toISOString(),
   });
 });
