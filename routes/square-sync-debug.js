@@ -88,15 +88,35 @@ router.post('/square-sync/debug/customers-minimal', async (req, res) => {
 });
 
 router.post('/square-sync/debug/customers-first-real', async (req, res) => {
+  const checkpoint = {
+    step: 'start',
+    listed_count: 0,
+    raw_customer_found: false,
+    normalized_customer_ready: false,
+    about_to_insert_supabase: false,
+    square_customer_id: null,
+  };
+
   try {
+    checkpoint.step = 'listing_square_customers';
     const customers = await listRecentCustomers(1);
+    checkpoint.listed_count = Array.isArray(customers) ? customers.length : 0;
+
     const rawCustomer = customers[0] || null;
+    checkpoint.raw_customer_found = !!rawCustomer;
 
     if (!rawCustomer) {
-      return res.status(404).json({ ok: false, error: 'NO_SQUARE_CUSTOMERS_FOUND' });
+      return res.status(404).json({ ok: false, error: 'NO_SQUARE_CUSTOMERS_FOUND', checkpoint });
     }
 
+    checkpoint.step = 'normalizing_customer';
     const normalized = normalizeSquareCustomer(rawCustomer);
+    checkpoint.normalized_customer_ready = true;
+    checkpoint.square_customer_id = normalized.square_customer_id || null;
+
+    checkpoint.step = 'about_to_insert_supabase';
+    checkpoint.about_to_insert_supabase = true;
+
     const out = await supabaseRequestSafe('/rest/v1/square_customers?on_conflict=square_customer_id', {
       method: 'POST',
       headers: {
@@ -106,8 +126,11 @@ router.post('/square-sync/debug/customers-first-real', async (req, res) => {
       body: [normalized],
     });
 
+    checkpoint.step = 'inserted';
+
     return res.json({
       ok: true,
+      checkpoint,
       square_customer_id: normalized.square_customer_id,
       normalized,
       inserted: out,
@@ -117,6 +140,7 @@ router.post('/square-sync/debug/customers-first-real', async (req, res) => {
       ok: false,
       error: err?.message || 'debug_real_customer_insert_failed',
       status: err?.status || 500,
+      checkpoint,
       payload: err?.payload || null,
       responseText: err?.responseText || null,
       responseHeaders: err?.responseHeaders || null,
