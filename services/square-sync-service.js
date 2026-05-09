@@ -225,32 +225,21 @@ function normalizeSquareCustomer(customer = {}) {
 }
 
 async function listRecentCustomers(limit = 200) {
-  let allCustomers = [];
-  let cursor = undefined;
   const pageSize = Math.min(Math.max(Number(limit) || 1, 1), 100);
 
-  do {
-    let response;
-    try {
-      response = cursor
-        ? await client.customersApi.listCustomers(cursor, pageSize)
-        : await client.customersApi.listCustomers(undefined, pageSize);
-    } catch (err) {
-      const wrapped = new Error(`square customers list failed: ${err?.message || err}`);
-      wrapped.status = err?.statusCode || err?.status || 500;
-      wrapped.squareStage = 'list_customers';
-      wrapped.squareArgs = { cursor: cursor || null, pageSize };
-      wrapped.squareBody = err?.body || err?.result || null;
-      throw wrapped;
-    }
-
-    if (response.result?.customers) {
-      allCustomers = allCustomers.concat(response.result.customers);
-    }
-    cursor = response.result?.cursor;
-  } while (cursor && allCustomers.length < limit);
-
-  return allCustomers.slice(0, limit);
+  try {
+    const response = await client.customersApi.searchCustomers({
+      limit: pageSize,
+    });
+    return response.result?.customers || [];
+  } catch (err) {
+    const wrapped = new Error(`square customers search failed: ${err?.message || err}`);
+    wrapped.status = err?.statusCode || err?.status || 500;
+    wrapped.squareStage = 'search_customers';
+    wrapped.squareArgs = { limit: pageSize };
+    wrapped.squareBody = err?.body || err?.result || null;
+    throw wrapped;
+  }
 }
 
 async function syncSquareOrders(limit = 200) {
