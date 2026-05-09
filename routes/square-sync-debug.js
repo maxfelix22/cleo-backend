@@ -1,12 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { hasSupabaseConfig, supabaseRequest } = require('../services/supabase-client');
+const { supabaseRequest } = require('../services/supabase-client');
 
 router.post('/square-sync/debug/customers-minimal', async (req, res) => {
   try {
-    if (!hasSupabaseConfig()) {
-      return res.status(500).json({ ok: false, error: 'SUPABASE_ENVS_MISSING' });
-    }
 
     const payload = [{
       square_customer_id: `debug-${Date.now()}`,
