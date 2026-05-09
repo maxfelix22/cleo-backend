@@ -51,7 +51,12 @@ router.post('/square-sync/customers', async (req, res, next) => {
     res.json(result);
   } catch (err) {
     console.error('[square-sync/customers]', err?.status || '', err?.message || err, err?.payload || '');
-    next(err);
+    return res.status(err?.status || 500).json({
+      ok: false,
+      error: err?.message || 'square_customers_sync_failed',
+      status: err?.status || 500,
+      payload: err?.payload || null,
+    });
   }
 });
 
