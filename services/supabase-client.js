@@ -28,9 +28,11 @@ async function supabaseRequest(path, { method = 'GET', body, headers = {} } = {}
   try { parsed = JSON.parse(text); } catch (err) { parsed = text; }
 
   if (!response.ok) {
+    const payload = parsed && parsed !== '' ? parsed : { raw_text: text || null, path, method };
     const error = new Error(`Supabase request failed with status ${response.status}`);
     error.status = response.status;
-    error.payload = parsed;
+    error.payload = payload;
+    error.responseText = text;
     throw error;
   }
 
