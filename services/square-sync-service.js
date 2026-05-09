@@ -232,12 +232,12 @@ async function listRecentCustomers(limit = 200) {
   do {
     let response;
     try {
-      response = await client.customersApi.listCustomers(cursor, pageSize, 'CREATED_AT', 'DESC');
+      response = await client.customersApi.listCustomers(cursor, pageSize);
     } catch (err) {
       const wrapped = new Error(`square customers list failed: ${err?.message || err}`);
       wrapped.status = err?.statusCode || err?.status || 500;
       wrapped.squareStage = 'list_customers';
-      wrapped.squareArgs = { cursor: cursor || null, pageSize, sortField: 'CREATED_AT', sortOrder: 'DESC' };
+      wrapped.squareArgs = { cursor: cursor || null, pageSize };
       wrapped.squareBody = err?.body || err?.result || null;
       throw wrapped;
     }
