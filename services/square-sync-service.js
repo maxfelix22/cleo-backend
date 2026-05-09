@@ -204,10 +204,6 @@ async function syncSquareCatalog() {
 }
 
 function normalizeSquareCustomer(customer = {}) {
-  const preferences = customer.preferences == null ? null : sanitizeForJson(customer.preferences);
-  const groups = Array.isArray(customer.groupIds) ? sanitizeForJson(customer.groupIds) : [];
-  const segmentIds = Array.isArray(customer.segmentIds) ? sanitizeForJson(customer.segmentIds) : [];
-
   return {
     square_customer_id: customer.id || '',
     given_name: customer.givenName || null,
@@ -218,9 +214,9 @@ function normalizeSquareCustomer(customer = {}) {
     email_address: customer.emailAddress || null,
     reference_id: customer.referenceId || null,
     creation_source: customer.creationSource || null,
-    preferences,
-    groups,
-    segment_ids: segmentIds,
+    preferences: null,
+    groups: [],
+    segment_ids: [],
     raw_payload: sanitizeForJson(customer),
     created_at_square: toIsoOrNull(customer.createdAt),
     updated_at_square: toIsoOrNull(customer.updatedAt),
