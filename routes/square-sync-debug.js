@@ -144,6 +144,9 @@ router.post('/square-sync/debug/customers-first-real', async (req, res) => {
       payload: err?.payload || null,
       responseText: err?.responseText || null,
       responseHeaders: err?.responseHeaders || null,
+      square_stage: err?.squareStage || null,
+      square_args: err?.squareArgs || null,
+      square_body: err?.squareBody || null,
     });
   }
 });

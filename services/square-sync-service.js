@@ -227,9 +227,21 @@ function normalizeSquareCustomer(customer = {}) {
 async function listRecentCustomers(limit = 200) {
   let allCustomers = [];
   let cursor = undefined;
+  const pageSize = Math.min(Math.max(Number(limit) || 1, 1), 100);
 
   do {
-    const response = await client.customersApi.listCustomers(cursor, 100);
+    let response;
+    try {
+      response = await client.customersApi.listCustomers(cursor, pageSize, 'CREATED_AT', 'DESC');
+    } catch (err) {
+      const wrapped = new Error(`square customers list failed: ${err?.message || err}`);
+      wrapped.status = err?.statusCode || err?.status || 500;
+      wrapped.squareStage = 'list_customers';
+      wrapped.squareArgs = { cursor: cursor || null, pageSize, sortField: 'CREATED_AT', sortOrder: 'DESC' };
+      wrapped.squareBody = err?.body || err?.result || null;
+      throw wrapped;
+    }
+
     if (response.result?.customers) {
       allCustomers = allCustomers.concat(response.result.customers);
     }
