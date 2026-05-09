@@ -144,9 +144,11 @@ async function listRecentOrders(limit = 200) {
     throw new Error('missing_location_id');
   }
 
+  const safeLimit = Math.min(Math.max(Number(limit) || 1, 1), 1000);
+
   const response = await client.ordersApi.searchOrders({
     locationIds: [locationId],
-    limit,
+    limit: safeLimit,
     sort: {
       sortField: 'CREATED_AT',
       sortOrder: 'DESC',
@@ -156,6 +158,8 @@ async function listRecentOrders(limit = 200) {
   return {
     locationId,
     orders: response.result?.orders || [],
+    requestedLimit: limit,
+    safeLimit,
   };
 }
 
@@ -251,7 +255,7 @@ async function syncSquareOrders(limit = 200) {
   const run = runResult.run || null;
 
   try {
-    const { locationId, orders } = await listRecentOrders(limit);
+    const { locationId, orders, requestedLimit, safeLimit } = await listRecentOrders(limit);
     const normalizedOrders = orders.map((order) => normalizeSquareOrder(order, locationId)).filter((row) => row.square_order_id);
     const normalizedItems = orders.flatMap((order) => normalizeSquareOrderItems(order));
 
@@ -278,6 +282,8 @@ async function syncSquareOrders(limit = 200) {
         source: 'square',
         scope: 'orders+items',
         location_id: locationId,
+        requested_limit: requestedLimit,
+        safe_limit: safeLimit,
         orders_count: normalizedOrders.length,
         order_items_count: normalizedItems.length,
         order_items_upserted: itemsUpserted,
@@ -293,6 +299,8 @@ async function syncSquareOrders(limit = 200) {
       order_items_upserted: itemsUpserted,
       run_id: run?.id || null,
       location_id: locationId,
+      requested_limit: requestedLimit,
+      safe_limit: safeLimit,
     };
   } catch (err) {
     await finishSquareSyncRun(run?.id, 'error', {
