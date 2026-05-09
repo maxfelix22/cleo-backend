@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { syncSquareCatalog } = require('../services/square-sync-service');
+const { syncSquareCatalog, syncSquareOrders } = require('../services/square-sync-service');
 
 function isInternalSyncAllowed(req) {
   const requiredToken = String(process.env.SQUARE_SYNC_TOKEN || '').trim();
@@ -20,6 +20,20 @@ router.post('/square-sync/catalog', async (req, res, next) => {
     }
 
     const result = await syncSquareCatalog();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/square-sync/orders', async (req, res, next) => {
+  try {
+    if (!isInternalSyncAllowed(req)) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const limit = Number(req.body?.limit || req.query.limit || 200);
+    const result = await syncSquareOrders(limit);
     res.json(result);
   } catch (err) {
     next(err);

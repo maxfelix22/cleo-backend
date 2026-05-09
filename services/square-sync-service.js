@@ -3,6 +3,8 @@ const {
   createSquareSyncRun,
   finishSquareSyncRun,
   upsertSquareCatalogItems,
+  upsertSquareOrders,
+  upsertSquareOrderItems,
 } = require('./square-sync-store');
 
 const client = new Client({
@@ -68,6 +70,94 @@ async function listAllCatalogItems() {
   return allItems.filter((item) => item.type === 'ITEM' && item.itemData?.name);
 }
 
+async function listActiveLocationId() {
+  const configured = String(process.env.SQUARE_LOCATION_ID || '').trim();
+  if (configured) return configured;
+  const locations = await client.locationsApi.listLocations();
+  const list = locations.result?.locations || [];
+  const firstActive = list.find((loc) => String(loc.status || '').toUpperCase() === 'ACTIVE') || list[0];
+  return String(firstActive?.id || '').trim();
+}
+
+function normalizeMoneyAmount(money) {
+  if (!money || money.amount == null) return null;
+  const amount = typeof money.amount === 'bigint' ? Number(money.amount) : Number(money.amount);
+  if (!Number.isFinite(amount)) return null;
+  return amount / 100;
+}
+
+function normalizeSquareOrder(order = {}, locationId = '') {
+  const fulfillments = Array.isArray(order.fulfillments) ? order.fulfillments : [];
+  const tenders = Array.isArray(order.tenders) ? order.tenders : [];
+  const fulfillmentState = fulfillments[0]?.state || null;
+  return {
+    square_order_id: order.id || '',
+    square_customer_id: order.customerId || null,
+    location_id: order.locationId || locationId || null,
+    state: order.state || null,
+    source_name: order.source?.name || null,
+    ticket_name: order.ticketName || null,
+    fulfillment_state: fulfillmentState,
+    net_amount: normalizeMoneyAmount(order.netAmountDueMoney),
+    tax_amount: normalizeMoneyAmount(order.totalTaxMoney),
+    discount_amount: normalizeMoneyAmount(order.totalDiscountMoney),
+    tip_amount: normalizeMoneyAmount(order.totalTipMoney),
+    total_amount: normalizeMoneyAmount(order.totalMoney),
+    currency: order.totalMoney?.currency || null,
+    closed_at_square: toIsoOrNull(order.closedAt),
+    created_at_square: toIsoOrNull(order.createdAt),
+    updated_at_square: toIsoOrNull(order.updatedAt),
+    fulfillments_payload: sanitizeForJson(fulfillments),
+    tenders_payload: sanitizeForJson(tenders),
+    raw_payload: sanitizeForJson(order),
+    synced_at: new Date().toISOString(),
+  };
+}
+
+function normalizeSquareOrderItems(order = {}) {
+  const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
+  return lineItems.map((item) => ({
+    square_order_id: order.id || '',
+    line_item_uid: item.uid || '',
+    catalog_object_id: item.catalogObjectId || null,
+    catalog_version: item.catalogVersion == null ? null : (typeof item.catalogVersion === 'bigint' ? Number(item.catalogVersion) : Number(item.catalogVersion) || null),
+    item_type: item.itemType || null,
+    item_name: item.name || null,
+    variation_name: item.variationName || null,
+    sku: item.sku || null,
+    quantity: item.quantity == null ? null : Number(item.quantity),
+    base_price_amount: normalizeMoneyAmount(item.basePriceMoney),
+    gross_sales_amount: normalizeMoneyAmount(item.grossSalesMoney),
+    total_tax_amount: normalizeMoneyAmount(item.totalTaxMoney),
+    total_discount_amount: normalizeMoneyAmount(item.totalDiscountMoney),
+    total_amount: normalizeMoneyAmount(item.totalMoney),
+    currency: item.totalMoney?.currency || item.basePriceMoney?.currency || null,
+    raw_payload: sanitizeForJson(item),
+    synced_at: new Date().toISOString(),
+  })).filter((row) => row.square_order_id && row.line_item_uid);
+}
+
+async function listRecentOrders(limit = 200) {
+  const locationId = await listActiveLocationId();
+  if (!locationId) {
+    throw new Error('missing_location_id');
+  }
+
+  const response = await client.ordersApi.searchOrders({
+    locationIds: [locationId],
+    limit,
+    sort: {
+      sortField: 'CREATED_AT',
+      sortOrder: 'DESC',
+    },
+  });
+
+  return {
+    locationId,
+    orders: response.result?.orders || [],
+  };
+}
+
 async function syncSquareCatalog() {
   const runResult = await createSquareSyncRun('catalog', {
     source: 'square',
@@ -112,8 +202,72 @@ async function syncSquareCatalog() {
   }
 }
 
+async function syncSquareOrders(limit = 200) {
+  const runResult = await createSquareSyncRun('orders', {
+    source: 'square',
+    scope: 'orders+items',
+    limit,
+  });
+  const run = runResult.run || null;
+
+  try {
+    const { locationId, orders } = await listRecentOrders(limit);
+    const normalizedOrders = orders.map((order) => normalizeSquareOrder(order, locationId)).filter((row) => row.square_order_id);
+    const normalizedItems = orders.flatMap((order) => normalizeSquareOrderItems(order));
+
+    let ordersUpserted = 0;
+    let itemsUpserted = 0;
+    const batchSize = 100;
+
+    for (let i = 0; i < normalizedOrders.length; i += batchSize) {
+      const batch = normalizedOrders.slice(i, i + batchSize);
+      const result = await upsertSquareOrders(batch);
+      ordersUpserted += Number(result.count || 0);
+    }
+
+    for (let i = 0; i < normalizedItems.length; i += batchSize) {
+      const batch = normalizedItems.slice(i, i + batchSize);
+      const result = await upsertSquareOrderItems(batch);
+      itemsUpserted += Number(result.count || 0);
+    }
+
+    await finishSquareSyncRun(run?.id, 'success', {
+      rows_processed: normalizedOrders.length,
+      rows_upserted: ordersUpserted,
+      metadata: {
+        source: 'square',
+        scope: 'orders+items',
+        location_id: locationId,
+        orders_count: normalizedOrders.length,
+        order_items_count: normalizedItems.length,
+        order_items_upserted: itemsUpserted,
+      },
+    });
+
+    return {
+      ok: true,
+      sync_type: 'orders',
+      rows_processed: normalizedOrders.length,
+      rows_upserted: ordersUpserted,
+      order_items_processed: normalizedItems.length,
+      order_items_upserted: itemsUpserted,
+      run_id: run?.id || null,
+      location_id: locationId,
+    };
+  } catch (err) {
+    await finishSquareSyncRun(run?.id, 'error', {
+      error_message: err.message || String(err),
+    });
+    throw err;
+  }
+}
+
 module.exports = {
   syncSquareCatalog,
+  syncSquareOrders,
   normalizeCatalogItem,
+  normalizeSquareOrder,
+  normalizeSquareOrderItems,
   listAllCatalogItems,
+  listRecentOrders,
 };

@@ -64,8 +64,46 @@ async function upsertSquareCatalogItems(items = []) {
   return { mode: 'supabase', rows: out, count: out.length };
 }
 
+async function upsertSquareOrders(rows = []) {
+  const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+
+  const created = await supabaseRequest('/rest/v1/square_orders?on_conflict=square_order_id', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation',
+      Accept: 'application/json',
+    },
+    body: payload,
+  });
+
+  const out = Array.isArray(created) ? created : [created];
+  return { mode: 'supabase', rows: out, count: out.length };
+}
+
+async function upsertSquareOrderItems(rows = []) {
+  const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+
+  const created = await supabaseRequest('/rest/v1/square_order_items?on_conflict=square_order_id,line_item_uid', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation',
+      Accept: 'application/json',
+    },
+    body: payload,
+  });
+
+  const out = Array.isArray(created) ? created : [created];
+  return { mode: 'supabase', rows: out, count: out.length };
+}
+
 module.exports = {
   createSquareSyncRun,
   finishSquareSyncRun,
   upsertSquareCatalogItems,
+  upsertSquareOrders,
+  upsertSquareOrderItems,
 };
