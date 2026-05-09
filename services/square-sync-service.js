@@ -312,11 +312,19 @@ async function syncSquareCustomers(limit = 200) {
     const normalizedCustomers = customers.map(normalizeSquareCustomer).filter((row) => row.square_customer_id);
 
     let customersUpserted = 0;
-    const batchSize = 100;
-    for (let i = 0; i < normalizedCustomers.length; i += batchSize) {
-      const batch = normalizedCustomers.slice(i, i + batchSize);
-      const result = await upsertSquareCustomers(batch);
-      customersUpserted += Number(result.count || 0);
+    for (let i = 0; i < normalizedCustomers.length; i += 1) {
+      const row = normalizedCustomers[i];
+      try {
+        const result = await upsertSquareCustomers([row]);
+        customersUpserted += Number(result.count || 0);
+      } catch (err) {
+        err.debugCustomer = {
+          index: i,
+          square_customer_id: row.square_customer_id,
+          payload: row,
+        };
+        throw err;
+      }
     }
 
     await finishSquareSyncRun(run?.id, 'success', {
@@ -325,7 +333,7 @@ async function syncSquareCustomers(limit = 200) {
       metadata: {
         source: 'square',
         scope: 'customers',
-        batches: Math.ceil(normalizedCustomers.length / batchSize),
+        strategy: 'one-by-one-debug',
       },
     });
 
@@ -339,6 +347,11 @@ async function syncSquareCustomers(limit = 200) {
   } catch (err) {
     await finishSquareSyncRun(run?.id, 'error', {
       error_message: err.message || String(err),
+      metadata: {
+        source: 'square',
+        scope: 'customers',
+        failed_customer: err.debugCustomer || null,
+      },
     });
     throw err;
   }
