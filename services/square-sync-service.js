@@ -16,6 +16,17 @@ function toIsoOrNull(value) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+function sanitizeForJson(value) {
+  if (typeof value === 'bigint') return Number(value);
+  if (Array.isArray(value)) return value.map(sanitizeForJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [key, sanitizeForJson(val)])
+    );
+  }
+  return value;
+}
+
 function normalizeCatalogItem(item = {}) {
   const itemData = item.itemData || {};
   const categories = Array.isArray(itemData.categories) ? itemData.categories : [];
@@ -33,8 +44,8 @@ function normalizeCatalogItem(item = {}) {
     present_at_all_locations: item.presentAtAllLocations ?? null,
     present_at_location_ids: Array.isArray(item.presentAtLocationIds) ? item.presentAtLocationIds : [],
     absent_at_location_ids: Array.isArray(item.absentAtLocationIds) ? item.absentAtLocationIds : [],
-    variations_payload: variations,
-    raw_payload: item,
+    variations_payload: sanitizeForJson(variations),
+    raw_payload: sanitizeForJson(item),
     version: typeof item.version === 'bigint' ? Number(item.version) : Number(item.version || 0) || null,
     created_at_square: toIsoOrNull(item.createdAt),
     updated_at_square: toIsoOrNull(item.updatedAt),
