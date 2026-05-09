@@ -17,11 +17,13 @@ const whatsappRoutes = require('./routes/whatsapp');
 const visionRoutes = require('./routes/vision');
 const composeRoutes = require('./routes/compose');
 const openAIFirstRoutes = require('./routes/openai-first');
+const squareSyncRoutes = require('./routes/square-sync');
 app.use('/', cleoRoutes);
 app.use('/', whatsappRoutes);
 app.use('/', visionRoutes);
 app.use('/', composeRoutes);
 app.use('/', openAIFirstRoutes);
+app.use('/', squareSyncRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err.message);

@@ -1,0 +1,29 @@
+const express = require('express');
+const router = express.Router();
+const { syncSquareCatalog } = require('../services/square-sync-service');
+
+function isInternalSyncAllowed(req) {
+  const requiredToken = String(process.env.SQUARE_SYNC_TOKEN || '').trim();
+  if (!requiredToken) return true;
+  const provided = String(req.headers['x-sync-token'] || req.query.token || '').trim();
+  return provided && provided === requiredToken;
+}
+
+router.get('/square-sync/health', (req, res) => {
+  res.json({ ok: true, service: 'square-sync', timestamp: new Date().toISOString() });
+});
+
+router.post('/square-sync/catalog', async (req, res, next) => {
+  try {
+    if (!isInternalSyncAllowed(req)) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const result = await syncSquareCatalog();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+module.exports = router;
