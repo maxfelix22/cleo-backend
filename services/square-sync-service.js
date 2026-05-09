@@ -215,7 +215,7 @@ function normalizeSquareCustomer(customer = {}) {
     reference_id: null,
     creation_source: null,
     preferences: null,
-    groups: [],
+    group_ids: [],
     segment_ids: [],
     raw_payload: sanitizeForJson(customer),
     created_at_square: toIsoOrNull(customer.createdAt),
