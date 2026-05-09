@@ -50,6 +50,7 @@ router.post('/square-sync/customers', async (req, res, next) => {
     const result = await syncSquareCustomers(limit);
     res.json(result);
   } catch (err) {
+    console.error('[square-sync/customers]', err?.status || '', err?.message || err, err?.payload || '');
     next(err);
   }
 });
