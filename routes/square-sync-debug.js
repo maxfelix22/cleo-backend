@@ -1,5 +1,12 @@
 const express = require('express');
+const { Client, Environment } = require('square');
+const { normalizeSquareCustomer, listRecentCustomers } = require('../services/square-sync-service');
 const router = express.Router();
+
+const squareClient = new Client({
+  accessToken: process.env.SQUARE_ACCESS_TOKEN,
+  environment: Environment.Production,
+});
 
 async function supabaseRequestSafe(path, { method = 'GET', body, headers = {} } = {}) {
   const baseUrl = String(process.env.SUPABASE_URL || '').trim();
@@ -76,6 +83,43 @@ router.post('/square-sync/debug/customers-minimal', async (req, res) => {
       status: err?.status || 500,
       payload: err?.payload || null,
       responseText: err?.responseText || null,
+    });
+  }
+});
+
+router.post('/square-sync/debug/customers-first-real', async (req, res) => {
+  try {
+    const customers = await listRecentCustomers(1);
+    const rawCustomer = customers[0] || null;
+
+    if (!rawCustomer) {
+      return res.status(404).json({ ok: false, error: 'NO_SQUARE_CUSTOMERS_FOUND' });
+    }
+
+    const normalized = normalizeSquareCustomer(rawCustomer);
+    const out = await supabaseRequestSafe('/rest/v1/square_customers?on_conflict=square_customer_id', {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+        Accept: 'application/json',
+      },
+      body: [normalized],
+    });
+
+    return res.json({
+      ok: true,
+      square_customer_id: normalized.square_customer_id,
+      normalized,
+      inserted: out,
+    });
+  } catch (err) {
+    return res.status(err?.status || 500).json({
+      ok: false,
+      error: err?.message || 'debug_real_customer_insert_failed',
+      status: err?.status || 500,
+      payload: err?.payload || null,
+      responseText: err?.responseText || null,
+      responseHeaders: err?.responseHeaders || null,
     });
   }
 });
