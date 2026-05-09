@@ -5,6 +5,7 @@ const {
   upsertSquareCatalogItems,
   upsertSquareOrders,
   upsertSquareOrderItems,
+  upsertSquareCustomers,
 } = require('./square-sync-store');
 
 const client = new Client({
@@ -202,6 +203,42 @@ async function syncSquareCatalog() {
   }
 }
 
+function normalizeSquareCustomer(customer = {}) {
+  return {
+    square_customer_id: customer.id || '',
+    given_name: customer.givenName || null,
+    family_name: customer.familyName || null,
+    nickname: customer.nickname || null,
+    company_name: customer.companyName || null,
+    phone_number: customer.phoneNumber || null,
+    email_address: customer.emailAddress || null,
+    reference_id: customer.referenceId || null,
+    creation_source: customer.creationSource || null,
+    preferences: sanitizeForJson(customer.preferences || {}),
+    groups: sanitizeForJson(customer.groupIds || []),
+    segment_ids: sanitizeForJson(customer.segmentIds || []),
+    raw_payload: sanitizeForJson(customer),
+    created_at_square: toIsoOrNull(customer.createdAt),
+    updated_at_square: toIsoOrNull(customer.updatedAt),
+    synced_at: new Date().toISOString(),
+  };
+}
+
+async function listRecentCustomers(limit = 200) {
+  let allCustomers = [];
+  let cursor = undefined;
+
+  do {
+    const response = await client.customersApi.listCustomers(cursor, 100);
+    if (response.result?.customers) {
+      allCustomers = allCustomers.concat(response.result.customers);
+    }
+    cursor = response.result?.cursor;
+  } while (cursor && allCustomers.length < limit);
+
+  return allCustomers.slice(0, limit);
+}
+
 async function syncSquareOrders(limit = 200) {
   const runResult = await createSquareSyncRun('orders', {
     source: 'square',
@@ -262,12 +299,60 @@ async function syncSquareOrders(limit = 200) {
   }
 }
 
+async function syncSquareCustomers(limit = 200) {
+  const runResult = await createSquareSyncRun('customers', {
+    source: 'square',
+    scope: 'customers',
+    limit,
+  });
+  const run = runResult.run || null;
+
+  try {
+    const customers = await listRecentCustomers(limit);
+    const normalizedCustomers = customers.map(normalizeSquareCustomer).filter((row) => row.square_customer_id);
+
+    let customersUpserted = 0;
+    const batchSize = 100;
+    for (let i = 0; i < normalizedCustomers.length; i += batchSize) {
+      const batch = normalizedCustomers.slice(i, i + batchSize);
+      const result = await upsertSquareCustomers(batch);
+      customersUpserted += Number(result.count || 0);
+    }
+
+    await finishSquareSyncRun(run?.id, 'success', {
+      rows_processed: normalizedCustomers.length,
+      rows_upserted: customersUpserted,
+      metadata: {
+        source: 'square',
+        scope: 'customers',
+        batches: Math.ceil(normalizedCustomers.length / batchSize),
+      },
+    });
+
+    return {
+      ok: true,
+      sync_type: 'customers',
+      rows_processed: normalizedCustomers.length,
+      rows_upserted: customersUpserted,
+      run_id: run?.id || null,
+    };
+  } catch (err) {
+    await finishSquareSyncRun(run?.id, 'error', {
+      error_message: err.message || String(err),
+    });
+    throw err;
+  }
+}
+
 module.exports = {
   syncSquareCatalog,
   syncSquareOrders,
+  syncSquareCustomers,
   normalizeCatalogItem,
   normalizeSquareOrder,
   normalizeSquareOrderItems,
+  normalizeSquareCustomer,
   listAllCatalogItems,
   listRecentOrders,
+  listRecentCustomers,
 };

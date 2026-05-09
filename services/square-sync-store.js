@@ -100,10 +100,29 @@ async function upsertSquareOrderItems(rows = []) {
   return { mode: 'supabase', rows: out, count: out.length };
 }
 
+async function upsertSquareCustomers(rows = []) {
+  const payload = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (payload.length === 0) return { mode: hasSupabaseConfig() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfig()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+
+  const created = await supabaseRequest('/rest/v1/square_customers?on_conflict=square_customer_id', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation',
+      Accept: 'application/json',
+    },
+    body: payload,
+  });
+
+  const out = Array.isArray(created) ? created : [created];
+  return { mode: 'supabase', rows: out, count: out.length };
+}
+
 module.exports = {
   createSquareSyncRun,
   finishSquareSyncRun,
   upsertSquareCatalogItems,
   upsertSquareOrders,
   upsertSquareOrderItems,
+  upsertSquareCustomers,
 };
