@@ -33,7 +33,8 @@ router.post('/square-sync/orders', async (req, res, next) => {
     }
 
     const limit = Number(req.body?.limit || req.query.limit || 200);
-    const result = await syncSquareOrders(limit);
+    const pages = Number(req.body?.pages || req.query.pages || 1);
+    const result = await syncSquareOrders(limit, pages);
     res.json(result);
   } catch (err) {
     next(err);

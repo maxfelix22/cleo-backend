@@ -138,28 +138,43 @@ function normalizeSquareOrderItems(order = {}) {
   })).filter((row) => row.square_order_id && row.line_item_uid);
 }
 
-async function listRecentOrders(limit = 200) {
+async function listRecentOrders(limit = 200, pages = 1) {
   const locationId = await listActiveLocationId();
   if (!locationId) {
     throw new Error('missing_location_id');
   }
 
   const safeLimit = Math.min(Math.max(Number(limit) || 1, 1), 1000);
+  const safePages = Math.min(Math.max(Number(pages) || 1, 1), 10);
 
-  const response = await client.ordersApi.searchOrders({
-    locationIds: [locationId],
-    limit: safeLimit,
-    sort: {
-      sortField: 'CREATED_AT',
-      sortOrder: 'DESC',
-    },
-  });
+  let allOrders = [];
+  let cursor = undefined;
+
+  for (let page = 0; page < safePages; page += 1) {
+    const response = await client.ordersApi.searchOrders({
+      locationIds: [locationId],
+      limit: safeLimit,
+      cursor,
+      sort: {
+        sortField: 'CREATED_AT',
+        sortOrder: 'DESC',
+      },
+    });
+
+    const chunk = response.result?.orders || [];
+    allOrders = allOrders.concat(chunk);
+    cursor = response.result?.cursor;
+
+    if (!cursor || chunk.length === 0) break;
+  }
 
   return {
     locationId,
-    orders: response.result?.orders || [],
+    orders: allOrders,
     requestedLimit: limit,
     safeLimit,
+    requestedPages: pages,
+    safePages,
   };
 }
 
@@ -246,16 +261,17 @@ async function listRecentCustomers(limit = 200) {
   }
 }
 
-async function syncSquareOrders(limit = 200) {
+async function syncSquareOrders(limit = 200, pages = 1) {
   const runResult = await createSquareSyncRun('orders', {
     source: 'square',
     scope: 'orders+items',
     limit,
+    pages,
   });
   const run = runResult.run || null;
 
   try {
-    const { locationId, orders, requestedLimit, safeLimit } = await listRecentOrders(limit);
+    const { locationId, orders, requestedLimit, safeLimit, requestedPages, safePages } = await listRecentOrders(limit, pages);
     const normalizedOrders = orders.map((order) => normalizeSquareOrder(order, locationId)).filter((row) => row.square_order_id);
     const normalizedItems = orders.flatMap((order) => normalizeSquareOrderItems(order));
 
@@ -284,6 +300,8 @@ async function syncSquareOrders(limit = 200) {
         location_id: locationId,
         requested_limit: requestedLimit,
         safe_limit: safeLimit,
+        requested_pages: requestedPages,
+        safe_pages: safePages,
         orders_count: normalizedOrders.length,
         order_items_count: normalizedItems.length,
         order_items_upserted: itemsUpserted,
@@ -301,6 +319,8 @@ async function syncSquareOrders(limit = 200) {
       location_id: locationId,
       requested_limit: requestedLimit,
       safe_limit: safeLimit,
+      requested_pages: requestedPages,
+      safe_pages: safePages,
     };
   } catch (err) {
     await finishSquareSyncRun(run?.id, 'error', {
