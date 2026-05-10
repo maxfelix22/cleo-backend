@@ -354,6 +354,38 @@ async function syncSquareOrders(limit = 200, pages = 1) {
   }
 }
 
+async function fetchSquareCustomerById(squareCustomerId) {
+  const id = String(squareCustomerId || '').trim();
+  if (!id) return null;
+
+  try {
+    const response = await client.customersApi.retrieveCustomer(id);
+    return response.result?.customer || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function hydrateSquareCustomersByIds(ids = []) {
+  const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || '').trim()).filter(Boolean))];
+  const hydrated = [];
+
+  for (const id of uniqueIds) {
+    const customer = await fetchSquareCustomerById(id);
+    if (!customer) continue;
+    const row = normalizeSquareCustomer(customer);
+    if (!row.square_customer_id) continue;
+    await upsertSquareCustomers([row]);
+    hydrated.push(row.square_customer_id);
+  }
+
+  return {
+    ok: true,
+    hydrated_count: hydrated.length,
+    hydrated_ids: hydrated,
+  };
+}
+
 async function syncSquareCustomers(limit = 200, pages = 1) {
   const runResult = await createSquareSyncRun('customers', {
     source: 'square',
@@ -432,4 +464,6 @@ module.exports = {
   listAllCatalogItems,
   listRecentOrders,
   listRecentCustomers,
+  fetchSquareCustomerById,
+  hydrateSquareCustomersByIds,
 };

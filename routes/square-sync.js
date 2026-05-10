@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { syncSquareCatalog, syncSquareOrders, syncSquareCustomers } = require('../services/square-sync-service');
+const { syncSquareCatalog, syncSquareOrders, syncSquareCustomers, hydrateSquareCustomersByIds } = require('../services/square-sync-service');
 
 function isInternalSyncAllowed(req) {
   const requiredToken = String(process.env.SQUARE_SYNC_TOKEN || '').trim();
@@ -60,6 +60,20 @@ router.post('/square-sync/customers', async (req, res, next) => {
       payload: err?.payload || null,
       debug_customer: err?.debugCustomer || null,
     });
+  }
+});
+
+router.post('/square-sync/customers/hydrate', async (req, res, next) => {
+  try {
+    if (!isInternalSyncAllowed(req)) {
+      return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const result = await hydrateSquareCustomersByIds(ids);
+    res.json(result);
+  } catch (err) {
+    next(err);
   }
 });
 
