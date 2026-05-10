@@ -48,7 +48,8 @@ router.post('/square-sync/customers', async (req, res, next) => {
     }
 
     const limit = Number(req.body?.limit || req.query.limit || 200);
-    const result = await syncSquareCustomers(limit);
+    const pages = Number(req.body?.pages || req.query.pages || 1);
+    const result = await syncSquareCustomers(limit, pages);
     res.json(result);
   } catch (err) {
     console.error('[square-sync/customers]', err?.status || '', err?.message || err, err?.payload || '', err?.debugCustomer || '');

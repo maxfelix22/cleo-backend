@@ -243,19 +243,43 @@ function normalizeSquareCustomer(customer = {}) {
   };
 }
 
-async function listRecentCustomers(limit = 200) {
-  const pageSize = Math.min(Math.max(Number(limit) || 1, 1), 100);
+async function listRecentCustomers(limit = 200, pages = 1) {
+  const requestedLimit = Math.max(Number(limit) || 1, 1);
+  const safeLimit = Math.min(requestedLimit, 1000);
+  const requestedPages = Math.max(Number(pages) || 1, 1);
+  const safePages = Math.min(requestedPages, 10);
+  const pageSize = Math.min(safeLimit, 100);
+
+  const collected = [];
+  let cursor = undefined;
 
   try {
-    const response = await client.customersApi.searchCustomers({
-      limit: pageSize,
-    });
-    return response.result?.customers || [];
+    for (let page = 0; page < safePages && collected.length < safeLimit; page += 1) {
+      const remaining = safeLimit - collected.length;
+      const response = await client.customersApi.searchCustomers({
+        cursor,
+        limit: Math.min(pageSize, remaining),
+      });
+
+      const customers = response.result?.customers || [];
+      collected.push(...customers);
+
+      cursor = response.result?.cursor || null;
+      if (!cursor || customers.length === 0) break;
+    }
+
+    return {
+      customers: collected,
+      requestedLimit,
+      safeLimit,
+      requestedPages,
+      safePages,
+    };
   } catch (err) {
     const wrapped = new Error(`square customers search failed: ${err?.message || err}`);
     wrapped.status = err?.statusCode || err?.status || 500;
     wrapped.squareStage = 'search_customers';
-    wrapped.squareArgs = { limit: pageSize };
+    wrapped.squareArgs = { limit: safeLimit, pages: safePages, cursor: cursor || null };
     wrapped.squareBody = err?.body || err?.result || null;
     throw wrapped;
   }
@@ -330,16 +354,17 @@ async function syncSquareOrders(limit = 200, pages = 1) {
   }
 }
 
-async function syncSquareCustomers(limit = 200) {
+async function syncSquareCustomers(limit = 200, pages = 1) {
   const runResult = await createSquareSyncRun('customers', {
     source: 'square',
     scope: 'customers',
     limit,
+    pages,
   });
   const run = runResult.run || null;
 
   try {
-    const customers = await listRecentCustomers(limit);
+    const { customers, requestedLimit, safeLimit, requestedPages, safePages } = await listRecentCustomers(limit, pages);
     const normalizedCustomers = customers.map(normalizeSquareCustomer).filter((row) => row.square_customer_id);
 
     let customersUpserted = 0;
@@ -365,6 +390,10 @@ async function syncSquareCustomers(limit = 200) {
         source: 'square',
         scope: 'customers',
         strategy: 'one-by-one-debug',
+        requested_limit: requestedLimit,
+        safe_limit: safeLimit,
+        requested_pages: requestedPages,
+        safe_pages: safePages,
       },
     });
 
@@ -374,6 +403,10 @@ async function syncSquareCustomers(limit = 200) {
       rows_processed: normalizedCustomers.length,
       rows_upserted: customersUpserted,
       run_id: run?.id || null,
+      requested_limit: requestedLimit,
+      safe_limit: safeLimit,
+      requested_pages: requestedPages,
+      safe_pages: safePages,
     };
   } catch (err) {
     await finishSquareSyncRun(run?.id, 'error', {
