@@ -6,6 +6,7 @@ const {
   upsertSquareOrders,
   upsertSquareOrderItems,
   upsertSquareCustomers,
+  upsertSquareCustomerAliases,
 } = require('./square-sync-store');
 
 const client = new Client({
@@ -369,20 +370,38 @@ async function fetchSquareCustomerById(squareCustomerId) {
 async function hydrateSquareCustomersByIds(ids = []) {
   const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || '').trim()).filter(Boolean))];
   const hydrated = [];
+  const aliases = [];
 
-  for (const id of uniqueIds) {
-    const customer = await fetchSquareCustomerById(id);
+  for (const requestedId of uniqueIds) {
+    const customer = await fetchSquareCustomerById(requestedId);
     if (!customer) continue;
     const row = normalizeSquareCustomer(customer);
     if (!row.square_customer_id) continue;
     await upsertSquareCustomers([row]);
     hydrated.push(row.square_customer_id);
+
+    if (row.square_customer_id !== requestedId) {
+      aliases.push({
+        requested_square_customer_id: requestedId,
+        canonical_square_customer_id: row.square_customer_id,
+        source: 'square_hydrate',
+        confidence: 'high',
+        note: 'hydrate returned different canonical square customer id',
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (aliases.length > 0) {
+    await upsertSquareCustomerAliases(aliases);
   }
 
   return {
     ok: true,
     hydrated_count: hydrated.length,
     hydrated_ids: hydrated,
+    alias_count: aliases.length,
+    aliases,
   };
 }
 

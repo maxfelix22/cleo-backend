@@ -161,6 +161,56 @@ async function upsertSquareCustomers(rows = []) {
   return { mode: 'supabase', rows: out, count: out.length };
 }
 
+async function upsertSquareCustomerAliases(rows = []) {
+  const payload = Array.isArray(rows) ? rows.filter((row) => row && row.requested_square_customer_id && row.canonical_square_customer_id) : [];
+  if (payload.length === 0) return { mode: hasSupabaseConfigSafe() ? 'supabase' : 'memory-fallback', rows: [], count: 0 };
+  if (!hasSupabaseConfigSafe()) return { mode: 'memory-fallback', rows: payload, count: payload.length };
+
+  const created = await supabaseRequestSafe('/rest/v1/square_customer_aliases?on_conflict=requested_square_customer_id', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation',
+      Accept: 'application/json',
+    },
+    body: payload,
+  });
+
+  const out = Array.isArray(created) ? created : [created];
+  return { mode: 'supabase', rows: out, count: out.length };
+}
+
+async function listDistinctSquareCustomerIdsMissingNames(limit = 100) {
+  if (!hasSupabaseConfigSafe()) return [];
+  const safeLimit = Math.min(Math.max(Number(limit) || 1, 1), 500);
+  const sql = `
+    with customer_rollup as (
+      select o.square_customer_id, sum(o.total_amount) as total_revenue
+      from public.square_orders o
+      where o.square_customer_id is not null
+      group by o.square_customer_id
+    )
+    select cr.square_customer_id
+    from customer_rollup cr
+    left join public.square_customers sc on sc.square_customer_id = cr.square_customer_id
+    left join public.square_customers_directory d on d.square_customer_id = cr.square_customer_id
+    where coalesce(
+      nullif(trim(d.full_name), ''),
+      nullif(trim(concat_ws(' ', sc.given_name, sc.family_name)), '')
+    ) is null
+    order by cr.total_revenue desc nulls last
+    limit ${safeLimit}
+  `;
+
+  const rows = await supabaseRequestSafe('/rest/v1/rpc/exec_sql', {
+    method: 'POST',
+    body: { sql },
+  }).catch(() => null);
+
+  if (Array.isArray(rows)) return rows.map((row) => row.square_customer_id).filter(Boolean);
+  if (rows && Array.isArray(rows.rows)) return rows.rows.map((row) => row.square_customer_id).filter(Boolean);
+  return [];
+}
+
 module.exports = {
   createSquareSyncRun,
   finishSquareSyncRun,
@@ -168,4 +218,6 @@ module.exports = {
   upsertSquareOrders,
   upsertSquareOrderItems,
   upsertSquareCustomers,
+  upsertSquareCustomerAliases,
+  listDistinctSquareCustomerIdsMissingNames,
 };
